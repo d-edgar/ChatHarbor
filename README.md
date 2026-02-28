@@ -31,7 +31,7 @@ ChatHarbor uses macOS native WebKit (`WKWebView`), sharing the system Safari eng
 
 1. Clone the repository:
    ```
-   git clone https://github.com/YOUR_USERNAME/ChatHarbor.git
+   git clone https://github.com/d-edgar/ChatHarbor.git
    ```
 2. Open the project in Xcode
 3. Select your signing team under Signing & Capabilities
@@ -39,7 +39,7 @@ ChatHarbor uses macOS native WebKit (`WKWebView`), sharing the system Safari eng
 
 ### Download Release
 
-Check the [Releases](https://github.com/YOUR_USERNAME/ChatHarbor/releases) page for prebuilt .dmg files.
+Check the [Releases](https://github.com/d-edgar/ChatHarbor/releases) page for prebuilt .dmg files.
 
 ## Usage
 
