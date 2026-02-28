@@ -17,7 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - UNUserNotificationCenterDelegate
 
     /// Show notifications even when the app is in the foreground
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -26,18 +26,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     /// Handle notification taps — navigate to the originating service
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
         if let serviceId = userInfo["serviceId"] as? String {
-            NotificationCenter.default.post(
-                name: .navigateToService,
-                object: nil,
-                userInfo: ["serviceId": serviceId]
-            )
+            Task { @MainActor in
+                NotificationCenter.default.post(
+                    name: .navigateToService,
+                    object: nil,
+                    userInfo: ["serviceId": serviceId]
+                )
+            }
         }
         completionHandler()
     }
@@ -45,9 +47,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - Dock Badge
 
     static func updateDockBadge(count: Int) {
-        DispatchQueue.main.async {
-            NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
-        }
+        NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
     }
 }
 

@@ -133,7 +133,7 @@ struct AboutSettingsView: View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.text.bubble.right")
                 .font(.system(size: 48))
-                .foregroundStyle(.accent)
+                .foregroundStyle(.tint)
 
             Text("ChatHarbor")
                 .font(.title)

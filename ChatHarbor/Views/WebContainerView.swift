@@ -34,6 +34,16 @@ struct WebContainerView: View {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Button("Retry") {
+                        loadError = nil
+                        isLoading = true
+                        NotificationCenter.default.post(
+                            name: .reloadService,
+                            object: nil,
+                            userInfo: ["serviceId": service.id]
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.ultraThinMaterial)
@@ -176,37 +186,37 @@ struct ChatWebView: NSViewRepresentable {
 
         // MARK: - WKNavigationDelegate
 
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = true
-                self.parent.loadError = nil
+        nonisolated func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            Task { @MainActor in
+                parent.isLoading = true
+                parent.loadError = nil
             }
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = false
+        nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            Task { @MainActor in
+                parent.isLoading = false
             }
         }
 
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = false
-                self.parent.loadError = error.localizedDescription
+        nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            Task { @MainActor in
+                parent.isLoading = false
+                parent.loadError = error.localizedDescription
             }
         }
 
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = false
-                self.parent.loadError = error.localizedDescription
+        nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            Task { @MainActor in
+                parent.isLoading = false
+                parent.loadError = error.localizedDescription
             }
         }
 
         // MARK: - WKUIDelegate
 
-        /// Handle new window requests (e.g. target="_blank" links) by loading in the same view
-        func webView(
+        /// Handle new window requests (target="_blank" links) by loading in the same view
+        nonisolated func webView(
             _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
             for navigationAction: WKNavigationAction,
@@ -218,8 +228,8 @@ struct ChatWebView: NSViewRepresentable {
             return nil
         }
 
-        /// Handle permission requests for camera/microphone (needed for Discord, Teams calls)
-        func webView(
+        /// Handle permission requests for camera/microphone (Discord, Teams calls)
+        nonisolated func webView(
             _ webView: WKWebView,
             requestMediaCapturePermissionFor origin: WKSecurityOrigin,
             initiatedByFrame frame: WKFrameInfo,

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 class ServiceManager: ObservableObject {
     @Published var services: [ChatService]
@@ -78,7 +79,9 @@ class ServiceManager: ObservableObject {
     }
 
     func moveService(from source: IndexSet, to destination: Int) {
-        services.move(fromOffsets: source, toOffset: destination)
+        var updated = services
+        updated.move(fromOffsets: source, toOffset: destination)
+        services = updated
         persist()
     }
 
