@@ -30,10 +30,12 @@ struct SplashView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "sailboat.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
+            Image("ChatHarborLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
 
             Text("ChatHarbor")
                 .font(.system(size: 36, weight: .bold, design: .rounded))
@@ -63,10 +65,12 @@ struct SplashView: View {
 struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "sailboat.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-                .symbolRenderingMode(.hierarchical)
+            Image("ChatHarborLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
 
             Text("Welcome to ChatHarbor")
                 .font(.largeTitle)

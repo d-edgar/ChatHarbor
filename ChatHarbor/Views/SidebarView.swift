@@ -20,6 +20,49 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .frame(minWidth: 180)
         .navigationTitle("ChatHarbor")
+        .toolbar {
+            // Compact icon strip at the top of sidebar for quick access
+            ToolbarItem(placement: .automatic) {
+                CompactServiceStrip()
+                    .environmentObject(serviceManager)
+            }
+        }
+    }
+}
+
+// MARK: - Compact Service Strip (shown at top of sidebar)
+
+struct CompactServiceStrip: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(serviceManager.enabledServices) { service in
+                Button {
+                    serviceManager.selectedServiceId = service.id
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: service.iconName)
+                            .font(.system(size: 13))
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(
+                                serviceManager.selectedServiceId == service.id
+                                    ? .primary
+                                    : .secondary
+                            )
+
+                        if service.notificationCount > 0 {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 7, height: 7)
+                                .offset(x: 3, y: -3)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .help(service.name)
+            }
+        }
     }
 }
 
@@ -49,7 +92,7 @@ struct ServiceRow: View {
             if service.notificationCount > 0 {
                 Text("\(service.notificationCount)")
                     .font(.caption2)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

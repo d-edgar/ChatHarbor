@@ -193,10 +193,12 @@ struct AddCustomServiceSheet: View {
 struct AboutSettingsView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "sailboat.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
+            Image("ChatHarborLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
 
             Text("ChatHarbor")
                 .font(.title)

@@ -44,10 +44,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         completionHandler()
     }
 
-    // MARK: - Dock Badge
+    // MARK: - Dock Badge & Bounce
 
     static func updateDockBadge(count: Int) {
         NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
+    }
+
+    /// Bounce the dock icon to get the user's attention for new messages
+    static func bounceDockIcon() {
+        // Only bounce if app is not active (user is in another app)
+        if !NSApp.isActive {
+            NSApp.requestUserAttention(.informationalRequest)
+        }
     }
 }
 

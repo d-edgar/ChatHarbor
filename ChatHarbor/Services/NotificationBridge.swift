@@ -126,6 +126,9 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
                 print("Failed to deliver notification: \(error.localizedDescription)")
             }
         }
+
+        // Bounce the dock icon to alert the user
+        AppDelegate.bounceDockIcon()
     }
 
     // MARK: - Unread Count from Title
@@ -137,7 +140,13 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
         let pattern = /\((\d+)\)/
         if let match = title.firstMatch(of: pattern),
            let count = Int(match.1) {
+            let previousCount = serviceManager?.services.first(where: { $0.id == serviceId })?.notificationCount ?? 0
             serviceManager?.updateNotificationCount(for: serviceId, count: count)
+
+            // Bounce dock if the count increased (new message arrived)
+            if count > previousCount {
+                AppDelegate.bounceDockIcon()
+            }
         } else {
             serviceManager?.updateNotificationCount(for: serviceId, count: 0)
         }
