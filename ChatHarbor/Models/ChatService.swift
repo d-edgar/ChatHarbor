@@ -38,7 +38,7 @@ extension ChatService {
     static let slack = ChatService(
         id: "slack",
         name: "Slack",
-        url: URL(string: "https://app.slack.com")!,
+        url: URL(string: "https://app.slack.com/client")!,
         iconName: "number.square.fill",
         category: .workspace
     )
