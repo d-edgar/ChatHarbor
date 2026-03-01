@@ -411,6 +411,41 @@ struct AboutPopoverView: View {
 
             Divider()
 
+            Button {
+                openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/bug-report.html")!)
+            } label: {
+                Label("Report a Bug", systemImage: "ladybug")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+
+            Divider()
+
+            HStack(spacing: 12) {
+                Button {
+                    openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/privacy.html")!)
+                } label: {
+                    Text("Privacy Policy")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/terms.html")!)
+                } label: {
+                    Text("Terms of Use")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
             Text("MIT License")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)

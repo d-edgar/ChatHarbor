@@ -43,6 +43,7 @@ struct ServicesSettingsView: View {
     @State private var showingAddCategory = false
     @State private var showingCatalog = false
     @State private var showingResetConfirm = false
+    @State private var showingRestartSetup = false
     @State private var draggingServiceId: String?
 
     var body: some View {
@@ -98,6 +99,15 @@ struct ServicesSettingsView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.red.opacity(0.7))
 
+                Button {
+                    showingRestartSetup = true
+                } label: {
+                    Label("Re-run Setup", systemImage: "arrow.counterclockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
                 Spacer()
 
                 Button("Browse Catalog...") {
@@ -133,6 +143,23 @@ struct ServicesSettingsView: View {
         } message: {
             Text("This will remove all services and reset categories and appearance to defaults.")
         }
+        .alert("Re-run First-Time Setup?", isPresented: $showingRestartSetup) {
+            Button("Cancel", role: .cancel) { }
+            Button("Re-run Setup", role: .destructive) {
+                serviceManager.resetToDefaults()
+                // Close all non-main windows (Settings) and focus the main window
+                DispatchQueue.main.async {
+                    let mainWindow = NSApp.windows.first { $0.level == .normal && $0.styleMask.contains(.titled) && $0.contentView != nil }
+                    for window in NSApp.windows where window != mainWindow {
+                        window.close()
+                    }
+                    mainWindow?.makeKeyAndOrderFront(nil)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
+        } message: {
+            Text("This will remove all services, reset all settings to defaults, and take you back to the welcome screen where you can pick your services again.")
+        }
     }
 }
 
@@ -146,6 +173,8 @@ struct CategoryZoneView: View {
     @State private var isRenaming = false
     @State private var renameText = ""
     @State private var isTargeted = false
+    @State private var showingDeleteConfirm = false
+    @State private var showingRenameConfirm = false
 
     private var accent: Color {
         serviceManager.currentTheme.accentColor(for: colorScheme)
@@ -156,17 +185,26 @@ struct CategoryZoneView: View {
             // Category header
             HStack(spacing: 8) {
                 if isRenaming {
-                    TextField("Category name", text: $renameText, onCommit: {
-                        serviceManager.renameCategory(from: category, to: renameText)
-                        isRenaming = false
-                    })
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(maxWidth: 160)
+                    TextField("Category name", text: $renameText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(maxWidth: 160)
+                        .onSubmit {
+                            let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+                            if !trimmed.isEmpty && trimmed != category {
+                                showingRenameConfirm = true
+                            } else {
+                                isRenaming = false
+                            }
+                        }
 
                     Button("Save") {
-                        serviceManager.renameCategory(from: category, to: renameText)
-                        isRenaming = false
+                        let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty && trimmed != category {
+                            showingRenameConfirm = true
+                        } else {
+                            isRenaming = false
+                        }
                     }
                     .font(.caption)
                     .controlSize(.small)
@@ -198,7 +236,7 @@ struct CategoryZoneView: View {
 
                         if serviceManager.categories.count > 1 {
                             Button("Delete") {
-                                serviceManager.removeCategory(named: category)
+                                showingDeleteConfirm = true
                             }
                             .font(.system(size: 10, weight: .medium))
                             .buttonStyle(.plain)
@@ -213,6 +251,28 @@ struct CategoryZoneView: View {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(.quaternary.opacity(0.5))
             )
+            .alert("Rename Category?", isPresented: $showingRenameConfirm) {
+                Button("Cancel", role: .cancel) { }
+                Button("Rename") {
+                    serviceManager.renameCategory(from: category, to: renameText)
+                    isRenaming = false
+                }
+            } message: {
+                Text("Rename \"\(category)\" to \"\(renameText.trimmingCharacters(in: .whitespaces))\"?")
+            }
+            .alert("Delete Category?", isPresented: $showingDeleteConfirm) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    serviceManager.removeCategory(named: category)
+                }
+            } message: {
+                let count = serviceManager.services(inCategory: category).count
+                if count > 0 {
+                    Text("Delete \"\(category)\"? The \(count) service\(count == 1 ? "" : "s") in this category will be moved to the first remaining category.")
+                } else {
+                    Text("Delete the empty \"\(category)\" category?")
+                }
+            }
 
             // Service rows
             VStack(spacing: 1) {
@@ -277,6 +337,7 @@ struct DraggableServiceRow: View {
     let service: ChatService
     @Binding var draggingServiceId: String?
     @EnvironmentObject var serviceManager: ServiceManager
+    @State private var showingRemoveConfirm = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -304,7 +365,7 @@ struct DraggableServiceRow: View {
             .controlSize(.small)
 
             Button(role: .destructive) {
-                serviceManager.removeService(service)
+                showingRemoveConfirm = true
             } label: {
                 Image(systemName: "xmark.circle")
                     .font(.caption)
@@ -323,6 +384,14 @@ struct DraggableServiceRow: View {
         .onDrag {
             draggingServiceId = service.id
             return NSItemProvider(object: service.id as NSString)
+        }
+        .alert("Remove Service?", isPresented: $showingRemoveConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) {
+                serviceManager.removeService(service)
+            }
+        } message: {
+            Text("Remove \"\(service.name)\" from ChatHarbor? You can add it back later from the catalog.")
         }
     }
 }
@@ -991,13 +1060,24 @@ struct AboutSettingsView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Link("View on GitHub", destination: URL(string: "https://github.com/d-edgar/ChatHarbor")!)
-                .padding(.top, 4)
+            Link(destination: URL(string: "https://d-edgar.github.io/chatharbor-site/bug-report.html")!) {
+                Label("Report a Bug", systemImage: "ladybug")
+                    .font(.caption)
+            }
+            .padding(.top, 8)
+
+            HStack(spacing: 16) {
+                Link("Privacy Policy", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/privacy.html")!)
+                    .font(.caption)
+                Link("Terms of Use", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/terms.html")!)
+                    .font(.caption)
+            }
+            .padding(.top, 4)
 
             Text("MIT License")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
-                .padding(.top, 8)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

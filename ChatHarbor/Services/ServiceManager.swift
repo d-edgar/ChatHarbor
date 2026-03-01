@@ -7,6 +7,7 @@ class ServiceManager: ObservableObject {
     @Published var categories: [String]
     @Published var selectedServiceId: String?
     @Published var isLaunching: Bool = true
+    @Published var isOnboarding: Bool = false
     @Published var appearanceMode: AppearanceMode {
         didSet {
             persistAppearance()
@@ -419,6 +420,7 @@ class ServiceManager: ObservableObject {
         services = []
         categories = DefaultCategory.allDefaults
         selectedServiceId = nil
+        isOnboarding = true
         appearanceMode = .auto
         selectedThemeId = ThemeCatalog.defaultTheme.id
         notificationSettings = NotificationSettings()
@@ -427,6 +429,10 @@ class ServiceManager: ObservableObject {
         persistAppearance()
         persistTheme()
         persistNotificationSettings()
+    }
+
+    func finishOnboarding() {
+        isOnboarding = false
     }
 }
 

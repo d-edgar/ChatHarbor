@@ -17,8 +17,8 @@ struct ContentView: View {
             Group {
                 if serviceManager.isLaunching {
                     SplashView()
-                } else if serviceManager.services.isEmpty {
-                    // No services yet — show onboarding catalog
+                } else if serviceManager.services.isEmpty || serviceManager.isOnboarding {
+                    // No services yet or re-running setup — show onboarding wizard
                     OnboardingView()
                         .environmentObject(serviceManager)
                 } else if let selectedId = serviceManager.selectedServiceId,
@@ -99,12 +99,44 @@ struct SplashView: View {
     }
 }
 
-// MARK: - Onboarding View (first launch — pick your services)
+// MARK: - Onboarding View (multi-step setup wizard)
 
 struct OnboardingView: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var currentStep: SetupStep = .services
     @State private var selectedTemplateIds: Set<String> = []
     @State private var showingCustomSheet = false
+
+    enum SetupStep: Int, CaseIterable {
+        case services = 0
+        case theme = 1
+        case workspaceGuard = 2
+
+        var title: String {
+            switch self {
+            case .services: return "Choose Your Services"
+            case .theme: return "Pick a Theme"
+            case .workspaceGuard: return "Workspace Guard"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .services: return "Select the messaging services you use, or add your own."
+            case .theme: return "Choose a color theme for ChatHarbor. You can change this anytime in Settings."
+            case .workspaceGuard: return "Protect against clipboard cross-contamination between personal and work chats."
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .services: return "bubble.left.and.bubble.right"
+            case .theme: return "paintbrush"
+            case .workspaceGuard: return "lock.shield"
+            }
+        }
+    }
 
     private var catalog: [(category: String, templates: [ServiceTemplate])] {
         ServiceCatalog.grouped(excluding: serviceManager.existingServiceIds)
@@ -112,91 +144,139 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header (shared across steps)
             VStack(spacing: 12) {
                 Image("ChatHarborLogo")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
 
-                Text("Welcome to ChatHarbor")
-                    .font(.title)
+                Text(currentStep.title)
+                    .font(.title2)
                     .fontWeight(.bold)
 
-                Text("Choose the services you'd like to add, or add your own.")
+                Text(currentStep.subtitle)
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .frame(maxWidth: 480)
+
+                // Step indicators
+                HStack(spacing: 8) {
+                    ForEach(SetupStep.allCases, id: \.rawValue) { step in
+                        HStack(spacing: 4) {
+                            Image(systemName: step.icon)
+                                .font(.system(size: 10))
+                            if step == currentStep {
+                                Text(step.title)
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                        }
+                        .padding(.horizontal, step == currentStep ? 10 : 6)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(step == currentStep
+                                      ? serviceManager.currentTheme.accentColor(for: colorScheme).opacity(0.15)
+                                      : step.rawValue < currentStep.rawValue
+                                        ? Color.green.opacity(0.1)
+                                        : Color.clear)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(step == currentStep
+                                        ? serviceManager.currentTheme.accentColor(for: colorScheme).opacity(0.4)
+                                        : step.rawValue < currentStep.rawValue
+                                          ? Color.green.opacity(0.3)
+                                          : Color.gray.opacity(0.2),
+                                        lineWidth: 1)
+                        )
+                        .foregroundStyle(step == currentStep ? .primary : .secondary)
+                    }
+                }
+                .padding(.top, 4)
             }
-            .padding(.top, 32)
-            .padding(.bottom, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
 
             Divider()
 
-            // Catalog grid
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    ForEach(catalog, id: \.category) { group in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(group.category.uppercased())
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.secondary)
-                                .padding(.leading, 4)
+            // Step content
+            Group {
+                switch currentStep {
+                case .services:
+                    servicesStepContent
+                case .theme:
+                    themeStepContent
+                case .workspaceGuard:
+                    workspaceGuardStepContent
+                }
+            }
 
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)
-                            ], spacing: 10) {
-                                ForEach(group.templates) { template in
-                                    CatalogCard(
-                                        template: template,
-                                        isSelected: selectedTemplateIds.contains(template.id)
-                                    ) {
-                                        if selectedTemplateIds.contains(template.id) {
-                                            selectedTemplateIds.remove(template.id)
-                                        } else {
-                                            selectedTemplateIds.insert(template.id)
-                                        }
-                                    }
-                                }
+            Divider()
+
+            // Bottom navigation bar
+            HStack {
+                if currentStep != .services {
+                    Button("Back") {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            if let prev = SetupStep(rawValue: currentStep.rawValue - 1) {
+                                currentStep = prev
                             }
                         }
                     }
+                    .controlSize(.regular)
+                } else {
+                    Button("Add Custom Service...") {
+                        showingCustomSheet = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 16)
-            }
-
-            Divider()
-
-            // Bottom bar
-            HStack {
-                Button("Add Custom Service...") {
-                    showingCustomSheet = true
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .font(.caption)
 
                 Spacer()
 
-                if !selectedTemplateIds.isEmpty {
+                if currentStep == .services && !selectedTemplateIds.isEmpty {
                     Text("\(selectedTemplateIds.count) selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Button("Add Selected") {
-                    let templates = ServiceCatalog.all.filter { selectedTemplateIds.contains($0.id) }
-                    serviceManager.addFromCatalog(templates)
-                    selectedTemplateIds.removeAll()
+                if currentStep == .workspaceGuard {
+                    // Final step — finish button
+                    Button("Get Started") {
+                        // Add any selected services that haven't been added yet
+                        if !selectedTemplateIds.isEmpty {
+                            let templates = ServiceCatalog.all.filter { selectedTemplateIds.contains($0.id) }
+                            serviceManager.addFromCatalog(templates)
+                            selectedTemplateIds.removeAll()
+                        }
+                        serviceManager.finishOnboarding()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    .disabled(serviceManager.services.isEmpty && selectedTemplateIds.isEmpty)
+                } else {
+                    Button("Next") {
+                        // On the services step, commit selections before advancing
+                        if currentStep == .services && !selectedTemplateIds.isEmpty {
+                            let templates = ServiceCatalog.all.filter { selectedTemplateIds.contains($0.id) }
+                            serviceManager.addFromCatalog(templates)
+                            selectedTemplateIds.removeAll()
+                        }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            if let next = SetupStep(rawValue: currentStep.rawValue + 1) {
+                                currentStep = next
+                            }
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    .disabled(currentStep == .services && selectedTemplateIds.isEmpty && serviceManager.services.isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                .disabled(selectedTemplateIds.isEmpty)
             }
             .padding(.horizontal, 32)
             .padding(.vertical, 14)
@@ -206,6 +286,267 @@ struct OnboardingView: View {
             AddCustomServiceSheet(isPresented: $showingCustomSheet)
                 .environmentObject(serviceManager)
         }
+    }
+
+    // MARK: - Step 1: Services
+
+    private var servicesStepContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ForEach(catalog, id: \.category) { group in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(group.category.uppercased())
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ], spacing: 10) {
+                            ForEach(group.templates) { template in
+                                CatalogCard(
+                                    template: template,
+                                    isSelected: selectedTemplateIds.contains(template.id)
+                                ) {
+                                    if selectedTemplateIds.contains(template.id) {
+                                        selectedTemplateIds.remove(template.id)
+                                    } else {
+                                        selectedTemplateIds.insert(template.id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.vertical, 16)
+        }
+    }
+
+    // MARK: - Step 2: Theme
+
+    private var themeStepContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Appearance mode
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("MODE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 16) {
+                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                            SetupAppearancePill(
+                                mode: mode,
+                                isSelected: serviceManager.appearanceMode == mode
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.appearanceMode = mode
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Standard themes
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("THEME")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10)
+                    ], spacing: 10) {
+                        ForEach(ThemeCatalog.standardThemes) { theme in
+                            ThemeCard(
+                                theme: theme,
+                                isSelected: serviceManager.selectedThemeId == theme.id
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.selectedThemeId = theme.id
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Seasonal themes
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("SEASONAL")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10)
+                    ], spacing: 10) {
+                        ForEach(ThemeCatalog.seasonalThemes) { theme in
+                            ThemeCard(
+                                theme: theme,
+                                isSelected: serviceManager.selectedThemeId == theme.id
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.selectedThemeId = theme.id
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.vertical, 16)
+        }
+    }
+
+    // MARK: - Step 3: Workspace Guard
+
+    private var workspaceGuardStepContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Explanation card
+                HStack(spacing: 14) {
+                    Image(systemName: "shield.checkered")
+                        .font(.system(size: 28))
+                        .foregroundStyle(serviceManager.currentTheme.accentColor(for: colorScheme))
+                        .frame(width: 44)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("What is Workspace Guard?")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("When you switch from a personal or social chat to a workspace service, ChatHarbor can automatically clear your clipboard and show a warning — helping prevent accidentally pasting personal content into work conversations.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.quaternary.opacity(0.3))
+                )
+
+                Divider()
+
+                // Toggle
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable Workspace Guard", isOn: $serviceManager.notificationSettings.workspaceGuardEnabled)
+                        .font(.system(size: 13, weight: .medium))
+
+                    Group {
+                        Toggle("Clear Clipboard on Transition", isOn: $serviceManager.notificationSettings.workspaceGuardClearClipboard)
+                            .font(.system(size: 13))
+
+                        Toggle("Show Warning Banner", isOn: $serviceManager.notificationSettings.workspaceGuardShowWarning)
+                            .font(.system(size: 13))
+                    }
+                    .disabled(!serviceManager.notificationSettings.workspaceGuardEnabled)
+                    .opacity(serviceManager.notificationSettings.workspaceGuardEnabled ? 1.0 : 0.5)
+                    .padding(.leading, 20)
+                }
+
+                Divider()
+
+                // Workspace category picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("WORKSPACE CATEGORIES")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Text("Which categories should be treated as workspace zones?")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
+                    ForEach(serviceManager.categories, id: \.self) { category in
+                        HStack(spacing: 8) {
+                            Toggle("", isOn: Binding(
+                                get: {
+                                    serviceManager.notificationSettings.workspaceCategories.contains(category)
+                                },
+                                set: { on in
+                                    if on {
+                                        serviceManager.notificationSettings.workspaceCategories.insert(category)
+                                    } else {
+                                        serviceManager.notificationSettings.workspaceCategories.remove(category)
+                                    }
+                                }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.checkbox)
+
+                            Text(category)
+                                .font(.system(size: 13))
+
+                            let count = serviceManager.services(inCategory: category).count
+                            if count > 0 {
+                                Text("(\(count) service\(count == 1 ? "" : "s"))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+                .disabled(!serviceManager.notificationSettings.workspaceGuardEnabled)
+                .opacity(serviceManager.notificationSettings.workspaceGuardEnabled ? 1.0 : 0.5)
+
+                // Skip hint
+                if !serviceManager.notificationSettings.workspaceGuardEnabled {
+                    Text("You can skip this and enable it later in Settings > Notifications.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.vertical, 16)
+        }
+    }
+}
+
+// MARK: - Setup Appearance Mode Pill
+
+struct SetupAppearancePill: View {
+    let mode: AppearanceMode
+    let isSelected: Bool
+    let action: () -> Void
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: mode == .auto ? "circle.lefthalf.filled" : mode == .light ? "sun.max.fill" : "moon.fill")
+                    .font(.system(size: 11))
+                Text(mode.displayName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? accent.opacity(0.15) : Color.clear)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? accent : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+            )
+            .foregroundStyle(isSelected ? .primary : .secondary)
+        }
+        .buttonStyle(.plain)
     }
 }
 
