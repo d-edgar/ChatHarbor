@@ -33,6 +33,29 @@ struct ContentView: View {
         .toolbar {
             // Empty toolbar to get the native title bar area
         }
+        .alert(
+            "Switching to Workspace",
+            isPresented: Binding(
+                get: { serviceManager.pendingWorkspaceWarning != nil },
+                set: { if !$0 { serviceManager.dismissWorkspaceWarning() } }
+            )
+        ) {
+            Button("Continue") {
+                serviceManager.confirmWorkspaceTransition()
+            }
+            .keyboardShortcut(.defaultAction)
+
+            Button("Cancel", role: .cancel) {
+                serviceManager.dismissWorkspaceWarning()
+            }
+        } message: {
+            if let warning = serviceManager.pendingWorkspaceWarning {
+                let clipboardNote = serviceManager.notificationSettings.workspaceGuardClearClipboard
+                    ? "Your clipboard has been cleared."
+                    : ""
+                Text("You're switching to \(warning.targetServiceName), a workspace service. \(clipboardNote)")
+            }
+        }
     }
 }
 

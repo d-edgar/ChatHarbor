@@ -7,7 +7,7 @@ struct ChatHarborCommands: Commands {
         CommandMenu("Services") {
             ForEach(Array(serviceManager.enabledServices.enumerated().prefix(9)), id: \.element.id) { index, service in
                 Button("Switch to \(service.name)") {
-                    serviceManager.selectedServiceId = service.id
+                    serviceManager.selectService(service.id)
                 }
                 .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
             }

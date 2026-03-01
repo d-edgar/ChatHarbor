@@ -20,6 +20,12 @@ struct SettingsView: View {
                     Label("Appearance", systemImage: "paintbrush")
                 }
 
+            NotificationSettingsView()
+                .environmentObject(serviceManager)
+                .tabItem {
+                    Label("Notifications", systemImage: "bell")
+                }
+
             AboutSettingsView()
                 .tabItem {
                     Label("About", systemImage: "info.circle")
@@ -600,6 +606,198 @@ struct AddCustomServiceSheet: View {
         }
         .padding(24)
         .frame(width: 360)
+    }
+}
+
+// MARK: - Notifications Tab
+
+struct NotificationSettingsView: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Global toggle
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("GENERAL")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Enable Notifications", isOn: $serviceManager.notificationSettings.globalEnabled)
+                        .font(.system(size: 13))
+
+                    Text("When disabled, all notifications from every service are suppressed.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Divider()
+
+                // Display options
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("DISPLAY")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Show Banners", isOn: $serviceManager.notificationSettings.showBanners)
+                        .font(.system(size: 13))
+                        .disabled(!serviceManager.notificationSettings.globalEnabled)
+
+                    Toggle("Play Sound", isOn: $serviceManager.notificationSettings.playSound)
+                        .font(.system(size: 13))
+                        .disabled(!serviceManager.notificationSettings.globalEnabled)
+
+                    Toggle("Bounce Dock Icon", isOn: $serviceManager.notificationSettings.bounceDock)
+                        .font(.system(size: 13))
+                        .disabled(!serviceManager.notificationSettings.globalEnabled)
+
+                    Toggle("Show Dock Badge Count", isOn: $serviceManager.notificationSettings.showDockBadge)
+                        .font(.system(size: 13))
+                        .disabled(!serviceManager.notificationSettings.globalEnabled)
+                }
+                .opacity(serviceManager.notificationSettings.globalEnabled ? 1.0 : 0.5)
+
+                Divider()
+
+                // Badge color
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("BADGE COLOR")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 12) {
+                        ForEach(BadgeColor.allCases, id: \.self) { color in
+                            Button {
+                                serviceManager.notificationSettings.badgeColor = color
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(color.color)
+                                        .frame(width: 26, height: 26)
+
+                                    if serviceManager.notificationSettings.badgeColor == color {
+                                        Circle()
+                                            .stroke(.primary, lineWidth: 2.5)
+                                            .frame(width: 32, height: 32)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(color.displayName)
+                        }
+                    }
+
+                    Text("Changes the color of notification badges in the sidebar.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Divider()
+
+                // Per-service mute
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("PER-SERVICE NOTIFICATIONS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    if serviceManager.services.isEmpty {
+                        Text("Add services to manage their notification settings.")
+                            .font(.caption)
+                            .foregroundStyle(.quaternary)
+                            .padding(.vertical, 8)
+                    } else {
+                        ForEach(serviceManager.services) { service in
+                            HStack(spacing: 10) {
+                                Image(systemName: service.iconName)
+                                    .font(.body)
+                                    .frame(width: 22)
+                                    .foregroundStyle(.secondary)
+
+                                Text(service.name)
+                                    .font(.system(size: 13))
+
+                                Spacer()
+
+                                Toggle("", isOn: Binding(
+                                    get: { !serviceManager.isServiceMuted(service.id) },
+                                    set: { _ in serviceManager.toggleMute(for: service.id) }
+                                ))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                                .disabled(!serviceManager.notificationSettings.globalEnabled)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+                .opacity(serviceManager.notificationSettings.globalEnabled ? 1.0 : 0.5)
+
+                Divider()
+
+                // Workspace guard
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("WORKSPACE GUARD")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Enable Workspace Guard", isOn: $serviceManager.notificationSettings.workspaceGuardEnabled)
+                        .font(.system(size: 13))
+
+                    Text("When switching from a personal chat to a workspace service, ChatHarbor can clear your clipboard and show a warning to prevent accidental cross-contamination of copied content.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Group {
+                        Toggle("Clear Clipboard on Transition", isOn: $serviceManager.notificationSettings.workspaceGuardClearClipboard)
+                            .font(.system(size: 13))
+
+                        Toggle("Show Warning Banner", isOn: $serviceManager.notificationSettings.workspaceGuardShowWarning)
+                            .font(.system(size: 13))
+                    }
+                    .disabled(!serviceManager.notificationSettings.workspaceGuardEnabled)
+                    .opacity(serviceManager.notificationSettings.workspaceGuardEnabled ? 1.0 : 0.5)
+
+                    // Workspace category picker
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Workspace Categories")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+
+                        Text("Select which categories are treated as workspace zones.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+
+                        ForEach(serviceManager.categories, id: \.self) { category in
+                            HStack(spacing: 8) {
+                                Toggle("", isOn: Binding(
+                                    get: {
+                                        serviceManager.notificationSettings.workspaceCategories.contains(category)
+                                    },
+                                    set: { on in
+                                        if on {
+                                            serviceManager.notificationSettings.workspaceCategories.insert(category)
+                                        } else {
+                                            serviceManager.notificationSettings.workspaceCategories.remove(category)
+                                        }
+                                    }
+                                ))
+                                .labelsHidden()
+                                .toggleStyle(.checkbox)
+
+                                Text(category)
+                                    .font(.system(size: 13))
+                            }
+                        }
+                    }
+                    .disabled(!serviceManager.notificationSettings.workspaceGuardEnabled)
+                    .opacity(serviceManager.notificationSettings.workspaceGuardEnabled ? 1.0 : 0.5)
+                }
+            }
+            .padding(24)
+        }
     }
 }
 

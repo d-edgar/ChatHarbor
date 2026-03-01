@@ -10,6 +10,9 @@ struct ChatHarborApp: App {
             ContentView()
                 .environmentObject(serviceManager)
                 .frame(minWidth: 900, minHeight: 600)
+                .onAppear {
+                    AppDelegate.serviceManager = serviceManager
+                }
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1100, height: 750)

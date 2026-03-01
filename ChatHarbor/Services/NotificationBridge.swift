@@ -106,29 +106,39 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
     // MARK: - Notification Handling
 
     private func handleWebNotification(_ body: [String: Any]) {
+        guard let settings = serviceManager?.notificationSettings,
+              settings.globalEnabled,
+              !serviceManager!.isServiceMuted(serviceId) else { return }
+
         let title = body["title"] as? String ?? serviceName
         let messageBody = body["body"] as? String ?? ""
 
         let content = UNMutableNotificationContent()
         content.title = "\(serviceName): \(title)"
         content.body = messageBody
-        content.sound = .default
         content.userInfo = ["serviceId": serviceId]
 
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
+        if settings.playSound {
+            content.sound = .default
+        }
 
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Failed to deliver notification: \(error.localizedDescription)")
+        if settings.showBanners {
+            let request = UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: nil
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Failed to deliver notification: \(error.localizedDescription)")
+                }
             }
         }
 
-        // Bounce the dock icon to alert the user
-        AppDelegate.bounceDockIcon()
+        if settings.bounceDock {
+            AppDelegate.bounceDockIcon()
+        }
     }
 
     // MARK: - Unread Count from Title
@@ -144,7 +154,11 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
             serviceManager?.updateNotificationCount(for: serviceId, count: count)
 
             // Bounce dock if the count increased (new message arrived)
-            if count > previousCount {
+            if count > previousCount,
+               let settings = serviceManager?.notificationSettings,
+               settings.globalEnabled,
+               settings.bounceDock,
+               !serviceManager!.isServiceMuted(serviceId) {
                 AppDelegate.bounceDockIcon()
             }
         } else {

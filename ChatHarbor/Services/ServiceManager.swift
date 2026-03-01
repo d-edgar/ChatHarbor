@@ -13,10 +13,14 @@ class ServiceManager: ObservableObject {
             applyAppearance()
         }
     }
+    @Published var notificationSettings: NotificationSettings {
+        didSet { persistNotificationSettings() }
+    }
 
     private let storageKey = "chatharbor.services"
     private let categoriesKey = "chatharbor.categories"
     private let appearanceKey = "chatharbor.appearance"
+    private let notificationSettingsKey = "chatharbor.notificationSettings"
     private let hasLaunchedKey = "chatharbor.hasLaunched"
     private var navigationObserver: NSObjectProtocol?
 
@@ -32,6 +36,14 @@ class ServiceManager: ObservableObject {
             self.appearanceMode = mode
         } else {
             self.appearanceMode = .auto
+        }
+
+        // Load notification settings
+        if let data = UserDefaults.standard.data(forKey: notificationSettingsKey),
+           let decoded = try? JSONDecoder().decode(NotificationSettings.self, from: data) {
+            self.notificationSettings = decoded
+        } else {
+            self.notificationSettings = NotificationSettings()
         }
 
         // Load persisted categories or seed with defaults
@@ -60,7 +72,7 @@ class ServiceManager: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             if let serviceId = notification.userInfo?["serviceId"] as? String {
-                self?.selectedServiceId = serviceId
+                self?.selectService(serviceId)
             }
         }
 
@@ -106,6 +118,74 @@ class ServiceManager: ObservableObject {
     /// IDs of services already added
     var existingServiceIds: Set<String> {
         Set(services.map(\.id))
+    }
+
+    // MARK: - Workspace Guard
+
+    /// Whether a service is in a workspace category
+    func isWorkspaceService(_ service: ChatService) -> Bool {
+        notificationSettings.workspaceCategories.contains(service.category)
+    }
+
+    /// Pending workspace transition info (set when guard triggers, consumed by UI)
+    @Published var pendingWorkspaceWarning: WorkspaceTransition?
+
+    struct WorkspaceTransition {
+        let targetServiceId: String
+        let targetServiceName: String
+    }
+
+    /// Central method for navigating to a service.
+    /// Checks workspace guard and fires warning/clipboard clear as needed.
+    func selectService(_ serviceId: String?) {
+        guard let serviceId = serviceId,
+              let target = services.first(where: { $0.id == serviceId }) else {
+            selectedServiceId = serviceId
+            return
+        }
+
+        let settings = notificationSettings
+        let guardEnabled = settings.workspaceGuardEnabled
+
+        // Determine if we're crossing from non-workspace → workspace
+        var crossingIntoWorkspace = false
+        if guardEnabled, isWorkspaceService(target) {
+            if let currentId = selectedServiceId,
+               let current = services.first(where: { $0.id == currentId }) {
+                crossingIntoWorkspace = !isWorkspaceService(current)
+            } else {
+                // Coming from home / no selection — not a cross-contamination risk
+                crossingIntoWorkspace = false
+            }
+        }
+
+        if crossingIntoWorkspace {
+            if settings.workspaceGuardClearClipboard {
+                NSPasteboard.general.clearContents()
+            }
+            if settings.workspaceGuardShowWarning {
+                pendingWorkspaceWarning = WorkspaceTransition(
+                    targetServiceId: serviceId,
+                    targetServiceName: target.name
+                )
+                // Navigation happens after user dismisses the alert
+                return
+            }
+        }
+
+        selectedServiceId = serviceId
+    }
+
+    /// Called after the user dismisses the workspace warning
+    func confirmWorkspaceTransition() {
+        if let transition = pendingWorkspaceWarning {
+            selectedServiceId = transition.targetServiceId
+            pendingWorkspaceWarning = nil
+        }
+    }
+
+    func dismissWorkspaceWarning() {
+        pendingWorkspaceWarning = nil
     }
 
     // MARK: - Service Management
@@ -252,12 +332,30 @@ class ServiceManager: ObservableObject {
         if changed { persistCategories() }
     }
 
+    // MARK: - Notification Settings Helpers
+
+    func isServiceMuted(_ serviceId: String) -> Bool {
+        notificationSettings.mutedServiceIds.contains(serviceId)
+    }
+
+    func toggleMute(for serviceId: String) {
+        if notificationSettings.mutedServiceIds.contains(serviceId) {
+            notificationSettings.mutedServiceIds.remove(serviceId)
+        } else {
+            notificationSettings.mutedServiceIds.insert(serviceId)
+        }
+    }
+
     // MARK: - Notification Counts
 
     func updateNotificationCount(for serviceId: String, count: Int) {
         if let index = services.firstIndex(where: { $0.id == serviceId }) {
             services[index].notificationCount = count
-            AppDelegate.updateDockBadge(count: totalNotificationCount)
+            if notificationSettings.showDockBadge {
+                AppDelegate.updateDockBadge(count: totalNotificationCount)
+            } else {
+                AppDelegate.updateDockBadge(count: 0)
+            }
         }
     }
 
@@ -275,6 +373,12 @@ class ServiceManager: ObservableObject {
 
     private func persistAppearance() {
         UserDefaults.standard.set(appearanceMode.rawValue, forKey: appearanceKey)
+    }
+
+    private func persistNotificationSettings() {
+        if let data = try? JSONEncoder().encode(notificationSettings) {
+            UserDefaults.standard.set(data, forKey: notificationSettingsKey)
+        }
     }
 
     /// Apply appearance at the NSApp level so all windows update consistently
@@ -296,9 +400,11 @@ class ServiceManager: ObservableObject {
         categories = DefaultCategory.allDefaults
         selectedServiceId = nil
         appearanceMode = .auto
+        notificationSettings = NotificationSettings()
         persist()
         persistCategories()
         persistAppearance()
+        persistNotificationSettings()
     }
 }
 

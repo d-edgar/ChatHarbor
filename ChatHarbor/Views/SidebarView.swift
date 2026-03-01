@@ -115,7 +115,7 @@ struct SidebarView: View {
                                         isSelected: serviceManager.selectedServiceId == service.id,
                                         shortcutNumber: shortcut
                                     ) {
-                                        serviceManager.selectedServiceId = service.id
+                                        serviceManager.selectService(service.id)
                                     }
                                 } else {
                                     CompactServiceRow(
@@ -123,7 +123,7 @@ struct SidebarView: View {
                                         isSelected: serviceManager.selectedServiceId == service.id,
                                         shortcutNumber: shortcut
                                     ) {
-                                        serviceManager.selectedServiceId = service.id
+                                        serviceManager.selectService(service.id)
                                     }
                                 }
                             }
@@ -220,6 +220,11 @@ struct ExpandedServiceRow: View {
     let isSelected: Bool
     var shortcutNumber: Int?
     let action: () -> Void
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    private var badgeColor: Color {
+        serviceManager.notificationSettings.badgeColor.color
+    }
 
     var body: some View {
         Button(action: action) {
@@ -232,7 +237,7 @@ struct ExpandedServiceRow: View {
 
                     if service.notificationCount > 0 {
                         Circle()
-                            .fill(Color.red)
+                            .fill(badgeColor)
                             .frame(width: 8, height: 8)
                             .offset(x: 4, y: -4)
                     }
@@ -251,7 +256,7 @@ struct ExpandedServiceRow: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.red, in: Capsule())
+                        .background(badgeColor, in: Capsule())
                 } else if let num = shortcutNumber {
                     Text("⌘\(num)")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -279,6 +284,11 @@ struct CompactServiceRow: View {
     let isSelected: Bool
     var shortcutNumber: Int?
     let action: () -> Void
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    private var badgeColor: Color {
+        serviceManager.notificationSettings.badgeColor.color
+    }
 
     var body: some View {
         Button(action: action) {
@@ -296,7 +306,7 @@ struct CompactServiceRow: View {
 
                 if service.notificationCount > 0 {
                     Circle()
-                        .fill(Color.red)
+                        .fill(badgeColor)
                         .frame(width: 9, height: 9)
                         .offset(x: 2, y: -2)
                 }
@@ -403,10 +413,11 @@ struct AboutPopoverView: View {
 
 struct NotificationBadge: View {
     let count: Int
+    var color: Color = .red
 
     var body: some View {
         Circle()
-            .fill(Color.red)
+            .fill(color)
             .frame(width: 8, height: 8)
             .offset(x: 4, y: -4)
     }
