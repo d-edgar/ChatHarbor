@@ -274,6 +274,7 @@ class ServiceManager: ObservableObject {
         if selectedServiceId == service.id {
             selectedServiceId = nil
         }
+        WebViewPool.shared.removeWebView(for: service.id)
         persist()
     }
 
@@ -424,6 +425,7 @@ class ServiceManager: ObservableObject {
         appearanceMode = .auto
         selectedThemeId = ThemeCatalog.defaultTheme.id
         notificationSettings = NotificationSettings()
+        WebViewPool.shared.removeAll()
         persist()
         persistCategories()
         persistAppearance()

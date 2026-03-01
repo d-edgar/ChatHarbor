@@ -24,7 +24,7 @@ struct ContentView: View {
                 } else if let selectedId = serviceManager.selectedServiceId,
                    let service = serviceManager.enabledServices.first(where: { $0.id == selectedId }) {
                     WebContainerView(service: service)
-                        .id(service.id)
+                        .id(service.id)  // Keeps loading state per-service; WebView itself is pooled
                 } else {
                     WelcomeView()
                 }

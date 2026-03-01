@@ -106,9 +106,10 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
     // MARK: - Notification Handling
 
     private func handleWebNotification(_ body: [String: Any]) {
-        guard let settings = serviceManager?.notificationSettings,
-              settings.globalEnabled,
-              !serviceManager!.isServiceMuted(serviceId) else { return }
+        guard let manager = serviceManager,
+              manager.notificationSettings.globalEnabled,
+              !manager.isServiceMuted(serviceId) else { return }
+        let settings = manager.notificationSettings
 
         let title = body["title"] as? String ?? serviceName
         let messageBody = body["body"] as? String ?? ""
@@ -147,22 +148,23 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
     private func handleTitleChange(_ body: [String: Any]) {
         guard let title = body["title"] as? String else { return }
 
+        guard let manager = serviceManager else { return }
+
         let pattern = /\((\d+)\)/
         if let match = title.firstMatch(of: pattern),
            let count = Int(match.1) {
-            let previousCount = serviceManager?.services.first(where: { $0.id == serviceId })?.notificationCount ?? 0
-            serviceManager?.updateNotificationCount(for: serviceId, count: count)
+            let previousCount = manager.services.first(where: { $0.id == serviceId })?.notificationCount ?? 0
+            manager.updateNotificationCount(for: serviceId, count: count)
 
             // Bounce dock if the count increased (new message arrived)
             if count > previousCount,
-               let settings = serviceManager?.notificationSettings,
-               settings.globalEnabled,
-               settings.bounceDock,
-               !serviceManager!.isServiceMuted(serviceId) {
+               manager.notificationSettings.globalEnabled,
+               manager.notificationSettings.bounceDock,
+               !manager.isServiceMuted(serviceId) {
                 AppDelegate.bounceDockIcon()
             }
         } else {
-            serviceManager?.updateNotificationCount(for: serviceId, count: 0)
+            manager.updateNotificationCount(for: serviceId, count: 0)
         }
     }
 }

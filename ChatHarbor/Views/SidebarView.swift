@@ -455,16 +455,3 @@ struct AboutPopoverView: View {
     }
 }
 
-// MARK: - Notification Badge (icon overlay)
-
-struct NotificationBadge: View {
-    let count: Int
-    var color: Color = .red
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
-            .offset(x: 4, y: -4)
-    }
-}
