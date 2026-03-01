@@ -117,6 +117,35 @@ struct ChatWebView: NSViewRepresentable {
         // Allow media playback (for services like Discord voice)
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
+        // Inject timezone and locale so web apps respect system settings
+        let timezone = TimeZone.current.identifier
+        let locale = Locale.current.identifier
+        let localeScript = WKUserScript(
+            source: """
+            (function() {
+                // Override Intl.DateTimeFormat to use system timezone
+                const origDTF = Intl.DateTimeFormat;
+                Intl.DateTimeFormat = function(locales, options) {
+                    options = options || {};
+                    if (!options.timeZone) {
+                        options.timeZone = '\(timezone)';
+                    }
+                    return new origDTF(locales, options);
+                };
+                Object.setPrototypeOf(Intl.DateTimeFormat, origDTF);
+                Intl.DateTimeFormat.prototype = origDTF.prototype;
+
+                // Set navigator.language to match system locale
+                Object.defineProperty(navigator, 'language', {
+                    get: function() { return '\(locale.replacingOccurrences(of: "_", with: "-"))'; }
+                });
+            })();
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        configuration.userContentController.addUserScript(localeScript)
+
         // Set a desktop user agent so services don't serve mobile versions
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"

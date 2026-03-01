@@ -2,17 +2,57 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $sidebarVisibility) {
             SidebarView()
         } detail: {
-            if let selectedId = serviceManager.selectedServiceId,
+            if serviceManager.isLaunching {
+                SplashView()
+            } else if let selectedId = serviceManager.selectedServiceId,
                let service = serviceManager.enabledServices.first(where: { $0.id == selectedId }) {
                 WebContainerView(service: service)
                     .id(service.id)
             } else {
                 WelcomeView()
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+}
+
+// MARK: - Splash Screen
+
+struct SplashView: View {
+    @State private var opacity: Double = 0
+    @State private var scale: Double = 0.8
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "sailboat.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(.tint)
+                .symbolRenderingMode(.hierarchical)
+
+            Text("ChatHarbor")
+                .font(.system(size: 36, weight: .bold, design: .rounded))
+
+            Text("All your chats, one harbor.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            ProgressView()
+                .scaleEffect(0.8)
+                .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .opacity(opacity)
+        .scaleEffect(scale)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5)) {
+                opacity = 1.0
+                scale = 1.0
             }
         }
     }
@@ -23,9 +63,10 @@ struct ContentView: View {
 struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
+            Image(systemName: "sailboat.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
+                .symbolRenderingMode(.hierarchical)
 
             Text("Welcome to ChatHarbor")
                 .font(.largeTitle)
@@ -35,11 +76,33 @@ struct WelcomeView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
 
-            Text("Cmd+1 through Cmd+9 to switch services")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 4)
+            HStack(spacing: 20) {
+                KeyboardHint(key: "Cmd+1-9", label: "Switch services")
+                KeyboardHint(key: "Cmd+R", label: "Reload")
+                KeyboardHint(key: "Cmd+[", label: "Go back")
+            }
+            .padding(.top, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Keyboard Hint Chip
+
+struct KeyboardHint: View {
+    let key: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(key)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
     }
 }

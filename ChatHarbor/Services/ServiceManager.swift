@@ -5,6 +5,7 @@ import SwiftUI
 class ServiceManager: ObservableObject {
     @Published var services: [ChatService]
     @Published var selectedServiceId: String?
+    @Published var isLaunching: Bool = true
 
     private let storageKey = "chatharbor.services"
     private var navigationObserver: NSObjectProtocol?
@@ -14,6 +15,7 @@ class ServiceManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([ChatService].self, from: data) {
             self.services = decoded
+            migrateServices()
         } else {
             self.services = ChatService.allPreconfigured
         }
@@ -26,6 +28,13 @@ class ServiceManager: ObservableObject {
         ) { [weak self] notification in
             if let serviceId = notification.userInfo?["serviceId"] as? String {
                 self?.selectedServiceId = serviceId
+            }
+        }
+
+        // Dismiss splash after a brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                self?.isLaunching = false
             }
         }
     }
@@ -64,7 +73,8 @@ class ServiceManager: ObservableObject {
             id: id,
             name: name,
             url: url,
-            iconName: "globe"
+            iconName: "globe",
+            category: .custom
         )
         services.append(service)
         persist()
@@ -91,6 +101,36 @@ class ServiceManager: ObservableObject {
         if let index = services.firstIndex(where: { $0.id == serviceId }) {
             services[index].notificationCount = count
             AppDelegate.updateDockBadge(count: totalNotificationCount)
+        }
+    }
+
+    // MARK: - Migration
+
+    /// Updates persisted services with the latest URLs and adds any new
+    /// preconfigured services that were introduced in an update.
+    private func migrateServices() {
+        let canonical = Dictionary(
+            uniqueKeysWithValues: ChatService.allPreconfigured.map { ($0.id, $0) }
+        )
+        var changed = false
+
+        // Update URLs for existing preconfigured services
+        for i in services.indices {
+            if let latest = canonical[services[i].id], services[i].url != latest.url {
+                services[i].url = latest.url
+                changed = true
+            }
+        }
+
+        // Add any new preconfigured services that don't exist yet
+        let existingIds = Set(services.map(\.id))
+        for preconfigured in ChatService.allPreconfigured where !existingIds.contains(preconfigured.id) {
+            services.append(preconfigured)
+            changed = true
+        }
+
+        if changed {
+            persist()
         }
     }
 
