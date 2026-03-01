@@ -35,6 +35,7 @@ struct ServicesSettingsView: View {
     @EnvironmentObject var serviceManager: ServiceManager
     @State private var showingAddService = false
     @State private var showingAddCategory = false
+    @State private var showingCatalog = false
     @State private var showingResetConfirm = false
     @State private var draggingServiceId: String?
 
@@ -45,7 +46,7 @@ struct ServicesSettingsView: View {
                 Image(systemName: "hand.draw")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
-                Text("Drag services between categories to organize. Right-click category headers for options.")
+                Text("Drag services between categories to organize.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -85,7 +86,7 @@ struct ServicesSettingsView: View {
                 Button {
                     showingResetConfirm = true
                 } label: {
-                    Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                    Label("Remove All", systemImage: "trash")
                         .font(.caption)
                 }
                 .buttonStyle(.plain)
@@ -93,7 +94,12 @@ struct ServicesSettingsView: View {
 
                 Spacer()
 
-                Button("Add Custom Service...") {
+                Button("Browse Catalog...") {
+                    showingCatalog = true
+                }
+                .controlSize(.small)
+
+                Button("Add Custom...") {
                     showingAddService = true
                 }
                 .controlSize(.small)
@@ -109,13 +115,17 @@ struct ServicesSettingsView: View {
             AddCategorySheet(isPresented: $showingAddCategory)
                 .environmentObject(serviceManager)
         }
-        .alert("Reset to Defaults?", isPresented: $showingResetConfirm) {
+        .sheet(isPresented: $showingCatalog) {
+            CatalogSheet(isPresented: $showingCatalog)
+                .environmentObject(serviceManager)
+        }
+        .alert("Remove All Services?", isPresented: $showingResetConfirm) {
             Button("Cancel", role: .cancel) { }
-            Button("Reset", role: .destructive) {
+            Button("Remove All", role: .destructive) {
                 serviceManager.resetToDefaults()
             }
         } message: {
-            Text("This will restore all services, categories, and appearance settings to their original defaults. Custom services will be removed.")
+            Text("This will remove all services and reset categories and appearance to defaults.")
         }
     }
 }
@@ -282,16 +292,15 @@ struct DraggableServiceRow: View {
             .toggleStyle(.switch)
             .controlSize(.small)
 
-            if service.id.hasPrefix("custom-") {
-                Button(role: .destructive) {
-                    serviceManager.removeService(service)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
+            Button(role: .destructive) {
+                serviceManager.removeService(service)
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
+            .buttonStyle(.plain)
+            .help("Remove \(service.name)")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
@@ -340,6 +349,102 @@ struct AddCategorySheet: View {
         }
         .padding(24)
         .frame(width: 340)
+    }
+}
+
+// MARK: - Catalog Sheet (browse & add services from Settings)
+
+struct CatalogSheet: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Binding var isPresented: Bool
+    @State private var selectedIds: Set<String> = []
+
+    private var catalog: [(category: String, templates: [ServiceTemplate])] {
+        ServiceCatalog.grouped(excluding: serviceManager.existingServiceIds)
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Service Catalog")
+                .font(.headline)
+
+            if catalog.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.green)
+                    Text("All available services have been added.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(catalog, id: \.category) { group in
+                            Text(group.category.uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+
+                            ForEach(group.templates) { template in
+                                HStack(spacing: 10) {
+                                    Image(systemName: template.iconName)
+                                        .font(.body)
+                                        .frame(width: 24)
+                                        .foregroundStyle(.secondary)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(template.name)
+                                            .font(.system(size: 13, weight: .medium))
+                                        Text(template.description)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(.tertiary)
+                                    }
+
+                                    Spacer()
+
+                                    Toggle("", isOn: Binding(
+                                        get: { selectedIds.contains(template.id) },
+                                        set: { on in
+                                            if on { selectedIds.insert(template.id) }
+                                            else { selectedIds.remove(template.id) }
+                                        }
+                                    ))
+                                    .labelsHidden()
+                                    .toggleStyle(.checkbox)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                if !selectedIds.isEmpty {
+                    Text("\(selectedIds.count) selected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Button("Add") {
+                    let templates = ServiceCatalog.all.filter { selectedIds.contains($0.id) }
+                    serviceManager.addFromCatalog(templates)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(selectedIds.isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 400, height: 380)
     }
 }
 

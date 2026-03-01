@@ -17,7 +17,13 @@ class ServiceManager: ObservableObject {
     private let storageKey = "chatharbor.services"
     private let categoriesKey = "chatharbor.categories"
     private let appearanceKey = "chatharbor.appearance"
+    private let hasLaunchedKey = "chatharbor.hasLaunched"
     private var navigationObserver: NSObjectProtocol?
+
+    /// Whether this is the very first launch (no saved data)
+    var isFirstLaunch: Bool {
+        !UserDefaults.standard.bool(forKey: hasLaunchedKey)
+    }
 
     init() {
         // Load appearance preference
@@ -35,13 +41,13 @@ class ServiceManager: ObservableObject {
             self.categories = DefaultCategory.allDefaults
         }
 
-        // Load persisted services or seed with defaults
+        // Load persisted services — or start empty for new users
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([ChatService].self, from: data) {
             self.services = decoded
-            migrateServices()
         } else {
-            self.services = ChatService.allPreconfigured
+            // New user: start with an empty service list
+            self.services = []
         }
 
         // Ensure all service categories exist in category list
@@ -67,6 +73,9 @@ class ServiceManager: ObservableObject {
 
         // Apply saved appearance on launch
         applyAppearance()
+
+        // Mark that we've launched at least once
+        UserDefaults.standard.set(true, forKey: hasLaunchedKey)
     }
 
     deinit {
@@ -94,12 +103,45 @@ class ServiceManager: ObservableObject {
         enabledServices.filter { $0.category == category }
     }
 
+    /// IDs of services already added
+    var existingServiceIds: Set<String> {
+        Set(services.map(\.id))
+    }
+
     // MARK: - Service Management
 
     func toggleService(_ service: ChatService) {
         if let index = services.firstIndex(where: { $0.id == service.id }) {
             services[index].isEnabled.toggle()
             persist()
+        }
+    }
+
+    /// Add a service from the catalog
+    func addFromCatalog(_ template: ServiceTemplate) {
+        guard !existingServiceIds.contains(template.id) else { return }
+        let service = ChatService(
+            id: template.id,
+            name: template.name,
+            url: template.url,
+            iconName: template.iconName,
+            category: template.suggestedCategory
+        )
+        services.append(service)
+
+        // Ensure the category exists
+        if !categories.contains(template.suggestedCategory) {
+            categories.append(template.suggestedCategory)
+            persistCategories()
+        }
+
+        persist()
+    }
+
+    /// Add multiple services from the catalog at once
+    func addFromCatalog(_ templates: [ServiceTemplate]) {
+        for template in templates {
+            addFromCatalog(template)
         }
     }
 
@@ -140,17 +182,14 @@ class ServiceManager: ObservableObject {
 
     /// Move a service within its category
     func moveServiceWithinCategory(_ category: String, from source: IndexSet, to destination: Int) {
-        // Get indices of services in this category within the master array
         var categoryIndices: [Int] = []
         for (i, service) in services.enumerated() where service.category == category {
             categoryIndices.append(i)
         }
 
-        // Perform the move on a copy of just the category indices
         var reordered = categoryIndices
         reordered.move(fromOffsets: source, toOffset: destination)
 
-        // Rebuild the full services array with reordered category items
         var updated = services
         for (newPos, oldIndex) in reordered.enumerated() {
             updated[categoryIndices[newPos]] = services[oldIndex]
@@ -174,7 +213,6 @@ class ServiceManager: ObservableObject {
               let index = categories.firstIndex(of: oldName) else { return }
         categories[index] = trimmed
 
-        // Update all services in this category
         for i in services.indices where services[i].category == oldName {
             services[i].category = trimmed
         }
@@ -186,7 +224,6 @@ class ServiceManager: ObservableObject {
         guard let index = categories.firstIndex(of: name) else { return }
         categories.remove(at: index)
 
-        // Move orphaned services to the first available category
         let fallback = categories.first ?? DefaultCategory.custom
         for i in services.indices where services[i].category == name {
             services[i].category = fallback
@@ -224,30 +261,6 @@ class ServiceManager: ObservableObject {
         }
     }
 
-    // MARK: - Migration
-
-    private func migrateServices() {
-        let canonical = Dictionary(
-            uniqueKeysWithValues: ChatService.allPreconfigured.map { ($0.id, $0) }
-        )
-        var changed = false
-
-        for i in services.indices {
-            if let latest = canonical[services[i].id], services[i].url != latest.url {
-                services[i].url = latest.url
-                changed = true
-            }
-        }
-
-        let existingIds = Set(services.map(\.id))
-        for preconfigured in ChatService.allPreconfigured where !existingIds.contains(preconfigured.id) {
-            services.append(preconfigured)
-            changed = true
-        }
-
-        if changed { persist() }
-    }
-
     // MARK: - Persistence
 
     private func persist() {
@@ -268,7 +281,7 @@ class ServiceManager: ObservableObject {
     func applyAppearance() {
         switch appearanceMode {
         case .auto:
-            NSApp.appearance = nil  // nil = follow system
+            NSApp.appearance = nil
         case .light:
             NSApp.appearance = NSAppearance(named: .aqua)
         case .dark:
@@ -279,7 +292,7 @@ class ServiceManager: ObservableObject {
     // MARK: - Reset to Defaults
 
     func resetToDefaults() {
-        services = ChatService.allPreconfigured
+        services = []
         categories = DefaultCategory.allDefaults
         selectedServiceId = nil
         appearanceMode = .auto
