@@ -7,9 +7,9 @@ struct ChatService: Identifiable, Codable, Hashable {
     var iconName: String
     var isEnabled: Bool
     var notificationCount: Int
-    var category: ServiceCategory
+    var category: String
 
-    init(id: String, name: String, url: URL, iconName: String, isEnabled: Bool = true, notificationCount: Int = 0, category: ServiceCategory = .chat) {
+    init(id: String, name: String, url: URL, iconName: String, isEnabled: Bool = true, notificationCount: Int = 0, category: String = "Chat") {
         self.id = id
         self.name = name
         self.url = url
@@ -20,13 +20,15 @@ struct ChatService: Identifiable, Codable, Hashable {
     }
 }
 
-// MARK: - Service Categories
+// MARK: - Default Category Names
 
-enum ServiceCategory: String, Codable, CaseIterable {
-    case workspace = "Workspace"
-    case chat = "Chat"
-    case social = "Social"
-    case custom = "Custom"
+enum DefaultCategory {
+    static let workspace = "Workspace"
+    static let chat = "Chat"
+    static let social = "Social"
+    static let custom = "Custom"
+
+    static let allDefaults: [String] = [workspace, chat, social, custom]
 }
 
 // MARK: - Preconfigured Services
@@ -40,7 +42,7 @@ extension ChatService {
         name: "Slack",
         url: URL(string: "https://app.slack.com/client")!,
         iconName: "number.square.fill",
-        category: .workspace
+        category: DefaultCategory.workspace
     )
 
     static let microsoftTeams = ChatService(
@@ -48,7 +50,7 @@ extension ChatService {
         name: "Microsoft Teams",
         url: URL(string: "https://teams.microsoft.com")!,
         iconName: "person.3.fill",
-        category: .workspace
+        category: DefaultCategory.workspace
     )
 
     static let googleChat = ChatService(
@@ -56,7 +58,7 @@ extension ChatService {
         name: "Google Chat",
         url: URL(string: "https://mail.google.com/chat/")!,
         iconName: "bubble.left.and.bubble.right.fill",
-        category: .workspace
+        category: DefaultCategory.workspace
     )
 
     // --- Chat ---
@@ -66,7 +68,7 @@ extension ChatService {
         name: "Discord",
         url: URL(string: "https://discord.com/app")!,
         iconName: "gamecontroller.fill",
-        category: .chat
+        category: DefaultCategory.chat
     )
 
     static let whatsApp = ChatService(
@@ -74,7 +76,7 @@ extension ChatService {
         name: "WhatsApp",
         url: URL(string: "https://web.whatsapp.com")!,
         iconName: "phone.fill",
-        category: .chat
+        category: DefaultCategory.chat
     )
 
     static let telegram = ChatService(
@@ -82,7 +84,7 @@ extension ChatService {
         name: "Telegram",
         url: URL(string: "https://web.telegram.org")!,
         iconName: "paperplane.fill",
-        category: .chat
+        category: DefaultCategory.chat
     )
 
     static let signal = ChatService(
@@ -91,7 +93,7 @@ extension ChatService {
         url: URL(string: "https://signal.org/download/")!,
         iconName: "lock.shield.fill",
         isEnabled: false,
-        category: .chat
+        category: DefaultCategory.chat
     )
 
     // --- Social ---
@@ -102,7 +104,7 @@ extension ChatService {
         url: URL(string: "https://www.messenger.com")!,
         iconName: "message.fill",
         isEnabled: false,
-        category: .social
+        category: DefaultCategory.social
     )
 
     static let linkedIn = ChatService(
@@ -111,15 +113,12 @@ extension ChatService {
         url: URL(string: "https://www.linkedin.com/messaging/")!,
         iconName: "briefcase.fill",
         isEnabled: false,
-        category: .social
+        category: DefaultCategory.social
     )
 
     static let allPreconfigured: [ChatService] = [
-        // Workspace
         .slack, .microsoftTeams, .googleChat,
-        // Chat
         .discord, .whatsApp, .telegram, .signal,
-        // Social
         .messenger, .linkedIn
     ]
 }

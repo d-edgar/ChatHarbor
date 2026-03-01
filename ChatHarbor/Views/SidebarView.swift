@@ -2,104 +2,400 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @Binding var isExpanded: Bool
+    @State private var showingAboutPopover = false
 
-    var body: some View {
-        List(selection: $serviceManager.selectedServiceId) {
-            ForEach(ServiceCategory.allCases, id: \.self) { category in
-                let servicesInCategory = serviceManager.enabledServices.filter { $0.category == category }
-                if !servicesInCategory.isEmpty {
-                    Section(header: Text(category.rawValue).font(.caption).foregroundStyle(.secondary)) {
-                        ForEach(servicesInCategory) { service in
-                            ServiceRow(service: service)
-                                .tag(service.id)
-                        }
-                    }
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .frame(minWidth: 180)
-        .navigationTitle("ChatHarbor")
-        .toolbar {
-            // Compact icon strip at the top of sidebar for quick access
-            ToolbarItem(placement: .automatic) {
-                CompactServiceStrip()
-                    .environmentObject(serviceManager)
-            }
-        }
+    /// Flat list of enabled services so we can assign Cmd+1, Cmd+2, etc.
+    private var indexedServices: [(index: Int, service: ChatService)] {
+        serviceManager.enabledServices.enumerated().map { ($0.offset, $0.element) }
     }
-}
 
-// MARK: - Compact Service Strip (shown at top of sidebar)
-
-struct CompactServiceStrip: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    /// Look up the shortcut number (1-9) for a service, or nil if > 9
+    private func shortcutNumber(for service: ChatService) -> Int? {
+        guard let idx = indexedServices.first(where: { $0.service.id == service.id })?.index,
+              idx < 9 else { return nil }
+        return idx + 1
+    }
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(serviceManager.enabledServices) { service in
-                Button {
-                    serviceManager.selectedServiceId = service.id
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: service.iconName)
-                            .font(.system(size: 13))
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(
-                                serviceManager.selectedServiceId == service.id
-                                    ? .primary
-                                    : .secondary
-                            )
+        VStack(spacing: 0) {
+            // MARK: - Header (clickable to go home, only shown when expanded)
+            if isExpanded {
+                HStack {
+                    Button {
+                        serviceManager.selectedServiceId = nil
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image("ChatHarborLogo")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 20, height: 20)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
 
-                        if service.notificationCount > 0 {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 7, height: 7)
-                                .offset(x: 3, y: -3)
+                            Text("ChatHarbor")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
                         }
                     }
+                    .buttonStyle(.plain)
+                    .help("Go to home screen")
+
+                    Spacer()
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isExpanded.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Collapse sidebar")
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+            } else {
+                // Compact: just the toggle button, no logo
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(service.name)
+                .help("Expand sidebar")
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
             }
+
+            Divider()
+
+            // MARK: - Service List
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(serviceManager.categories, id: \.self) { category in
+                        let servicesInCategory = serviceManager.enabledServices(inCategory: category)
+                        if !servicesInCategory.isEmpty {
+                            if isExpanded {
+                                HStack {
+                                    Text(category.uppercased())
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(.tertiary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.top, 12)
+                                .padding(.bottom, 4)
+                            } else {
+                                let firstNonEmpty = serviceManager.categories.first { cat in
+                                    !serviceManager.enabledServices(inCategory: cat).isEmpty
+                                }
+                                if category != firstNonEmpty {
+                                    Divider()
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 6)
+                                }
+                            }
+
+                            ForEach(servicesInCategory) { service in
+                                let shortcut = shortcutNumber(for: service)
+                                if isExpanded {
+                                    ExpandedServiceRow(
+                                        service: service,
+                                        isSelected: serviceManager.selectedServiceId == service.id,
+                                        shortcutNumber: shortcut
+                                    ) {
+                                        serviceManager.selectedServiceId = service.id
+                                    }
+                                } else {
+                                    CompactServiceRow(
+                                        service: service,
+                                        isSelected: serviceManager.selectedServiceId == service.id,
+                                        shortcutNumber: shortcut
+                                    ) {
+                                        serviceManager.selectedServiceId = service.id
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Spacer(minLength: 0)
+
+            Divider()
+
+            // MARK: - Footer: Settings + About
+            VStack(spacing: 0) {
+                if isExpanded {
+                    // Settings button
+                    SettingsLink {
+                        HStack(spacing: 8) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 13))
+                                .frame(width: 22, height: 22)
+                                .foregroundStyle(.secondary)
+
+                            Text("Settings")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Settings")
+
+                    Divider()
+                        .padding(.horizontal, 14)
+
+                    // About button
+                    Button {
+                        showingAboutPopover.toggle()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image("ChatHarborLogo")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 22, height: 22)
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
+
+                            Text("About")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            Text("v1.0.0")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                    .help("About ChatHarbor")
+                    .popover(isPresented: $showingAboutPopover, arrowEdge: .trailing) {
+                        AboutPopoverView()
+                    }
+                } else {
+                    // Compact: just a settings gear
+                    SettingsLink {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Settings")
+                }
+            }
+            .padding(.bottom, 4)
         }
+        .frame(width: isExpanded ? 200 : 52)
+        .background(.bar)
     }
 }
 
-// MARK: - Service Row
+// MARK: - Expanded Service Row
 
-struct ServiceRow: View {
+struct ExpandedServiceRow: View {
     let service: ChatService
+    let isSelected: Bool
+    var shortcutNumber: Int?
+    let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: service.iconName)
-                    .font(.title3)
-                    .frame(width: 26, height: 26)
-                    .foregroundStyle(.primary)
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: service.iconName)
+                        .font(.system(size: 15))
+                        .frame(width: 26, height: 26)
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+
+                    if service.notificationCount > 0 {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 4, y: -4)
+                    }
+                }
+
+                Text(service.name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .lineLimit(1)
+
+                Spacer()
 
                 if service.notificationCount > 0 {
-                    NotificationBadge(count: service.notificationCount)
+                    Text("\(service.notificationCount)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red, in: Capsule())
+                } else if let num = shortcutNumber {
+                    Text("⌘\(num)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.quaternary)
                 }
             }
-
-            Text(service.name)
-                .lineLimit(1)
-
-            Spacer()
-
-            if service.notificationCount > 0 {
-                Text("\(service.notificationCount)")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.red, in: Capsule())
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(.selection)
+                    : AnyShapeStyle(.clear)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .padding(.vertical, 2)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Compact Service Row (icon only)
+
+struct CompactServiceRow: View {
+    let service: ChatService
+    let isSelected: Bool
+    var shortcutNumber: Int?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: service.iconName)
+                    .font(.system(size: 17))
+                    .frame(width: 36, height: 36)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .background(
+                        isSelected
+                            ? AnyShapeStyle(.selection)
+                            : AnyShapeStyle(.clear)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                if service.notificationCount > 0 {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 9, height: 9)
+                        .offset(x: 2, y: -2)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .help(service.name + (shortcutNumber != nil ? " (⌘\(shortcutNumber!))" : "")
+              + (service.notificationCount > 0 ? " — \(service.notificationCount) unread" : ""))
+    }
+}
+
+// MARK: - About Popover
+
+struct AboutPopoverView: View {
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image("ChatHarborLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
+
+            Text("ChatHarbor")
+                .font(.headline)
+
+            Text("Version 1.0.0")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(spacing: 6) {
+                Text("Developed by David Edgar")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("A lightweight, native macOS chat aggregator.\nBuilt with SwiftUI and WebKit.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Divider()
+
+            VStack(spacing: 4) {
+                Button {
+                    openURL(URL(string: "https://github.com/d-edgar/ChatHarbor/releases")!)
+                } label: {
+                    Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .contentShape(Rectangle())
+
+                Button {
+                    openURL(URL(string: "https://github.com/d-edgar/ChatHarbor")!)
+                } label: {
+                    Label("View on GitHub", systemImage: "link")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .contentShape(Rectangle())
+
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString("https://github.com/d-edgar/ChatHarbor", forType: .string)
+                } label: {
+                    Label("Copy Share Link", systemImage: "square.on.square")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .contentShape(Rectangle())
+            }
+
+            Divider()
+
+            Text("MIT License")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(16)
+        .frame(width: 240)
     }
 }
 

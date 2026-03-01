@@ -2,23 +2,33 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var serviceManager: ServiceManager
-    @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
+    @State private var sidebarExpanded: Bool = true
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $sidebarVisibility) {
-            SidebarView()
-        } detail: {
-            if serviceManager.isLaunching {
-                SplashView()
-            } else if let selectedId = serviceManager.selectedServiceId,
-               let service = serviceManager.enabledServices.first(where: { $0.id == selectedId }) {
-                WebContainerView(service: service)
-                    .id(service.id)
-            } else {
-                WelcomeView()
+        HStack(spacing: 0) {
+            // MARK: - Sidebar
+            SidebarView(isExpanded: $sidebarExpanded)
+                .environmentObject(serviceManager)
+
+            Divider()
+
+            // MARK: - Detail
+            Group {
+                if serviceManager.isLaunching {
+                    SplashView()
+                } else if let selectedId = serviceManager.selectedServiceId,
+                   let service = serviceManager.enabledServices.first(where: { $0.id == selectedId }) {
+                    WebContainerView(service: service)
+                        .id(service.id)
+                } else {
+                    WelcomeView()
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            // Empty toolbar to get the native title bar area
+        }
     }
 }
 

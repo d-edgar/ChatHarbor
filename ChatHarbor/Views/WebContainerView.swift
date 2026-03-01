@@ -92,6 +92,22 @@ struct ChatWebView: NSViewRepresentable {
     @Binding var isLoading: Bool
     @Binding var loadError: String?
 
+    /// Builds a Chrome user agent string using the real macOS version
+    /// and a Chrome major version derived from the current date.
+    /// Chrome releases roughly every 4 weeks; version 130 shipped Oct 2024.
+    /// This formula keeps the version current without hardcoding.
+    static func dynamicUserAgent() -> String {
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        let macOS = "\(osVersion.majorVersion)_\(osVersion.minorVersion)_\(osVersion.patchVersion)"
+
+        // Calculate a Chrome version based on weeks since Chrome 130 (Oct 15, 2024)
+        let chrome130Date = DateComponents(calendar: .current, year: 2024, month: 10, day: 15).date!
+        let weeksSince = Calendar.current.dateComponents([.weekOfYear], from: chrome130Date, to: Date()).weekOfYear ?? 0
+        let chromeVersion = 130 + (weeksSince / 4)  // new major roughly every 4 weeks
+
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X \(macOS)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(chromeVersion).0.0.0 Safari/537.36"
+    }
+
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
 
@@ -146,9 +162,10 @@ struct ChatWebView: NSViewRepresentable {
         )
         configuration.userContentController.addUserScript(localeScript)
 
-        // Set a desktop user agent so services don't serve mobile versions
+        // Build a dynamic Chrome user agent using the real macOS version
+        // and a Chrome version derived from the current date so it stays current
         let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        webView.customUserAgent = ChatWebView.dynamicUserAgent()
 
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator

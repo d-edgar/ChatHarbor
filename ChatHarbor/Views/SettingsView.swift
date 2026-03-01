@@ -1,4 +1,7 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+// MARK: - Settings Window
 
 struct SettingsView: View {
     @EnvironmentObject var serviceManager: ServiceManager
@@ -12,6 +15,7 @@ struct SettingsView: View {
                 }
 
             AppearanceSettingsView()
+                .environmentObject(serviceManager)
                 .tabItem {
                     Label("Appearance", systemImage: "paintbrush")
                 }
@@ -21,7 +25,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 500, height: 420)
+        .frame(width: 560, height: 520)
     }
 }
 
@@ -29,72 +33,323 @@ struct SettingsView: View {
 
 struct ServicesSettingsView: View {
     @EnvironmentObject var serviceManager: ServiceManager
-    @State private var showingAddSheet = false
+    @State private var showingAddService = false
+    @State private var showingAddCategory = false
+    @State private var showingResetConfirm = false
+    @State private var draggingServiceId: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            List {
-                ForEach(ServiceCategory.allCases, id: \.self) { category in
-                    let servicesInCategory = serviceManager.services.filter { $0.category == category }
-                    if !servicesInCategory.isEmpty {
-                        Section(category.rawValue) {
-                            ForEach(servicesInCategory) { service in
-                                HStack(spacing: 12) {
-                                    Image(systemName: service.iconName)
-                                        .font(.body)
-                                        .frame(width: 22)
-                                        .foregroundStyle(.secondary)
-                                    Text(service.name)
-                                    Spacer()
-                                    Toggle("", isOn: Binding(
-                                        get: { service.isEnabled },
-                                        set: { _ in serviceManager.toggleService(service) }
-                                    ))
-                                    .labelsHidden()
-                                    .toggleStyle(.switch)
-                                    .controlSize(.small)
+            // Hint
+            HStack(spacing: 4) {
+                Image(systemName: "hand.draw")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                Text("Drag services between categories to organize. Right-click category headers for options.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
 
-                                    if service.id.hasPrefix("custom-") {
-                                        Button(role: .destructive) {
-                                            serviceManager.removeService(service)
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .font(.caption)
-                                                .foregroundStyle(.red)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.vertical, 1)
-                            }
-                        }
+            // Category zones
+            ScrollView {
+                VStack(spacing: 12) {
+                    ForEach(serviceManager.categories, id: \.self) { category in
+                        CategoryZoneView(
+                            category: category,
+                            draggingServiceId: $draggingServiceId
+                        )
+                        .environmentObject(serviceManager)
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
 
             Divider()
 
-            HStack {
+            // Bottom bar
+            HStack(spacing: 12) {
+                Button {
+                    showingAddCategory = true
+                } label: {
+                    Label("Add Category", systemImage: "folder.badge.plus")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
+                Button {
+                    showingResetConfirm = true
+                } label: {
+                    Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red.opacity(0.7))
+
                 Spacer()
+
                 Button("Add Custom Service...") {
-                    showingAddSheet = true
+                    showingAddService = true
                 }
                 .controlSize(.small)
-                .padding(12)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
         }
-        .sheet(isPresented: $showingAddSheet) {
-            AddCustomServiceSheet(isPresented: $showingAddSheet)
+        .sheet(isPresented: $showingAddService) {
+            AddCustomServiceSheet(isPresented: $showingAddService)
                 .environmentObject(serviceManager)
         }
+        .sheet(isPresented: $showingAddCategory) {
+            AddCategorySheet(isPresented: $showingAddCategory)
+                .environmentObject(serviceManager)
+        }
+        .alert("Reset to Defaults?", isPresented: $showingResetConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                serviceManager.resetToDefaults()
+            }
+        } message: {
+            Text("This will restore all services, categories, and appearance settings to their original defaults. Custom services will be removed.")
+        }
+    }
+}
+
+// MARK: - Category Zone (drop target)
+
+struct CategoryZoneView: View {
+    let category: String
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Binding var draggingServiceId: String?
+    @State private var isRenaming = false
+    @State private var renameText = ""
+    @State private var isTargeted = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Category header
+            HStack(spacing: 8) {
+                if isRenaming {
+                    TextField("Category name", text: $renameText, onCommit: {
+                        serviceManager.renameCategory(from: category, to: renameText)
+                        isRenaming = false
+                    })
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: 160)
+
+                    Button("Save") {
+                        serviceManager.renameCategory(from: category, to: renameText)
+                        isRenaming = false
+                    }
+                    .font(.caption)
+                    .controlSize(.small)
+
+                    Button("Cancel") {
+                        isRenaming = false
+                    }
+                    .font(.caption)
+                    .controlSize(.small)
+                } else {
+                    Text(category.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Text("(\(serviceManager.services(inCategory: category).count))")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.quaternary)
+
+                    Spacer()
+
+                    HStack(spacing: 8) {
+                        Button("Rename") {
+                            renameText = category
+                            isRenaming = true
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+
+                        if serviceManager.categories.count > 1 {
+                            Button("Delete") {
+                                serviceManager.removeCategory(named: category)
+                            }
+                            .font(.system(size: 10, weight: .medium))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.red.opacity(0.7))
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.quaternary.opacity(0.5))
+            )
+
+            // Service rows
+            VStack(spacing: 1) {
+                let servicesInCategory = serviceManager.services(inCategory: category)
+
+                if servicesInCategory.isEmpty {
+                    Text("Drag services here")
+                        .font(.caption)
+                        .foregroundStyle(.quaternary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                } else {
+                    ForEach(servicesInCategory) { service in
+                        DraggableServiceRow(
+                            service: service,
+                            draggingServiceId: $draggingServiceId
+                        )
+                        .environmentObject(serviceManager)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isTargeted ? Color.accentColor.opacity(0.1) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        isTargeted ? Color.accentColor : Color.clear,
+                        style: StrokeStyle(lineWidth: 2, dash: [6, 3])
+                    )
+            )
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.background)
+                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(.quaternary.opacity(0.5), lineWidth: 1)
+        )
+        .onDrop(of: [.utf8PlainText], isTargeted: $isTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            provider.loadObject(ofClass: NSString.self) { reading, _ in
+                guard let serviceId = reading as? String else { return }
+                DispatchQueue.main.async {
+                    serviceManager.updateCategory(forServiceId: serviceId, to: category)
+                    draggingServiceId = nil
+                }
+            }
+            return true
+        }
+    }
+}
+
+// MARK: - Draggable Service Row
+
+struct DraggableServiceRow: View {
+    let service: ChatService
+    @Binding var draggingServiceId: String?
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal")
+                .font(.caption)
+                .foregroundStyle(.quaternary)
+
+            Image(systemName: service.iconName)
+                .font(.body)
+                .frame(width: 22)
+                .foregroundStyle(.secondary)
+
+            Text(service.name)
+                .font(.system(size: 13))
+                .lineLimit(1)
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { service.isEnabled },
+                set: { _ in serviceManager.toggleService(service) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            if service.id.hasPrefix("custom-") {
+                Button(role: .destructive) {
+                    serviceManager.removeService(service)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.background)
+        )
+        .opacity(draggingServiceId == service.id ? 0.4 : 1.0)
+        .onDrag {
+            draggingServiceId = service.id
+            return NSItemProvider(object: service.id as NSString)
+        }
+    }
+}
+
+// MARK: - Add Category Sheet
+
+struct AddCategorySheet: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Binding var isPresented: Bool
+    @State private var name = ""
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("New Category")
+                .font(.headline)
+
+            TextField("Category Name (e.g. Personal, Work, Gaming)", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button("Add") {
+                    serviceManager.addCategory(named: name)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 340)
     }
 }
 
 // MARK: - Appearance Tab
 
 struct AppearanceSettingsView: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Image(systemName: "paintbrush.fill")
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
@@ -102,36 +357,82 @@ struct AppearanceSettingsView: View {
             Text("Appearance")
                 .font(.headline)
 
-            Text("ChatHarbor automatically follows your macOS appearance settings. Switch between Light and Dark mode in System Settings > Appearance.")
+            Text("Choose how ChatHarbor looks. \"System\" follows your macOS appearance automatically.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 360)
 
-            HStack(spacing: 24) {
-                VStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.white)
-                        .frame(width: 60, height: 40)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
-                    Text("Light")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.black)
-                        .frame(width: 60, height: 40)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
-                    Text("Dark")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            // Theme picker cards
+            HStack(spacing: 16) {
+                ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                    AppearanceCard(
+                        mode: mode,
+                        isSelected: serviceManager.appearanceMode == mode
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            serviceManager.appearanceMode = mode
+                        }
+                    }
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct AppearanceCard: View {
+    let mode: AppearanceMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                // Preview swatch
+                ZStack {
+                    switch mode {
+                    case .auto:
+                        HStack(spacing: 0) {
+                            Rectangle().fill(.white)
+                            Rectangle().fill(Color(white: 0.15))
+                        }
+                    case .light:
+                        Rectangle().fill(.white)
+                    case .dark:
+                        Rectangle().fill(Color(white: 0.15))
+                    }
+
+                    // Mini sidebar + content mockup
+                    HStack(spacing: 0) {
+                        VStack(spacing: 3) {
+                            ForEach(0..<4, id: \.self) { _ in
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(mode == .light ? Color.gray.opacity(0.25) : Color.white.opacity(0.15))
+                                    .frame(width: 18, height: 4)
+                            }
+                        }
+                        .frame(width: 28)
+                        .padding(.vertical, 8)
+
+                        Rectangle()
+                            .fill(mode == .light ? Color.gray.opacity(0.08) : Color.white.opacity(0.05))
+                    }
+                }
+                .frame(width: 80, height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: isSelected ? 2.5 : 1)
+                )
+
+                Text(mode.displayName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -142,6 +443,7 @@ struct AddCustomServiceSheet: View {
     @Binding var isPresented: Bool
     @State private var name = ""
     @State private var urlString = "https://"
+    @State private var selectedCategory = DefaultCategory.custom
     @State private var showingError = false
 
     var body: some View {
@@ -154,6 +456,13 @@ struct AddCustomServiceSheet: View {
 
             TextField("URL (https://...)", text: $urlString)
                 .textFieldStyle(.roundedBorder)
+
+            Picker("Category", selection: $selectedCategory) {
+                ForEach(serviceManager.categories, id: \.self) { category in
+                    Text(category).tag(category)
+                }
+            }
+            .pickerStyle(.menu)
 
             if showingError {
                 Text("Please enter a valid name and URL starting with http:// or https://")
@@ -177,7 +486,7 @@ struct AddCustomServiceSheet: View {
                         showingError = true
                         return
                     }
-                    serviceManager.addCustomService(name: name, urlString: urlString)
+                    serviceManager.addCustomService(name: name, urlString: urlString, category: selectedCategory)
                     isPresented = false
                 }
                 .keyboardShortcut(.defaultAction)
