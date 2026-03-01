@@ -417,6 +417,7 @@ struct CatalogSheet: View {
                             }
                         }
                     }
+                    .padding(.trailing, 16)
                 }
             }
 
