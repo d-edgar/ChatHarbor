@@ -21,8 +21,20 @@ struct ChatHarborApp: App {
         }
 
         Settings {
-            SettingsView()
+            ThemedSettingsWrapper()
                 .environmentObject(serviceManager)
         }
+    }
+}
+
+/// Wrapper that applies the current theme tint to the Settings window
+struct ThemedSettingsWrapper: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        SettingsView()
+            .environmentObject(serviceManager)
+            .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
     }
 }

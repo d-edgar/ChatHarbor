@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var isExpanded: Bool
     @State private var showingAboutPopover = false
 
@@ -209,7 +210,7 @@ struct SidebarView: View {
             .padding(.bottom, 4)
         }
         .frame(width: isExpanded ? 200 : 52)
-        .background(.bar)
+        .background(serviceManager.currentTheme.sidebarColor(for: colorScheme))
     }
 }
 
@@ -221,9 +222,14 @@ struct ExpandedServiceRow: View {
     var shortcutNumber: Int?
     let action: () -> Void
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
 
     private var badgeColor: Color {
         serviceManager.notificationSettings.badgeColor.color
+    }
+
+    private var themeAccent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
     }
 
     var body: some View {
@@ -233,7 +239,7 @@ struct ExpandedServiceRow: View {
                     Image(systemName: service.iconName)
                         .font(.system(size: 15))
                         .frame(width: 26, height: 26)
-                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .foregroundStyle(isSelected ? themeAccent : .secondary)
 
                     if service.notificationCount > 0 {
                         Circle()
@@ -267,7 +273,7 @@ struct ExpandedServiceRow: View {
             .padding(.vertical, 6)
             .background(
                 isSelected
-                    ? AnyShapeStyle(.selection)
+                    ? AnyShapeStyle(themeAccent.opacity(0.15))
                     : AnyShapeStyle(.clear)
             )
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -285,9 +291,14 @@ struct CompactServiceRow: View {
     var shortcutNumber: Int?
     let action: () -> Void
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
 
     private var badgeColor: Color {
         serviceManager.notificationSettings.badgeColor.color
+    }
+
+    private var themeAccent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
     }
 
     var body: some View {
@@ -296,10 +307,10 @@ struct CompactServiceRow: View {
                 Image(systemName: service.iconName)
                     .font(.system(size: 17))
                     .frame(width: 36, height: 36)
-                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .foregroundStyle(isSelected ? themeAccent : .secondary)
                     .background(
                         isSelected
-                            ? AnyShapeStyle(.selection)
+                            ? AnyShapeStyle(themeAccent.opacity(0.15))
                             : AnyShapeStyle(.clear)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 8))

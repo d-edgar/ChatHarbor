@@ -31,7 +31,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 560, height: 520)
+        .frame(width: 560, height: 560)
     }
 }
 
@@ -141,10 +141,15 @@ struct ServicesSettingsView: View {
 struct CategoryZoneView: View {
     let category: String
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var draggingServiceId: String?
     @State private var isRenaming = false
     @State private var renameText = ""
     @State private var isTargeted = false
+
+    private var accent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -233,12 +238,12 @@ struct CategoryZoneView: View {
             .padding(.horizontal, 4)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isTargeted ? Color.accentColor.opacity(0.1) : Color.clear)
+                    .fill(isTargeted ? accent.opacity(0.1) : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
-                        isTargeted ? Color.accentColor : Color.clear,
+                        isTargeted ? accent : Color.clear,
                         style: StrokeStyle(lineWidth: 2, dash: [6, 3])
                     )
             )
@@ -461,36 +466,190 @@ struct AppearanceSettingsView: View {
     @EnvironmentObject var serviceManager: ServiceManager
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "paintbrush.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Mode section
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("MODE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
 
-            Text("Appearance")
-                .font(.headline)
+                    Text("\"System\" follows your macOS appearance automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
 
-            Text("Choose how ChatHarbor looks. \"System\" follows your macOS appearance automatically.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
+                    HStack(spacing: 16) {
+                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                            AppearanceCard(
+                                mode: mode,
+                                isSelected: serviceManager.appearanceMode == mode
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.appearanceMode = mode
+                                }
+                            }
+                        }
+                    }
+                }
 
-            // Theme picker cards
-            HStack(spacing: 16) {
-                ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                    AppearanceCard(
-                        mode: mode,
-                        isSelected: serviceManager.appearanceMode == mode
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            serviceManager.appearanceMode = mode
+                Divider()
+
+                // Theme section
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("THEME")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Text("Themes change the accent color and sidebar tint throughout ChatHarbor.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
+                    // Standard themes
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10)
+                    ], spacing: 10) {
+                        ForEach(ThemeCatalog.standardThemes) { theme in
+                            ThemeCard(
+                                theme: theme,
+                                isSelected: serviceManager.selectedThemeId == theme.id
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.selectedThemeId = theme.id
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Seasonal themes
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("SEASONAL")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10),
+                        GridItem(.flexible(), spacing: 10)
+                    ], spacing: 10) {
+                        ForEach(ThemeCatalog.seasonalThemes) { theme in
+                            ThemeCard(
+                                theme: theme,
+                                isSelected: serviceManager.selectedThemeId == theme.id
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    serviceManager.selectedThemeId = theme.id
+                                }
+                            }
                         }
                     }
                 }
             }
-            .padding(.top, 4)
+            .padding(24)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Theme Preview Card
+
+struct ThemeCard: View {
+    let theme: AppTheme
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                // Mini preview swatch showing sidebar + content area
+                ZStack {
+                    HStack(spacing: 0) {
+                        // Sidebar preview
+                        ZStack {
+                            Rectangle().fill(theme.sidebarLight)
+                            VStack(spacing: 3) {
+                                ForEach(0..<3, id: \.self) { i in
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(i == 0 ? theme.accentLight.opacity(0.7) : Color.gray.opacity(0.2))
+                                        .frame(width: 20, height: 4)
+                                }
+                            }
+                        }
+                        .frame(width: 30)
+
+                        // Content area
+                        ZStack {
+                            Rectangle().fill(Color.white)
+                            VStack(spacing: 3) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(theme.accentLight.opacity(0.4))
+                                    .frame(width: 36, height: 4)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.gray.opacity(0.15))
+                                    .frame(width: 30, height: 3)
+                            }
+                        }
+                    }
+
+                    // Dark half overlay for split preview
+                    HStack(spacing: 0) {
+                        Color.clear
+                        ZStack {
+                            HStack(spacing: 0) {
+                                ZStack {
+                                    Rectangle().fill(theme.sidebarDark)
+                                    VStack(spacing: 3) {
+                                        ForEach(0..<3, id: \.self) { i in
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(i == 0 ? theme.accentDark.opacity(0.7) : Color.white.opacity(0.12))
+                                                .frame(width: 20, height: 4)
+                                        }
+                                    }
+                                }
+                                .frame(width: 30)
+
+                                ZStack {
+                                    Rectangle().fill(Color(white: 0.15))
+                                    VStack(spacing: 3) {
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(theme.accentDark.opacity(0.4))
+                                            .frame(width: 36, height: 4)
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.white.opacity(0.08))
+                                            .frame(width: 30, height: 3)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(
+                            isSelected ? theme.accentLight : Color.gray.opacity(0.3),
+                            lineWidth: isSelected ? 2.5 : 1
+                        )
+                )
+
+                // Icon + name
+                HStack(spacing: 4) {
+                    Image(systemName: theme.icon)
+                        .font(.system(size: 9))
+                        .foregroundStyle(isSelected ? theme.accentLight : .secondary)
+
+                    Text(theme.name)
+                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -498,6 +657,12 @@ struct AppearanceCard: View {
     let mode: AppearanceMode
     let isSelected: Bool
     let action: () -> Void
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -536,7 +701,7 @@ struct AppearanceCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: isSelected ? 2.5 : 1)
+                        .stroke(isSelected ? accent : Color.gray.opacity(0.3), lineWidth: isSelected ? 2.5 : 1)
                 )
 
                 Text(mode.displayName)

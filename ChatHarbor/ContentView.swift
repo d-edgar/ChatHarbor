@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
     @State private var sidebarExpanded: Bool = true
 
     var body: some View {
@@ -30,6 +31,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
         .toolbar {
             // Empty toolbar to get the native title bar area
         }
@@ -213,6 +215,12 @@ struct CatalogCard: View {
     let template: ServiceTemplate
     let isSelected: Bool
     let action: () -> Void
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        serviceManager.currentTheme.accentColor(for: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -223,7 +231,7 @@ struct CatalogCard: View {
                     .frame(width: 44, height: 44)
                     .background(
                         isSelected
-                            ? AnyShapeStyle(Color.accentColor)
+                            ? AnyShapeStyle(accent)
                             : AnyShapeStyle(.quaternary)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -231,7 +239,7 @@ struct CatalogCard: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(.white, Color.accentColor)
+                        .foregroundStyle(.white, accent)
                         .offset(x: 6, y: -6)
                 }
             }
@@ -252,11 +260,11 @@ struct CatalogCard: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+                .fill(isSelected ? accent.opacity(0.08) : Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? accent : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
         )
         .contentShape(Rectangle())
         .onTapGesture {

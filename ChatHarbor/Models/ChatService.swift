@@ -72,6 +72,46 @@ enum ServiceCatalog {
             suggestedCategory: DefaultCategory.workspace,
             description: "Google Workspace messaging"
         ),
+        ServiceTemplate(
+            id: "webex",
+            name: "Webex",
+            url: URL(string: "https://web.webex.com")!,
+            iconName: "video.fill",
+            suggestedCategory: DefaultCategory.workspace,
+            description: "Cisco video meetings and messaging"
+        ),
+        ServiceTemplate(
+            id: "mattermost",
+            name: "Mattermost",
+            url: URL(string: "https://app.mattermost.com")!,
+            iconName: "server.rack",
+            suggestedCategory: DefaultCategory.workspace,
+            description: "Self-hosted team collaboration"
+        ),
+        ServiceTemplate(
+            id: "rocket-chat",
+            name: "Rocket.Chat",
+            url: URL(string: "https://open.rocket.chat")!,
+            iconName: "bubble.left.and.text.bubble.right.fill",
+            suggestedCategory: DefaultCategory.workspace,
+            description: "Open-source team communication"
+        ),
+        ServiceTemplate(
+            id: "basecamp",
+            name: "Basecamp",
+            url: URL(string: "https://3.basecamp.com")!,
+            iconName: "tent.fill",
+            suggestedCategory: DefaultCategory.workspace,
+            description: "Project management and messaging"
+        ),
+        ServiceTemplate(
+            id: "zoho-cliq",
+            name: "Zoho Cliq",
+            url: URL(string: "https://cliq.zoho.com")!,
+            iconName: "bolt.circle.fill",
+            suggestedCategory: DefaultCategory.workspace,
+            description: "Zoho Workspace team chat"
+        ),
 
         // Chat
         ServiceTemplate(
@@ -106,6 +146,38 @@ enum ServiceCatalog {
             suggestedCategory: DefaultCategory.chat,
             description: "Private, secure messaging"
         ),
+        ServiceTemplate(
+            id: "skype",
+            name: "Skype",
+            url: URL(string: "https://web.skype.com")!,
+            iconName: "phone.arrow.up.right.fill",
+            suggestedCategory: DefaultCategory.chat,
+            description: "Video calls and instant messaging"
+        ),
+        ServiceTemplate(
+            id: "element",
+            name: "Element",
+            url: URL(string: "https://app.element.io")!,
+            iconName: "shield.lefthalf.filled",
+            suggestedCategory: DefaultCategory.chat,
+            description: "Decentralized Matrix messaging"
+        ),
+        ServiceTemplate(
+            id: "viber",
+            name: "Viber",
+            url: URL(string: "https://web.viber.com")!,
+            iconName: "waveform.circle.fill",
+            suggestedCategory: DefaultCategory.chat,
+            description: "Free calls and messages"
+        ),
+        ServiceTemplate(
+            id: "google-messages",
+            name: "Google Messages",
+            url: URL(string: "https://messages.google.com/web/")!,
+            iconName: "bubble.fill",
+            suggestedCategory: DefaultCategory.chat,
+            description: "Android SMS/RCS from your desktop"
+        ),
 
         // Social
         ServiceTemplate(
@@ -123,6 +195,30 @@ enum ServiceCatalog {
             iconName: "briefcase.fill",
             suggestedCategory: DefaultCategory.social,
             description: "Professional networking messages"
+        ),
+        ServiceTemplate(
+            id: "instagram",
+            name: "Instagram DMs",
+            url: URL(string: "https://www.instagram.com/direct/inbox/")!,
+            iconName: "camera.fill",
+            suggestedCategory: DefaultCategory.social,
+            description: "Instagram direct messages"
+        ),
+        ServiceTemplate(
+            id: "twitter",
+            name: "X / Twitter DMs",
+            url: URL(string: "https://x.com/messages")!,
+            iconName: "at",
+            suggestedCategory: DefaultCategory.social,
+            description: "X (Twitter) direct messages"
+        ),
+        ServiceTemplate(
+            id: "reddit-chat",
+            name: "Reddit Chat",
+            url: URL(string: "https://chat.reddit.com")!,
+            iconName: "ellipsis.bubble.fill",
+            suggestedCategory: DefaultCategory.social,
+            description: "Reddit direct and group chat"
         ),
     ]
 

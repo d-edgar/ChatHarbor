@@ -16,11 +16,20 @@ class ServiceManager: ObservableObject {
     @Published var notificationSettings: NotificationSettings {
         didSet { persistNotificationSettings() }
     }
+    @Published var selectedThemeId: String {
+        didSet { persistTheme() }
+    }
+
+    /// The resolved theme object for the current selection
+    var currentTheme: AppTheme {
+        ThemeCatalog.theme(forId: selectedThemeId)
+    }
 
     private let storageKey = "chatharbor.services"
     private let categoriesKey = "chatharbor.categories"
     private let appearanceKey = "chatharbor.appearance"
     private let notificationSettingsKey = "chatharbor.notificationSettings"
+    private let themeKey = "chatharbor.theme"
     private let hasLaunchedKey = "chatharbor.hasLaunched"
     private var navigationObserver: NSObjectProtocol?
 
@@ -36,6 +45,13 @@ class ServiceManager: ObservableObject {
             self.appearanceMode = mode
         } else {
             self.appearanceMode = .auto
+        }
+
+        // Load theme preference
+        if let savedTheme = UserDefaults.standard.string(forKey: themeKey) {
+            self.selectedThemeId = savedTheme
+        } else {
+            self.selectedThemeId = ThemeCatalog.defaultTheme.id
         }
 
         // Load notification settings
@@ -381,6 +397,10 @@ class ServiceManager: ObservableObject {
         }
     }
 
+    private func persistTheme() {
+        UserDefaults.standard.set(selectedThemeId, forKey: themeKey)
+    }
+
     /// Apply appearance at the NSApp level so all windows update consistently
     func applyAppearance() {
         switch appearanceMode {
@@ -400,10 +420,12 @@ class ServiceManager: ObservableObject {
         categories = DefaultCategory.allDefaults
         selectedServiceId = nil
         appearanceMode = .auto
+        selectedThemeId = ThemeCatalog.defaultTheme.id
         notificationSettings = NotificationSettings()
         persist()
         persistCategories()
         persistAppearance()
+        persistTheme()
         persistNotificationSettings()
     }
 }
