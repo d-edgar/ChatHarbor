@@ -18,6 +18,11 @@ struct NotificationSettings: Codable {
     var workspaceGuardShowWarning: Bool = true
     /// Category names treated as "workspace" zones (e.g. "Workspace")
     var workspaceCategories: Set<String> = [DefaultCategory.workspace]
+
+    // Privacy Shield — blur content when screen is being shared/recorded
+    var privacyShieldEnabled: Bool = false
+    var privacyShieldBlurContent: Bool = true
+    var privacyShieldShowWarning: Bool = true
 }
 
 // MARK: - Badge Color Options

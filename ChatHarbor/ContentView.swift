@@ -112,12 +112,14 @@ struct OnboardingView: View {
         case services = 0
         case theme = 1
         case workspaceGuard = 2
+        case privacyShield = 3
 
         var title: String {
             switch self {
             case .services: return "Choose Your Services"
             case .theme: return "Pick a Theme"
             case .workspaceGuard: return "Workspace Guard"
+            case .privacyShield: return "Privacy Shield"
             }
         }
 
@@ -126,6 +128,7 @@ struct OnboardingView: View {
             case .services: return "Select the messaging services you use, or add your own."
             case .theme: return "Choose a color theme for ChatHarbor. You can change this anytime in Settings."
             case .workspaceGuard: return "Protect against clipboard cross-contamination between personal and work chats."
+            case .privacyShield: return "Automatically blur your chats when your screen is being shared or recorded."
             }
         }
 
@@ -134,6 +137,7 @@ struct OnboardingView: View {
             case .services: return "bubble.left.and.bubble.right"
             case .theme: return "paintbrush"
             case .workspaceGuard: return "lock.shield"
+            case .privacyShield: return "eye.slash"
             }
         }
     }
@@ -212,6 +216,8 @@ struct OnboardingView: View {
                     themeStepContent
                 case .workspaceGuard:
                     workspaceGuardStepContent
+                case .privacyShield:
+                    privacyShieldStepContent
                 }
             }
 
@@ -245,7 +251,7 @@ struct OnboardingView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if currentStep == .workspaceGuard {
+                if currentStep == .privacyShield {
                     // Final step — finish button
                     Button("Get Started") {
                         // Add any selected services that haven't been added yet
@@ -501,6 +507,89 @@ struct OnboardingView: View {
 
                 // Skip hint
                 if !serviceManager.notificationSettings.workspaceGuardEnabled {
+                    Text("You can skip this and enable it later in Settings > Notifications.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.vertical, 16)
+        }
+    }
+
+    // MARK: - Step 4: Privacy Shield
+
+    private var privacyShieldStepContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Explanation card
+                HStack(spacing: 14) {
+                    Image(systemName: "eye.slash.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(serviceManager.currentTheme.accentColor(for: colorScheme))
+                        .symbolRenderingMode(.hierarchical)
+                        .frame(width: 44)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("What is Privacy Shield?")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("When ChatHarbor detects that your screen is being shared, recorded, or remotely viewed, it automatically blurs your chat content and shows a friendly notice — keeping sensitive conversations private during presentations and calls.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.quaternary.opacity(0.3))
+                )
+
+                Divider()
+
+                // Toggle
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable Privacy Shield", isOn: $serviceManager.notificationSettings.privacyShieldEnabled)
+                        .font(.system(size: 13, weight: .medium))
+
+                    Group {
+                        Toggle("Blur Chat Content", isOn: $serviceManager.notificationSettings.privacyShieldBlurContent)
+                            .font(.system(size: 13))
+
+                        Toggle("Show Warning Overlay", isOn: $serviceManager.notificationSettings.privacyShieldShowWarning)
+                            .font(.system(size: 13))
+                    }
+                    .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
+                    .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
+                    .padding(.leading, 20)
+                }
+
+                Divider()
+
+                // How it works
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("HOW IT WORKS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Detects screen sharing apps (Zoom, Teams, etc.)", systemImage: "magnifyingglass")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Label("Detects screen recording and remote desktop sessions", systemImage: "record.circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Label("No data leaves your Mac — detection is 100% local", systemImage: "lock.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
+                .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
+
+                // Skip hint
+                if !serviceManager.notificationSettings.privacyShieldEnabled {
                     Text("You can skip this and enable it later in Settings > Notifications.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)

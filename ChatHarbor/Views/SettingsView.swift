@@ -26,6 +26,12 @@ struct SettingsView: View {
                     Label("Notifications", systemImage: "bell")
                 }
 
+            SecuritySettingsView()
+                .environmentObject(serviceManager)
+                .tabItem {
+                    Label("Security", systemImage: "lock.shield")
+                }
+
             AboutSettingsView()
                 .tabItem {
                     Label("About", systemImage: "info.circle")
@@ -966,10 +972,21 @@ struct NotificationSettingsView: View {
                     }
                 }
                 .opacity(serviceManager.notificationSettings.globalEnabled ? 1.0 : 0.5)
+            }
+            .padding(24)
+        }
+    }
+}
 
-                Divider()
+// MARK: - Security Tab
 
-                // Workspace guard
+struct SecuritySettingsView: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Workspace Guard
                 VStack(alignment: .leading, spacing: 10) {
                     Text("WORKSPACE GUARD")
                         .font(.system(size: 11, weight: .bold))
@@ -1028,6 +1045,33 @@ struct NotificationSettingsView: View {
                     }
                     .disabled(!serviceManager.notificationSettings.workspaceGuardEnabled)
                     .opacity(serviceManager.notificationSettings.workspaceGuardEnabled ? 1.0 : 0.5)
+                }
+
+                Divider()
+
+                // Privacy Shield
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("PRIVACY SHIELD")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Toggle("Enable Privacy Shield", isOn: $serviceManager.notificationSettings.privacyShieldEnabled)
+                        .font(.system(size: 13))
+
+                    Text("When your screen is being shared, recorded, or remotely viewed, ChatHarbor automatically blurs your chat content to keep sensitive conversations private.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Group {
+                        Toggle("Blur Chat Content", isOn: $serviceManager.notificationSettings.privacyShieldBlurContent)
+                            .font(.system(size: 13))
+
+                        Toggle("Show Warning Overlay", isOn: $serviceManager.notificationSettings.privacyShieldShowWarning)
+                            .font(.system(size: 13))
+                    }
+                    .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
+                    .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
                 }
             }
             .padding(24)

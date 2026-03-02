@@ -15,7 +15,10 @@ class ServiceManager: ObservableObject {
         }
     }
     @Published var notificationSettings: NotificationSettings {
-        didSet { persistNotificationSettings() }
+        didSet {
+            persistNotificationSettings()
+            syncPrivacyShieldMonitoring()
+        }
     }
     @Published var selectedThemeId: String {
         didSet { persistTheme() }
@@ -33,6 +36,7 @@ class ServiceManager: ObservableObject {
     private let themeKey = "chatharbor.theme"
     private let hasLaunchedKey = "chatharbor.hasLaunched"
     private var navigationObserver: NSObjectProtocol?
+    private var screenShareCancellable: AnyCancellable?
 
     /// Whether this is the very first launch (no saved data)
     var isFirstLaunch: Bool {
@@ -105,11 +109,51 @@ class ServiceManager: ObservableObject {
 
         // Mark that we've launched at least once
         UserDefaults.standard.set(true, forKey: hasLaunchedKey)
+
+        // Start privacy shield monitoring if enabled
+        syncPrivacyShieldMonitoring()
     }
 
     deinit {
         if let observer = navigationObserver {
             NotificationCenter.default.removeObserver(observer)
+        }
+        screenShareCancellable?.cancel()
+        screenShareCancellable = nil
+
+        // ScreenShareDetector is @MainActor, so stop it asynchronously
+        Task { @MainActor in
+            ScreenShareDetector.shared.stopMonitoring()
+        }
+    }
+
+    // MARK: - Privacy Shield
+
+    @Published var isScreenBeingShared: Bool = false
+
+    /// Whether the privacy shield overlay should be shown
+    var shouldShowPrivacyShield: Bool {
+        notificationSettings.privacyShieldEnabled && isScreenBeingShared
+    }
+
+    /// Start or stop the screen share detector based on the current setting
+    private func syncPrivacyShieldMonitoring() {
+        if notificationSettings.privacyShieldEnabled {
+            ScreenShareDetector.shared.startMonitoring()
+
+            // Subscribe to detector changes if not already subscribed
+            if screenShareCancellable == nil {
+                screenShareCancellable = ScreenShareDetector.shared.$isScreenBeingShared
+                    .receive(on: RunLoop.main)
+                    .sink { [weak self] shared in
+                        self?.isScreenBeingShared = shared
+                    }
+            }
+        } else {
+            ScreenShareDetector.shared.stopMonitoring()
+            screenShareCancellable?.cancel()
+            screenShareCancellable = nil
+            isScreenBeingShared = false
         }
     }
 

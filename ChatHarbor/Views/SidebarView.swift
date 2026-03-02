@@ -333,8 +333,6 @@ struct CompactServiceRow: View {
 // MARK: - About Popover
 
 struct AboutPopoverView: View {
-    @Environment(\.openURL) private var openURL
-
     var body: some View {
         VStack(spacing: 12) {
             Image("ChatHarborLogo")
@@ -351,99 +349,22 @@ struct AboutPopoverView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Divider()
+            Text("A lightweight, native macOS chat aggregator.\nBuilt with SwiftUI and WebKit.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
 
-            VStack(spacing: 6) {
-                Text("Developed by David Edgar")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text("A lightweight, native macOS chat aggregator.\nBuilt with SwiftUI and WebKit.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Divider()
-
-            VStack(spacing: 4) {
-                Button {
-                    openURL(URL(string: "https://github.com/d-edgar/ChatHarbor/releases")!)
-                } label: {
-                    Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.primary)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .contentShape(Rectangle())
-
-                Button {
-                    openURL(URL(string: "https://github.com/d-edgar/ChatHarbor")!)
-                } label: {
-                    Label("View on GitHub", systemImage: "link")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.primary)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .contentShape(Rectangle())
-
-                Button {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString("https://github.com/d-edgar/ChatHarbor", forType: .string)
-                } label: {
-                    Label("Copy Share Link", systemImage: "square.on.square")
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.primary)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .contentShape(Rectangle())
-            }
-
-            Divider()
-
-            Button {
-                openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/bug-report.html")!)
-            } label: {
+            Link(destination: URL(string: "https://d-edgar.github.io/chatharbor-site/bug-report.html")!) {
                 Label("Report a Bug", systemImage: "ladybug")
                     .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.primary)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .contentShape(Rectangle())
-
-            Divider()
+            .padding(.top, 4)
 
             HStack(spacing: 12) {
-                Button {
-                    openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/privacy.html")!)
-                } label: {
-                    Text("Privacy Policy")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    openURL(URL(string: "https://d-edgar.github.io/chatharbor-site/terms.html")!)
-                } label: {
-                    Text("Terms of Use")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+                Link("Privacy Policy", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/privacy.html")!)
+                    .font(.system(size: 10))
+                Link("Terms of Use", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/terms.html")!)
+                    .font(.system(size: 10))
             }
 
             Text("MIT License")

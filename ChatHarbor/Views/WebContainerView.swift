@@ -17,6 +17,8 @@ struct WebContainerView: View {
                 isLoading: $isLoading,
                 loadError: $loadError
             )
+            .blur(radius: serviceManager.shouldShowPrivacyShield ? 30 : 0)
+            .animation(.easeInOut(duration: 0.3), value: serviceManager.shouldShowPrivacyShield)
 
             if isLoading {
                 ProgressView("Loading \(service.name)...")
@@ -47,6 +49,12 @@ struct WebContainerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.ultraThinMaterial)
+            }
+
+            // MARK: - Privacy Shield Overlay
+            if serviceManager.shouldShowPrivacyShield {
+                PrivacyShieldOverlay()
+                    .transition(.opacity)
             }
         }
         .toolbar {
@@ -189,5 +197,48 @@ struct PooledWebView: NSViewRepresentable {
         ) {
             decisionHandler(.grant)
         }
+    }
+}
+
+// MARK: - Privacy Shield Overlay
+
+struct PrivacyShieldOverlay: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            VStack(spacing: 16) {
+                Image(systemName: "eye.slash.circle.fill")
+                    .font(.system(size: 52))
+                    .foregroundStyle(serviceManager.currentTheme.accentColor(for: colorScheme))
+                    .symbolRenderingMode(.hierarchical)
+
+                Text("Privacy Shield Active")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Your chats are hidden while your screen\nis being shared or recorded.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Text("You can turn this off in Settings → Security.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 4)
+            }
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.08), radius: 20, y: 8)
+            )
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
