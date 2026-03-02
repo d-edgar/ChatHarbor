@@ -507,7 +507,7 @@ struct OnboardingView: View {
 
                 // Skip hint
                 if !serviceManager.notificationSettings.workspaceGuardEnabled {
-                    Text("You can skip this and enable it later in Settings > Notifications.")
+                    Text("You can skip this and enable it later in Settings > Security.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .padding(.top, 4)
@@ -590,7 +590,7 @@ struct OnboardingView: View {
 
                 // Skip hint
                 if !serviceManager.notificationSettings.privacyShieldEnabled {
-                    Text("You can skip this and enable it later in Settings > Notifications.")
+                    Text("You can skip this and enable it later in Settings > Security.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .padding(.top, 4)

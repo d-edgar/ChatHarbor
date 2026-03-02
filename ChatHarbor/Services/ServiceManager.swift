@@ -120,6 +120,7 @@ class ServiceManager: ObservableObject {
         }
         screenShareCancellable?.cancel()
         screenShareCancellable = nil
+        privacyShieldResumeTimer?.invalidate()
 
         // ScreenShareDetector is @MainActor, so stop it asynchronously
         Task { @MainActor in
@@ -130,10 +131,38 @@ class ServiceManager: ObservableObject {
     // MARK: - Privacy Shield
 
     @Published var isScreenBeingShared: Bool = false
+    @Published var privacyShieldDismissedUntil: Date? = nil
+    private var privacyShieldResumeTimer: Timer?
 
     /// Whether the privacy shield overlay should be shown
     var shouldShowPrivacyShield: Bool {
-        notificationSettings.privacyShieldEnabled && isScreenBeingShared
+        notificationSettings.privacyShieldEnabled && isScreenBeingShared && !isPrivacyShieldTemporarilyDismissed
+    }
+
+    /// Whether the user has temporarily acknowledged and dismissed the shield
+    var isPrivacyShieldTemporarilyDismissed: Bool {
+        guard let until = privacyShieldDismissedUntil else { return false }
+        return until > Date()
+    }
+
+    /// Dismiss the privacy shield for 5 minutes
+    func dismissPrivacyShieldTemporarily() {
+        let duration: TimeInterval = 300 // 5 minutes
+        privacyShieldDismissedUntil = Date().addingTimeInterval(duration)
+
+        privacyShieldResumeTimer?.invalidate()
+        privacyShieldResumeTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.reengagePrivacyShield()
+            }
+        }
+    }
+
+    /// Immediately re-engage the privacy shield
+    func reengagePrivacyShield() {
+        privacyShieldResumeTimer?.invalidate()
+        privacyShieldResumeTimer = nil
+        privacyShieldDismissedUntil = nil
     }
 
     /// Start or stop the screen share detector based on the current setting
@@ -147,6 +176,10 @@ class ServiceManager: ObservableObject {
                     .receive(on: RunLoop.main)
                     .sink { [weak self] shared in
                         self?.isScreenBeingShared = shared
+                        // Reset dismissal when screen sharing stops so next session starts fresh
+                        if !shared {
+                            self?.reengagePrivacyShield()
+                        }
                     }
             }
         } else {
@@ -154,6 +187,7 @@ class ServiceManager: ObservableObject {
             screenShareCancellable?.cancel()
             screenShareCancellable = nil
             isScreenBeingShared = false
+            reengagePrivacyShield()
         }
     }
 

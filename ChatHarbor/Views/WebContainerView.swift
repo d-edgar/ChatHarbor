@@ -56,7 +56,14 @@ struct WebContainerView: View {
                 PrivacyShieldOverlay()
                     .transition(.opacity)
             }
+
+            // MARK: - Privacy Shield Countdown Pill
+            if serviceManager.isPrivacyShieldTemporarilyDismissed && serviceManager.isScreenBeingShared {
+                PrivacyShieldCountdownPill()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.3), value: serviceManager.isPrivacyShieldTemporarilyDismissed)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -231,6 +238,21 @@ struct PrivacyShieldOverlay: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 4)
+
+                Button {
+                    serviceManager.dismissPrivacyShieldTemporarily()
+                } label: {
+                    Label("Continue for 5 Minutes", systemImage: "clock.badge.checkmark")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
+                .padding(.top, 12)
+
+                Text("The shield will re-engage automatically.")
+                    .font(.caption2)
+                    .foregroundStyle(.quaternary)
+                    .padding(.top, 2)
             }
             .padding(32)
             .background(
@@ -242,5 +264,54 @@ struct PrivacyShieldOverlay: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Privacy Shield Countdown Pill
+
+struct PrivacyShieldCountdownPill: View {
+    @EnvironmentObject var serviceManager: ServiceManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = max(0, (serviceManager.privacyShieldDismissedUntil ?? .now).timeIntervalSince(context.date))
+            let minutes = Int(remaining) / 60
+            let seconds = Int(remaining) % 60
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        withAnimation {
+                            serviceManager.reengagePrivacyShield()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "eye.slash")
+                                .font(.system(size: 11, weight: .medium))
+
+                            Text("Shield paused · \(minutes):\(String(format: "%02d", seconds))")
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(serviceManager.currentTheme.accentColor(for: colorScheme).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help("Re-engage Privacy Shield")
+                    .padding(.trailing, 16)
+                    .padding(.top, 8)
+                }
+                Spacer()
+            }
+        }
     }
 }
