@@ -21,6 +21,7 @@ struct NotificationSettings: Codable {
 
     // Privacy Shield — blur content when screen is being shared/recorded
     var privacyShieldEnabled: Bool = false
+    var privacyShieldAutoDetect: Bool = true
     var privacyShieldBlurContent: Bool = true
     var privacyShieldShowWarning: Bool = true
 }

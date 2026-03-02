@@ -554,6 +554,9 @@ struct OnboardingView: View {
                         .font(.system(size: 13, weight: .medium))
 
                     Group {
+                        Toggle("Auto-detect screen sharing", isOn: $serviceManager.notificationSettings.privacyShieldAutoDetect)
+                            .font(.system(size: 13))
+
                         Toggle("Blur Chat Content", isOn: $serviceManager.notificationSettings.privacyShieldBlurContent)
                             .font(.system(size: 13))
 
@@ -563,6 +566,13 @@ struct OnboardingView: View {
                     .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
                     .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
                     .padding(.leading, 20)
+
+                    if serviceManager.notificationSettings.privacyShieldEnabled && !serviceManager.notificationSettings.privacyShieldAutoDetect {
+                        Text("Manual only — use ⌘⇧P to toggle the shield.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                            .padding(.leading, 20)
+                    }
                 }
 
                 Divider()
@@ -578,6 +588,12 @@ struct OnboardingView: View {
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                         Label("Detects screen recording and remote desktop sessions", systemImage: "record.circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Label("Detects AirPlay and display mirroring", systemImage: "tv")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Label("Press ⌘⇧P to manually toggle for browser sharing", systemImage: "keyboard")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                         Label("No data leaves your Mac — detection is 100% local", systemImage: "lock.fill")

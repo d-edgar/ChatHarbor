@@ -234,25 +234,60 @@ struct PrivacyShieldOverlay: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
+                if !ScreenShareDetector.shared.detectedAppName.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: ScreenShareDetector.shared.isManuallyEngaged
+                              ? "hand.raised.fill" : "app.badge")
+                            .font(.system(size: 11))
+                        Text("Triggered by **\(ScreenShareDetector.shared.detectedAppName)**")
+                            .font(.callout)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                    )
+                    .padding(.top, 4)
+                }
+
                 Text("You can turn this off in Settings → Security.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 4)
 
-                Button {
-                    serviceManager.dismissPrivacyShieldTemporarily()
-                } label: {
-                    Label("Continue for 5 Minutes", systemImage: "clock.badge.checkmark")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
-                .padding(.top, 12)
+                if ScreenShareDetector.shared.isManuallyEngaged {
+                    Button {
+                        ScreenShareDetector.shared.toggleManualEngagement()
+                    } label: {
+                        Label("Disengage Shield", systemImage: "eye")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
+                    .padding(.top, 12)
 
-                Text("The shield will re-engage automatically.")
-                    .font(.caption2)
-                    .foregroundStyle(.quaternary)
-                    .padding(.top, 2)
+                    Text("Or press ⌘⇧P to toggle.")
+                        .font(.caption2)
+                        .foregroundStyle(.quaternary)
+                        .padding(.top, 2)
+                } else {
+                    Button {
+                        serviceManager.dismissPrivacyShieldTemporarily()
+                    } label: {
+                        Label("Continue for 5 Minutes", systemImage: "clock.badge.checkmark")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
+                    .padding(.top, 12)
+
+                    Text("The shield will re-engage automatically.")
+                        .font(.caption2)
+                        .foregroundStyle(.quaternary)
+                        .padding(.top, 2)
+                }
             }
             .padding(32)
             .background(

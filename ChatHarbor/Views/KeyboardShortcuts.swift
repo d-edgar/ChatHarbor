@@ -36,5 +36,14 @@ struct ChatHarborCommands: Commands {
             }
             .keyboardShortcut("[", modifiers: .command)
         }
+
+        CommandMenu("Privacy") {
+            Button(ScreenShareDetector.shared.isManuallyEngaged
+                   ? "Disengage Privacy Shield"
+                   : "Engage Privacy Shield") {
+                ScreenShareDetector.shared.toggleManualEngagement()
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+        }
     }
 }

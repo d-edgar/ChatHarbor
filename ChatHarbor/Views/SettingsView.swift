@@ -1064,11 +1064,71 @@ struct SecuritySettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Group {
+                        Toggle("Auto-detect screen sharing", isOn: $serviceManager.notificationSettings.privacyShieldAutoDetect)
+                            .font(.system(size: 13))
+
                         Toggle("Blur Chat Content", isOn: $serviceManager.notificationSettings.privacyShieldBlurContent)
                             .font(.system(size: 13))
 
                         Toggle("Show Warning Overlay", isOn: $serviceManager.notificationSettings.privacyShieldShowWarning)
                             .font(.system(size: 13))
+                    }
+                    .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
+                    .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
+
+                    if serviceManager.notificationSettings.privacyShieldEnabled && !serviceManager.notificationSettings.privacyShieldAutoDetect {
+                        Text("Auto-detection is off. Use ⌘⇧P to manually engage the shield.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(.top, 2)
+                    }
+
+                    // Keyboard shortcut info
+                    HStack(spacing: 10) {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Manual Toggle: ⌘⇧P")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Use this shortcut to engage the shield when sharing your screen through a browser (e.g. Google Meet in Safari or Chrome), which can't be detected automatically.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(.quaternary.opacity(0.3))
+                    )
+                    .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
+                    .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)
+
+                    // Detection capabilities
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AUTO-DETECTION")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 4)
+
+                        Label("Screen sharing apps (Zoom, Teams, Discord, etc.)", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Label("Screen recording tools (QuickTime, OBS, Loom, etc.)", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Label("AirPlay and display mirroring", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Label("Remote desktop (TeamViewer, AnyDesk, etc.)", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Label("Browser-based sharing — use ⌘⇧P", systemImage: "keyboard")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                     }
                     .disabled(!serviceManager.notificationSettings.privacyShieldEnabled)
                     .opacity(serviceManager.notificationSettings.privacyShieldEnabled ? 1.0 : 0.5)

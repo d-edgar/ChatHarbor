@@ -136,7 +136,10 @@ class ServiceManager: ObservableObject {
 
     /// Whether the privacy shield overlay should be shown
     var shouldShowPrivacyShield: Bool {
-        notificationSettings.privacyShieldEnabled && isScreenBeingShared && !isPrivacyShieldTemporarilyDismissed
+        guard notificationSettings.privacyShieldEnabled else { return false }
+        let manuallyEngaged = ScreenShareDetector.shared.isManuallyEngaged
+        let autoDetected = notificationSettings.privacyShieldAutoDetect && isScreenBeingShared && !isPrivacyShieldTemporarilyDismissed
+        return manuallyEngaged || autoDetected
     }
 
     /// Whether the user has temporarily acknowledged and dismissed the shield
@@ -152,7 +155,7 @@ class ServiceManager: ObservableObject {
 
         privacyShieldResumeTimer?.invalidate()
         privacyShieldResumeTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.reengagePrivacyShield()
             }
         }
@@ -165,9 +168,9 @@ class ServiceManager: ObservableObject {
         privacyShieldDismissedUntil = nil
     }
 
-    /// Start or stop the screen share detector based on the current setting
+    /// Start or stop the screen share detector based on the current settings
     private func syncPrivacyShieldMonitoring() {
-        if notificationSettings.privacyShieldEnabled {
+        if notificationSettings.privacyShieldEnabled && notificationSettings.privacyShieldAutoDetect {
             ScreenShareDetector.shared.startMonitoring()
 
             // Subscribe to detector changes if not already subscribed
@@ -175,10 +178,12 @@ class ServiceManager: ObservableObject {
                 screenShareCancellable = ScreenShareDetector.shared.$isScreenBeingShared
                     .receive(on: RunLoop.main)
                     .sink { [weak self] shared in
-                        self?.isScreenBeingShared = shared
-                        // Reset dismissal when screen sharing stops so next session starts fresh
-                        if !shared {
-                            self?.reengagePrivacyShield()
+                        Task { @MainActor [weak self] in
+                            self?.isScreenBeingShared = shared
+                            // Reset dismissal when screen sharing stops so next session starts fresh
+                            if !shared {
+                                self?.reengagePrivacyShield()
+                            }
                         }
                     }
             }
