@@ -181,8 +181,10 @@ struct PooledWebView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            if navigationAction.targetFrame == nil {
-                webView.load(navigationAction.request)
+            Task { @MainActor in
+                if navigationAction.targetFrame == nil {
+                    webView.load(navigationAction.request)
+                }
             }
             return nil
         }

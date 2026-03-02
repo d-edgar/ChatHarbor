@@ -182,7 +182,7 @@ struct SidebarView: View {
 
                             Spacer()
 
-                            Text("v1.0.0")
+                            Text("v1.0.1")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.tertiary)
                         }
@@ -345,7 +345,7 @@ struct AboutPopoverView: View {
             Text("ChatHarbor")
                 .font(.headline)
 
-            Text("Version 1.0.0")
+            Text("Version 1.0.1")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

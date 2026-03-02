@@ -88,10 +88,10 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
-        guard let body = message.body as? [String: Any],
-              let type = body["type"] as? String else { return }
-
         Task { @MainActor [self] in
+            guard let body = message.body as? [String: Any],
+                  let type = body["type"] as? String else { return }
+
             switch type {
             case "notification":
                 handleWebNotification(body)
