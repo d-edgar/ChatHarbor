@@ -8,8 +8,8 @@ import AppKit
 /// environment (e.g. `window.webkit.messageHandlers`). This helper creates a
 /// temporary browser window with a *clean* WKWebView — no injected scripts or
 /// message handlers — that shares cookies with the main web views via the same
-/// `WKProcessPool`. After the user signs in, cookies propagate automatically
-/// and the popup closes.
+/// `WKProcessPool`. After the user signs in, the redirect URL is loaded back
+/// in the original web view and the popup closes automatically.
 @MainActor
 final class GoogleSignInHelper: NSObject {
 
@@ -17,17 +17,22 @@ final class GoogleSignInHelper: NSObject {
 
     private var signInWindow: NSWindow?
     private var signInWebView: WKWebView?
+    /// The original web view that initiated the sign-in flow
+    private weak var originatingWebView: WKWebView?
     private var onComplete: (() -> Void)?
 
     // MARK: - Google OAuth URL Detection
 
-    /// Domains that indicate a Google sign-in flow.
+    /// Domains that are part of Google's sign-in / consent flow.
     private static let googleAuthDomains: Set<String> = [
         "accounts.google.com",
         "accounts.youtube.com",
+        "myaccount.google.com",
+        "consent.google.com",
+        "consent.youtube.com",
     ]
 
-    /// Returns `true` if the URL is a Google sign-in / OAuth page.
+    /// Returns `true` if the URL is part of Google's sign-in / OAuth flow.
     /// Marked `nonisolated` so it can be called from WKNavigationDelegate methods.
     nonisolated static func isGoogleSignInURL(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
@@ -39,14 +44,20 @@ final class GoogleSignInHelper: NSObject {
     /// Present a popup browser window for Google sign-in.
     /// - Parameters:
     ///   - url: The `accounts.google.com` URL to load.
+    ///   - originatingWebView: The web view that triggered the sign-in redirect.
     ///   - completion: Called when sign-in finishes (window closes).
-    func openSignIn(url: URL, completion: @escaping () -> Void) {
+    func openSignIn(
+        url: URL,
+        originatingWebView: WKWebView,
+        completion: @escaping () -> Void
+    ) {
         // If a sign-in window is already open, just bring it forward
         if let existing = signInWindow {
             existing.makeKeyAndOrderFront(nil)
             return
         }
 
+        self.originatingWebView = originatingWebView
         onComplete = completion
 
         // Create a clean configuration — same process pool (shared cookies),
@@ -83,11 +94,19 @@ final class GoogleSignInHelper: NSObject {
 
     // MARK: - Cleanup
 
-    private func closeWindow() {
+    /// Close the popup and optionally load a redirect URL in the original web view.
+    private func closeWindow(redirectURL: URL? = nil) {
         signInWindow?.close()
         signInWebView?.navigationDelegate = nil
         signInWebView = nil
         signInWindow = nil
+
+        // Load the post-auth redirect in the original web view
+        if let url = redirectURL, let webView = originatingWebView {
+            webView.load(URLRequest(url: url))
+        }
+
+        originatingWebView = nil
         let callback = onComplete
         onComplete = nil
         callback?()
@@ -107,29 +126,29 @@ final class GoogleSignInHelper: NSObject {
 
 extension GoogleSignInHelper: WKNavigationDelegate {
 
-    /// Monitor navigation — when the user finishes sign-in and is redirected
-    /// away from Google's auth domain, close the popup.
-    func webView(
-        _ webView: WKWebView,
-        didFinish navigation: WKNavigation!
-    ) {
-        guard let currentURL = webView.url else { return }
-
-        // If we've navigated away from Google's auth pages, sign-in is complete
-        if !Self.isGoogleSignInURL(currentURL) &&
-           currentURL.host?.lowercased() != "myaccount.google.com" &&
-           currentURL.host?.lowercased() != "consent.google.com" {
-            closeWindow()
-        }
-    }
-
-    /// Allow all navigations within the sign-in window
+    /// Intercept navigations in the popup. Allow Google auth pages to load
+    /// normally. When the flow redirects away from Google (back to the
+    /// service), cancel it here and load that URL in the original web view.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
-        decisionHandler(.allow)
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        // Stay on Google auth pages — let them load in the popup
+        if Self.isGoogleSignInURL(url) {
+            decisionHandler(.allow)
+            return
+        }
+
+        // Navigation is leaving Google auth (redirect back to the service).
+        // Don't let it load in the popup — send it to the original web view.
+        decisionHandler(.cancel)
+        closeWindow(redirectURL: url)
     }
 }
 
@@ -144,6 +163,7 @@ extension GoogleSignInHelper: NSWindowDelegate {
         signInWebView?.navigationDelegate = nil
         signInWebView = nil
         signInWindow = nil
+        originatingWebView = nil
         callback?()
     }
 }

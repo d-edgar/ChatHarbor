@@ -197,10 +197,12 @@ struct PooledWebView: NSViewRepresentable {
             // Cancel navigation in the embedded view and open in a clean popup
             decisionHandler(.cancel)
 
-            GoogleSignInHelper.shared.openSignIn(url: url) { [weak webView] in
-                // After sign-in completes, reload the page so it picks up
-                // the new authentication cookies
-                webView?.reload()
+            GoogleSignInHelper.shared.openSignIn(
+                url: url,
+                originatingWebView: webView
+            ) {
+                // Sign-in complete — the helper loads the redirect URL
+                // directly in the original web view, so nothing else needed.
             }
         }
 
