@@ -60,7 +60,9 @@ jobs:
             -arch arm64 -arch x86_64 \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
+            DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--options runtime"
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -96,7 +98,17 @@ jobs:
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --team-id "$TEAM_ID" \
-            --wait
+            --wait 2>&1 | tee notarize_output.txt
+
+          # If notarization failed, fetch the log for debugging
+          SUBMISSION_ID=$(grep -o '[0-9a-f\-]\{36\}' notarize_output.txt | head -1)
+          if grep -q "Invalid" notarize_output.txt; then
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --team-id "$TEAM_ID" || true
+            exit 1
+          fi
 
           # Staple the notarization ticket to the DMG
           xcrun stapler staple "$DMG_NAME"
