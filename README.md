@@ -1,5 +1,9 @@
 # ChatHarbor
 
+[![GitHub release](https://img.shields.io/github/v/release/d-edgar/ChatHarbor)](https://github.com/d-edgar/ChatHarbor/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-15%2B-brightgreen)](https://github.com/d-edgar/ChatHarbor/releases/latest)
+
 A lightweight, native macOS app that wraps your chat services into a single window with native notifications and dock badges. Built with Swift and WebKit, not Electron.
 
 ## Why ChatHarbor?
@@ -23,23 +27,24 @@ ChatHarbor uses macOS native WebKit (`WKWebView`), sharing the system Safari eng
 ## Requirements
 
 - macOS 15 Sequoia or later
-- Xcode 16+ (to build from source)
 
 ## Installation
 
+### Download
+
+Grab the latest `.dmg` from the [Releases](https://github.com/d-edgar/ChatHarbor/releases/latest) page. Open it, drag ChatHarbor to Applications, done.
+
 ### Build from Source
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/d-edgar/ChatHarbor.git
-   ```
-2. Open the project in Xcode
-3. Select your signing team under Signing & Capabilities
-4. Build and run (Cmd+R)
+Requires Xcode 16+.
 
-### Download Release
+```bash
+git clone https://github.com/d-edgar/ChatHarbor.git
+cd ChatHarbor
+open ChatHarbor.xcodeproj
+```
 
-Check the [Releases](https://github.com/d-edgar/ChatHarbor/releases) page for prebuilt .dmg files.
+Select your signing team under **Signing & Capabilities**, then build and run (Cmd+R).
 
 ## Usage
 
@@ -75,7 +80,7 @@ ChatHarbor injects a small JavaScript snippet into each web view that overrides 
 
 ## Contributing
 
-Contributions welcome. Open an issue or PR.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
