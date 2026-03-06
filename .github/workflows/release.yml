@@ -30,6 +30,12 @@ jobs:
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
+          # Download and install Apple intermediate certificates
+          curl -sL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o $RUNNER_TEMP/DeveloperIDG2CA.cer
+          curl -sL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o $RUNNER_TEMP/AppleWWDRCAG3.cer
+          security import $RUNNER_TEMP/DeveloperIDG2CA.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+          security import $RUNNER_TEMP/AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+
           # Import the certificate
           CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
           echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
@@ -43,6 +49,7 @@ jobs:
 
           # Verify the certificate was imported
           security find-identity -v -p codesigning $KEYCHAIN_PATH
+          security find-identity -v -p codesigning
 
       - name: Build
         run: |
