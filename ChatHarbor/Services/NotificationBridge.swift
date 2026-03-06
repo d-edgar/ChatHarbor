@@ -358,6 +358,10 @@ class NotificationBridge: NSObject, WKScriptMessageHandler {
         let title = body["title"] as? String ?? serviceName
         let messageBody = body["body"] as? String ?? ""
 
+        // Increment the sidebar badge count
+        let currentCount = manager.services.first(where: { $0.id == serviceId })?.notificationCount ?? 0
+        manager.updateNotificationCount(for: serviceId, count: currentCount + 1)
+
         let content = UNMutableNotificationContent()
         content.title = "\(serviceName): \(title)"
         content.body = messageBody

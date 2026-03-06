@@ -277,6 +277,9 @@ class ServiceManager: ObservableObject {
         }
 
         selectedServiceId = serviceId
+
+        // Clear the badge when the user views a service
+        updateNotificationCount(for: serviceId, count: 0)
     }
 
     /// Called after the user dismisses the workspace warning
