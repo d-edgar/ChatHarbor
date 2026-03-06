@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 
+@MainActor
 class ServiceManager: ObservableObject {
     @Published var services: [ChatService]
     @Published var categories: [String]
