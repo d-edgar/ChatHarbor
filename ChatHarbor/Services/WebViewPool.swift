@@ -12,6 +12,9 @@ final class WebViewPool {
 
     static let shared = WebViewPool()
 
+    /// Shared process pool so all web views (including sign-in popups) share cookies/sessions
+    let processPool = WKProcessPool()
+
     /// Cached web views keyed by service ID
     private var webViews: [String: WKWebView] = [:]
 
@@ -82,6 +85,7 @@ final class WebViewPool {
         serviceManager: ServiceManager
     ) -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        configuration.processPool = processPool
 
         // Enable JavaScript
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
