@@ -52,24 +52,26 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Create DMG
         run: |
           APP_PATH="build/Build/Products/Release/ChatHarbor.app"
           DMG_NAME="ChatHarbor-${GITHUB_REF_NAME}.dmg"
 
-          # Create a temporary directory for the DMG contents
-          mkdir -p dmg_contents
-          cp -R "$APP_PATH" dmg_contents/
-          ln -s /Applications dmg_contents/Applications
-
-          # Create the DMG
-          hdiutil create -volname "ChatHarbor" \
-            -srcfolder dmg_contents \
-            -ov -format UDZO \
-            "$DMG_NAME"
-
-          # Sign the DMG itself
-          codesign --force --sign "Developer ID Application" "$DMG_NAME"
+          create-dmg \
+            --volname "ChatHarbor" \
+            --background ".github/dmg-background.png" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 80 \
+            --icon "ChatHarbor.app" 130 240 \
+            --app-drop-link 530 240 \
+            --hide-extension "ChatHarbor.app" \
+            --codesign "Developer ID Application" \
+            "$DMG_NAME" \
+            "$APP_PATH"
 
       - name: Notarize DMG
         env:
