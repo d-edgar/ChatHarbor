@@ -62,7 +62,8 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
             ENABLE_HARDENED_RUNTIME=YES \
-            OTHER_CODE_SIGN_FLAGS="--options runtime"
+            OTHER_CODE_SIGN_FLAGS="--options runtime --timestamp" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
 
       - name: Install create-dmg
         run: brew install create-dmg
