@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report a Bug — ChatHarbor</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #e2e8f0;
+            --input-bg: #ffffff;
+            --glow: rgba(59, 130, 246, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b0f1a;
+                --surface: rgba(30, 41, 59, 0.5);
+                --text: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --accent: #60a5fa;
+                --accent-hover: #93bbfd;
+                --border: rgba(148, 163, 184, 0.12);
+                --input-bg: rgba(30, 41, 59, 0.6);
+                --glow: rgba(96, 165, 250, 0.06);
+            }
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, var(--glow) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        header {
+            padding: 48px 0 32px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 36px;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        .back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            transition: color 0.2s ease;
+        }
+
+        .back:hover { color: var(--accent); text-decoration: none; }
+
+        h1 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--text) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        main {
+            padding-bottom: 48px;
+            animation: fadeUp 0.5s ease 0.1s both;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 36px;
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        p.secondary {
+            color: var(--text-secondary);
+        }
+
+        .option-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        .option-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+            border-color: var(--accent);
+        }
+
+        .option-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .option-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .option-card a.btn {
+            display: inline-block;
+            background: var(--accent);
+            color: #ffffff;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+
+        .option-card a.btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            text-decoration: none;
+        }
+
+        .checklist {
+            margin: 16px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .checklist li {
+            position: relative;
+            padding-left: 32px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .checklist li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 20px;
+            height: 20px;
+            background: var(--glow);
+            border: 1.5px solid var(--accent);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .checklist li::after {
+            content: "\2713";
+            position: absolute;
+            left: 4px;
+            top: 2px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        footer {
+            text-align: center;
+            padding: 28px 0 56px;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
+            <h1>Report a Bug</h1>
+            <p class="subtitle">Found something that isn't working right? Let us know.</p>
+        </header>
+
+        <main>
+            <p>
+                We appreciate you taking the time to report issues. Your feedback helps make ChatHarbor
+                better for everyone. Choose one of the options below to get in touch.
+            </p>
+
+            <div class="option-card">
+                <h3>&#128233; Email</h3>
+                <p>
+                    Send a quick email describing the issue. This is the easiest option if you're not on GitHub.
+                </p>
+                <a class="btn" href="mailto:david.emerson.edgar@gmail.com?subject=ChatHarbor%20Bug%20Report&body=%0A---%0AmacOS%20Version%3A%20%0AChatHarbor%20Version%3A%20%0A%0ADescribe%20the%20issue%3A%0A%0ASteps%20to%20reproduce%3A%0A1.%20%0A2.%20%0A3.%20%0A%0AExpected%20behavior%3A%0A%0AActual%20behavior%3A%0A">
+                    Send Bug Report Email
+                </a>
+            </div>
+
+            <div class="option-card">
+                <h3>&#128736;&#65039; GitHub Issues</h3>
+                <p>
+                    Open an issue on our GitHub repository. Great if you want to track progress on the fix
+                    or provide detailed technical information.
+                </p>
+                <a class="btn" href="https://github.com/d-edgar/ChatHarbor/issues/new?template=bug_report.md&title=%5BBug%5D+">
+                    Open GitHub Issue
+                </a>
+            </div>
+
+            <h2>What to include</h2>
+            <p>
+                To help us fix the issue quickly, please try to include as much of the following as you can:
+            </p>
+            <ul class="checklist">
+                <li>Your macOS version (e.g., macOS 15.3)</li>
+                <li>ChatHarbor version (found in the About section)</li>
+                <li>Which messaging service was affected</li>
+                <li>Steps to reproduce the issue</li>
+                <li>What you expected to happen vs. what actually happened</li>
+                <li>Screenshots, if applicable</li>
+            </ul>
+
+            <h2>Feature Requests</h2>
+            <p>
+                Have an idea for a new feature or improvement? We'd love to hear it. Feel free to use the
+                same channels above — just change the subject to "Feature Request" so we can keep things organized.
+            </p>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 <a href="https://dedgar.de" style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:2px;">David Edgar</a>. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>

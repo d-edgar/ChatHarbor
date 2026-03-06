@@ -1,0 +1,59 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#7DD3FC"/>
+            <stop offset="100%" stop-color="#38BDF8"/>
+        </linearGradient>
+        <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1D4ED8"/>
+            <stop offset="100%" stop-color="#0F172A"/>
+        </linearGradient>
+        <linearGradient id="sailGrad" x1="0" y1="0" x2="1" y2="0.5">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#DBEAFE"/>
+        </linearGradient>
+        <clipPath id="rounded">
+            <rect width="512" height="512" rx="112"/>
+        </clipPath>
+    </defs>
+    <g clip-path="url(#rounded)">
+        <rect width="512" height="512" fill="url(#sky)"/>
+        <g transform="translate(256, 268)">
+            <path d="M4,-148 L4,10 L78,-10 Z" fill="url(#sailGrad)" opacity="0.95"/>
+            <path d="M-2,-128 L-2,5 L-58,-8 Z" fill="#ffffff" opacity="0.82"/>
+            <line x1="2" y1="-154" x2="2" y2="15" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+            <path d="M-72,15 C-72,15 -67,52 -32,57 L37,57 C67,52 77,15 77,15 Z" fill="#ffffff" opacity="0.95"/>
+            <path d="M-60,30 C-57,44 -37,50 -22,50 L27,50 C47,48 60,40 64,30" fill="none" stroke="#60A5FA" stroke-width="3" opacity="0.5"/>
+        </g>
+        <path d="M-20,310 Q60,285 140,310 Q220,335 300,310 Q380,285 460,310 Q500,322 540,310 L540,520 L-20,520 Z" fill="url(#ocean)"/>
+        <path d="M-20,310 Q60,285 140,310 Q220,335 300,310 Q380,285 460,310 Q500,322 540,310" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.25"/>
+        <path d="M-20,350 Q80,335 160,350 Q240,365 320,350 Q400,335 480,350 Q520,358 540,350" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.15"/>
+        <path d="M-20,385 Q70,372 150,385 Q230,398 310,385 Q390,372 470,385 Q510,392 540,385" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.1"/>
+        <g transform="translate(55, 48)">
+            <rect width="56" height="36" rx="12" fill="#ffffff" opacity="0.55"/>
+            <polygon points="16,36 11,47 24,36" fill="#ffffff" opacity="0.55"/>
+            <circle cx="18" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
+            <circle cx="29" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
+            <circle cx="40" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
+        </g>
+        <g transform="translate(338, 55)">
+            <rect width="74" height="48" rx="15" fill="#ffffff" opacity="0.88"/>
+            <polygon points="20,48 14,62 30,48" fill="#ffffff" opacity="0.88"/>
+            <circle cx="23" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
+            <circle cx="39" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
+            <circle cx="55" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
+        </g>
+        <g transform="translate(190, 30)">
+            <rect width="50" height="32" rx="11" fill="#ffffff" opacity="0.4"/>
+            <polygon points="30,32 26,42 36,32" fill="#ffffff" opacity="0.4"/>
+            <line x1="12" y1="13" x2="38" y2="13" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+            <line x1="12" y1="22" x2="30" y2="22" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+        </g>
+        <g transform="translate(35, 150)">
+            <rect width="44" height="30" rx="10" fill="#ffffff" opacity="0.35"/>
+            <polygon points="30,30 34,39 38,30" fill="#ffffff" opacity="0.35"/>
+            <line x1="10" y1="12" x2="34" y2="12" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+            <line x1="10" y1="20" x2="26" y2="20" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+        </g>
+    </g>
+</svg>

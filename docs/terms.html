@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Use — ChatHarbor</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #e2e8f0;
+            --glow: rgba(59, 130, 246, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b0f1a;
+                --surface: rgba(30, 41, 59, 0.5);
+                --text: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --accent: #60a5fa;
+                --accent-hover: #93bbfd;
+                --border: rgba(148, 163, 184, 0.12);
+                --glow: rgba(96, 165, 250, 0.06);
+            }
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, var(--glow) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        header {
+            padding: 48px 0 32px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 36px;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        .back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            transition: color 0.2s ease;
+        }
+
+        .back:hover { color: var(--accent); text-decoration: none; }
+
+        h1 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--text) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .effective {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        main {
+            padding-bottom: 48px;
+            animation: fadeUp 0.5s ease 0.1s both;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 36px;
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        ul {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        footer {
+            text-align: center;
+            padding: 28px 0 56px;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
+            <h1>Terms of Use</h1>
+            <p class="effective">Effective date: March 1, 2026</p>
+        </header>
+
+        <main>
+            <p>
+                Please read these Terms of Use ("Terms") carefully before using ChatHarbor ("the App"),
+                developed by David Edgar ("Developer," "we," "us," or "our"). By downloading, installing,
+                or using the App, you agree to be bound by these Terms.
+            </p>
+
+            <h2>1. Acceptance of Terms</h2>
+            <p>
+                By accessing or using ChatHarbor, you agree to these Terms of Use. If you do not agree
+                to these Terms, do not download, install, or use the App.
+            </p>
+
+            <h2>2. Description of Service</h2>
+            <p>
+                ChatHarbor is a native macOS application that aggregates web-based messaging services
+                into a single window using embedded browser views. The App provides a convenience layer
+                for accessing third-party messaging platforms. ChatHarbor does not operate, control, or
+                modify these third-party services in any way.
+            </p>
+
+            <h2>3. License</h2>
+            <p>
+                Subject to your compliance with these Terms, we grant you a limited, non-exclusive,
+                non-transferable, revocable license to download and use the App on any macOS device
+                that you own or control, for your personal, non-commercial use, in accordance with
+                Apple's usage rules set forth in the App Store Terms of Service.
+            </p>
+
+            <h2>4. Third-Party Services</h2>
+            <p>
+                ChatHarbor displays content from third-party messaging services. Your use of those
+                services is subject to their respective terms of service and privacy policies. We are
+                not responsible for the availability, content, policies, or practices of any third-party
+                service. You acknowledge that:
+            </p>
+            <ul>
+                <li>We have no affiliation with or endorsement from the third-party services accessible through the App.</li>
+                <li>Third-party services may change, restrict, or discontinue their web interfaces at any time, which may affect the App's functionality.</li>
+                <li>You are solely responsible for your accounts with and use of any third-party service.</li>
+            </ul>
+
+            <h2>5. Trademarks</h2>
+            <p>
+                All third-party product names, logos, and brands mentioned in or accessible through the
+                App are the property of their respective owners. ChatHarbor is not endorsed by, affiliated
+                with, or sponsored by any of the third-party services it supports. Any use of third-party
+                names is for identification purposes only.
+            </p>
+
+            <h2>6. User Conduct</h2>
+            <p>
+                You agree not to use the App to:
+            </p>
+            <ul>
+                <li>Violate any applicable laws or regulations.</li>
+                <li>Violate the terms of service of any third-party messaging service.</li>
+                <li>Engage in any activity that could harm, disable, or impair the App or any third-party service.</li>
+                <li>Reverse engineer, decompile, or disassemble the App, except to the extent permitted by applicable law.</li>
+            </ul>
+
+            <h2>7. Disclaimer of Warranties</h2>
+            <p>
+                THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER
+                EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY,
+                FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP
+                WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF HARMFUL COMPONENTS.
+            </p>
+
+            <h2>8. Limitation of Liability</h2>
+            <p>
+                TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE DEVELOPER BE
+                LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY
+                LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA,
+                USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR USE OF OR INABILITY TO USE
+                THE APP.
+            </p>
+
+            <h2>9. Modifications to the App</h2>
+            <p>
+                We reserve the right to modify, suspend, or discontinue the App (or any features) at any
+                time without notice. We shall not be liable to you or any third party for any modification,
+                suspension, or discontinuance of the App.
+            </p>
+
+            <h2>10. Changes to These Terms</h2>
+            <p>
+                We may revise these Terms from time to time. The most current version will always be
+                available on this page. By continuing to use the App after revisions become effective,
+                you agree to be bound by the revised Terms.
+            </p>
+
+            <h2>11. Governing Law</h2>
+            <p>
+                These Terms shall be governed by and construed in accordance with the laws of the
+                United States, without regard to conflict of law principles.
+            </p>
+
+            <h2>12. Contact</h2>
+            <p>
+                If you have any questions about these Terms, please contact us at:
+            </p>
+            <p>
+                <a href="mailto:david.emerson.edgar@gmail.com">david.emerson.edgar@gmail.com</a>
+            </p>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 <a href="https://dedgar.de" style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:2px;">David Edgar</a>. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
