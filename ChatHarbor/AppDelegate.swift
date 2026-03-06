@@ -63,7 +63,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - Dock Badge & Bounce
 
-    static func updateDockBadge(count: Int) {
+    @MainActor static func updateDockBadge(count: Int) {
         if let settings = serviceManager?.notificationSettings, !settings.showDockBadge {
             NSApp.dockTile.badgeLabel = nil
             return

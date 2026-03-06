@@ -94,7 +94,9 @@ class ServiceManager: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             if let serviceId = notification.userInfo?["serviceId"] as? String {
-                self?.selectService(serviceId)
+                Task { @MainActor [weak self] in
+                    self?.selectService(serviceId)
+                }
             }
         }
 
