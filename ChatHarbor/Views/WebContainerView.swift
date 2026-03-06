@@ -183,13 +183,17 @@ struct PooledWebView: NSViewRepresentable {
 
         /// Intercept navigation to Google's sign-in pages and open them in a
         /// clean popup window that Google won't block.
+        ///
+        /// Only intercepts **main frame** navigations so that background auth
+        /// checks (token refreshes, iframe-based auth) don't trigger the popup.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
             guard let url = navigationAction.request.url,
-                  GoogleSignInHelper.isGoogleSignInURL(url) else {
+                  GoogleSignInHelper.isGoogleSignInURL(url),
+                  navigationAction.targetFrame?.isMainFrame == true else {
                 decisionHandler(.allow)
                 return
             }
