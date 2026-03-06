@@ -1,6 +1,5 @@
 import SwiftUI
-import WebKit
-import AuthenticationServices
+@preconcurrency import WebKit
 
 // MARK: - Web Container View
 
@@ -184,7 +183,7 @@ struct PooledWebView: NSViewRepresentable {
 
         /// Intercept navigation to Google's sign-in pages and open them in a
         /// clean popup window that Google won't block.
-        nonisolated func webView(
+        func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
@@ -198,12 +197,10 @@ struct PooledWebView: NSViewRepresentable {
             // Cancel navigation in the embedded view and open in a clean popup
             decisionHandler(.cancel)
 
-            Task { @MainActor [weak webView] in
-                GoogleSignInHelper.shared.openSignIn(url: url) {
-                    // After sign-in completes, reload the page so it picks up
-                    // the new authentication cookies
-                    webView?.reload()
-                }
+            GoogleSignInHelper.shared.openSignIn(url: url) { [weak webView] in
+                // After sign-in completes, reload the page so it picks up
+                // the new authentication cookies
+                webView?.reload()
             }
         }
 

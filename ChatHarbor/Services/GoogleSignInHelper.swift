@@ -1,5 +1,5 @@
 import Foundation
-import WebKit
+@preconcurrency import WebKit
 import AppKit
 
 /// Opens Google sign-in in a clean popup window that Google won't block.
@@ -28,7 +28,8 @@ final class GoogleSignInHelper: NSObject {
     ]
 
     /// Returns `true` if the URL is a Google sign-in / OAuth page.
-    static func isGoogleSignInURL(_ url: URL) -> Bool {
+    /// Marked `nonisolated` so it can be called from WKNavigationDelegate methods.
+    nonisolated static func isGoogleSignInURL(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return googleAuthDomains.contains(host)
     }
@@ -108,24 +109,22 @@ extension GoogleSignInHelper: WKNavigationDelegate {
 
     /// Monitor navigation — when the user finishes sign-in and is redirected
     /// away from Google's auth domain, close the popup.
-    nonisolated func webView(
+    func webView(
         _ webView: WKWebView,
         didFinish navigation: WKNavigation!
     ) {
-        Task { @MainActor in
-            guard let currentURL = webView.url else { return }
+        guard let currentURL = webView.url else { return }
 
-            // If we've navigated away from Google's auth pages, sign-in is complete
-            if !Self.isGoogleSignInURL(currentURL) &&
-               currentURL.host?.lowercased() != "myaccount.google.com" &&
-               currentURL.host?.lowercased() != "consent.google.com" {
-                closeWindow()
-            }
+        // If we've navigated away from Google's auth pages, sign-in is complete
+        if !Self.isGoogleSignInURL(currentURL) &&
+           currentURL.host?.lowercased() != "myaccount.google.com" &&
+           currentURL.host?.lowercased() != "consent.google.com" {
+            closeWindow()
         }
     }
 
     /// Allow all navigations within the sign-in window
-    nonisolated func webView(
+    func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
@@ -139,14 +138,12 @@ extension GoogleSignInHelper: WKNavigationDelegate {
 extension GoogleSignInHelper: NSWindowDelegate {
 
     /// If the user manually closes the window, clean up.
-    nonisolated func windowWillClose(_ notification: Notification) {
-        Task { @MainActor in
-            let callback = onComplete
-            onComplete = nil
-            signInWebView?.navigationDelegate = nil
-            signInWebView = nil
-            signInWindow = nil
-            callback?()
-        }
+    func windowWillClose(_ notification: Notification) {
+        let callback = onComplete
+        onComplete = nil
+        signInWebView?.navigationDelegate = nil
+        signInWebView = nil
+        signInWindow = nil
+        callback?()
     }
 }

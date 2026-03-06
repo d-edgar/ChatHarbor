@@ -2,7 +2,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/d-edgar/ChatHarbor)](https://github.com/d-edgar/ChatHarbor/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![macOS](https://img.shields.io/badge/macOS-15%2B-brightgreen)](https://github.com/d-edgar/ChatHarbor/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-brightgreen)](https://github.com/d-edgar/ChatHarbor/releases/latest)
 
 A lightweight, native macOS app that wraps your chat services into a single window with native notifications and dock badges. Built with Swift and WebKit, not Electron.
 
@@ -22,11 +22,14 @@ ChatHarbor uses macOS native WebKit (`WKWebView`), sharing the system Safari eng
 - **Keyboard shortcuts**: Cmd+1 through Cmd+9 to switch services, Cmd+R to reload
 - **Camera and microphone support**: Works with voice/video calls in Teams, Discord, etc.
 - **Reorderable sidebar**: Drag services into your preferred order
+- **Screen share detection**: Automatically detects when you're sharing your screen
+- **Google sign-in support**: OAuth flows open in a trusted popup so Google doesn't block them
+- **Signed and notarized**: Releases are code-signed with a Developer ID certificate and notarized by Apple
 - **Lightweight**: Fraction of the memory footprint of Electron alternatives
 
 ## Requirements
 
-- macOS 15 Sequoia or later
+- macOS 14 Sonoma or later
 
 ## Installation
 
@@ -65,7 +68,10 @@ ChatHarbor/
     ChatService.swift         # Service model with preconfigured definitions
   Services/
     ServiceManager.swift      # State management and persistence
+    WebViewPool.swift         # Pooled WKWebViews with shared cookies
     NotificationBridge.swift  # JS injection to bridge web notifications to native
+    GoogleSignInHelper.swift  # Clean popup window for Google OAuth
+    ScreenShareDetector.swift # Detects active screen sharing sessions
   Views/
     ContentView.swift         # Main NavigationSplitView layout
     SidebarView.swift         # Service icons with notification badges
