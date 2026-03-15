@@ -1,40 +1,39 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct ChatHarborApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var serviceManager = ServiceManager()
+    @StateObject private var chatManager = ChatManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(serviceManager)
-                .frame(minWidth: 900, minHeight: 600)
-                .onAppear {
-                    AppDelegate.serviceManager = serviceManager
-                }
+                .environmentObject(chatManager)
+                .frame(minWidth: 700, minHeight: 500)
         }
+        .modelContainer(for: [Conversation.self, Message.self])
         .windowStyle(.titleBar)
-        .defaultSize(width: 1100, height: 750)
+        .defaultSize(width: 1000, height: 700)
         .commands {
-            ChatHarborCommands(serviceManager: serviceManager)
+            ChatHarborCommands(chatManager: chatManager)
         }
 
         Settings {
             ThemedSettingsWrapper()
-                .environmentObject(serviceManager)
+                .environmentObject(chatManager)
         }
     }
 }
 
 /// Wrapper that applies the current theme tint to the Settings window
 struct ThemedSettingsWrapper: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         SettingsView()
-            .environmentObject(serviceManager)
-            .tint(serviceManager.currentTheme.accentColor(for: colorScheme))
+            .environmentObject(chatManager)
+            .tint(chatManager.currentTheme.accentColor(for: colorScheme))
     }
 }

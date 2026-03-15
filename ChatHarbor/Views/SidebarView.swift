@@ -1,30 +1,33 @@
 import SwiftUI
+import SwiftData
+
+// MARK: - Sidebar View
+//
+// Shows the conversation list, model picker, and settings/about links.
 
 struct SidebarView: View {
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @Binding var isExpanded: Bool
     @State private var showingAboutPopover = false
+    @State private var searchText = ""
 
-    /// Flat list of enabled services so we can assign Cmd+1, Cmd+2, etc.
-    private var indexedServices: [(index: Int, service: ChatService)] {
-        serviceManager.enabledServices.enumerated().map { ($0.offset, $0.element) }
-    }
-
-    /// Look up the shortcut number (1-9) for a service, or nil if > 9
-    private func shortcutNumber(for service: ChatService) -> Int? {
-        guard let idx = indexedServices.first(where: { $0.service.id == service.id })?.index,
-              idx < 9 else { return nil }
-        return idx + 1
+    private var filteredConversations: [Conversation] {
+        if searchText.isEmpty { return conversations }
+        return conversations.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // MARK: - Header (clickable to go home, only shown when expanded)
+            // MARK: - Header
             if isExpanded {
                 HStack {
                     Button {
-                        serviceManager.selectedServiceId = nil
+                        chatManager.selectedConversationId = nil
                     } label: {
                         HStack(spacing: 6) {
                             Image("ChatHarborLogo")
@@ -39,7 +42,7 @@ struct SidebarView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .help("Go to home screen")
+                    .help("Home")
 
                     Spacer()
 
@@ -59,9 +62,7 @@ struct SidebarView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
             } else {
-                // Compact: just the toggle button, no logo
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isExpanded.toggle()
@@ -81,15 +82,70 @@ struct SidebarView: View {
 
             Divider()
 
-            // MARK: - Service List
+            // MARK: - New Chat Button
+            if isExpanded {
+                Button {
+                    let conversation = chatManager.createConversation(in: modelContext)
+                    chatManager.selectedConversationId = conversation.id
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.bubble")
+                            .font(.system(size: 13))
+                        Text("New Chat")
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer()
+                        Text("⌘N")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.quaternary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.top, 8)
+            } else {
+                Button {
+                    let conversation = chatManager.createConversation(in: modelContext)
+                    chatManager.selectedConversationId = conversation.id
+                } label: {
+                    Image(systemName: "plus.bubble")
+                        .font(.system(size: 17))
+                        .frame(width: 36, height: 36)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("New Chat (⌘N)")
+                .padding(.top, 8)
+            }
+
+            // MARK: - Search
+            if isExpanded && conversations.count > 5 {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    TextField("Search…", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+            }
+
+            // MARK: - Conversation List
             ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(serviceManager.categories, id: \.self) { category in
-                        let servicesInCategory = serviceManager.enabledServices(inCategory: category)
-                        if !servicesInCategory.isEmpty {
-                            if isExpanded {
+                LazyVStack(spacing: 2) {
+                    if isExpanded {
+                        ForEach(groupedConversations, id: \.label) { group in
+                            if !group.conversations.isEmpty {
                                 HStack {
-                                    Text(category.uppercased())
+                                    Text(group.label.uppercased())
                                         .font(.system(size: 10, weight: .semibold))
                                         .foregroundStyle(.tertiary)
                                     Spacer()
@@ -97,36 +153,29 @@ struct SidebarView: View {
                                 .padding(.horizontal, 14)
                                 .padding(.top, 12)
                                 .padding(.bottom, 4)
-                            } else {
-                                let firstNonEmpty = serviceManager.categories.first { cat in
-                                    !serviceManager.enabledServices(inCategory: cat).isEmpty
-                                }
-                                if category != firstNonEmpty {
-                                    Divider()
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 6)
+
+                                ForEach(group.conversations) { conversation in
+                                    ConversationRow(
+                                        conversation: conversation,
+                                        isSelected: chatManager.selectedConversationId == conversation.id
+                                    ) {
+                                        chatManager.selectedConversationId = conversation.id
+                                    }
+                                    .contextMenu {
+                                        Button("Delete", role: .destructive) {
+                                            chatManager.deleteConversation(conversation, in: modelContext)
+                                        }
+                                    }
                                 }
                             }
-
-                            ForEach(servicesInCategory) { service in
-                                let shortcut = shortcutNumber(for: service)
-                                if isExpanded {
-                                    ExpandedServiceRow(
-                                        service: service,
-                                        isSelected: serviceManager.selectedServiceId == service.id,
-                                        shortcutNumber: shortcut
-                                    ) {
-                                        serviceManager.selectService(service.id)
-                                    }
-                                } else {
-                                    CompactServiceRow(
-                                        service: service,
-                                        isSelected: serviceManager.selectedServiceId == service.id,
-                                        shortcutNumber: shortcut
-                                    ) {
-                                        serviceManager.selectService(service.id)
-                                    }
-                                }
+                        }
+                    } else {
+                        ForEach(filteredConversations) { conversation in
+                            CompactConversationRow(
+                                conversation: conversation,
+                                isSelected: chatManager.selectedConversationId == conversation.id
+                            ) {
+                                chatManager.selectedConversationId = conversation.id
                             }
                         }
                     }
@@ -138,21 +187,25 @@ struct SidebarView: View {
 
             Divider()
 
-            // MARK: - Footer: Settings + About
+            // MARK: - Footer
             VStack(spacing: 0) {
                 if isExpanded {
-                    // Settings button
+                    // Model picker
+                    ModelPickerRow()
+                        .environmentObject(chatManager)
+
+                    Divider()
+                        .padding(.horizontal, 14)
+
                     SettingsLink {
                         HStack(spacing: 8) {
                             Image(systemName: "gearshape")
                                 .font(.system(size: 13))
                                 .frame(width: 22, height: 22)
                                 .foregroundStyle(.secondary)
-
                             Text("Settings")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-
                             Spacer()
                         }
                         .padding(.horizontal, 14)
@@ -160,12 +213,10 @@ struct SidebarView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Open Settings")
 
                     Divider()
                         .padding(.horizontal, 14)
 
-                    // About button
                     Button {
                         showingAboutPopover.toggle()
                     } label: {
@@ -175,14 +226,11 @@ struct SidebarView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 22, height: 22)
                                 .clipShape(RoundedRectangle(cornerRadius: 5))
-
                             Text("About")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-
                             Spacer()
-
-                            Text("v1.0.1")
+                            Text("v2.0.0")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.tertiary)
                         }
@@ -190,12 +238,10 @@ struct SidebarView: View {
                         .padding(.vertical, 8)
                     }
                     .buttonStyle(.plain)
-                    .help("About ChatHarbor")
                     .popover(isPresented: $showingAboutPopover, arrowEdge: .trailing) {
                         AboutPopoverView()
                     }
                 } else {
-                    // Compact: just a settings gear
                     SettingsLink {
                         Image(systemName: "gearshape")
                             .font(.system(size: 15))
@@ -204,76 +250,96 @@ struct SidebarView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Open Settings")
+                    .help("Settings")
                 }
             }
             .padding(.bottom, 4)
         }
-        .frame(width: isExpanded ? 200 : 52)
-        .background(serviceManager.currentTheme.sidebarColor(for: colorScheme))
+        .frame(width: isExpanded ? 220 : 52)
+        .background(chatManager.currentTheme.sidebarColor(for: colorScheme))
+    }
+
+    // MARK: - Grouped Conversations
+
+    private struct ConversationGroup {
+        let label: String
+        let conversations: [Conversation]
+    }
+
+    private var groupedConversations: [ConversationGroup] {
+        let now = Date()
+        let calendar = Calendar.current
+
+        var today: [Conversation] = []
+        var yesterday: [Conversation] = []
+        var thisWeek: [Conversation] = []
+        var older: [Conversation] = []
+
+        for conv in filteredConversations {
+            if calendar.isDateInToday(conv.updatedAt) {
+                today.append(conv)
+            } else if calendar.isDateInYesterday(conv.updatedAt) {
+                yesterday.append(conv)
+            } else if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now),
+                      conv.updatedAt > weekAgo {
+                thisWeek.append(conv)
+            } else {
+                older.append(conv)
+            }
+        }
+
+        return [
+            ConversationGroup(label: "Today", conversations: today),
+            ConversationGroup(label: "Yesterday", conversations: yesterday),
+            ConversationGroup(label: "This Week", conversations: thisWeek),
+            ConversationGroup(label: "Older", conversations: older),
+        ]
     }
 }
 
-// MARK: - Expanded Service Row
+// MARK: - Conversation Row
 
-struct ExpandedServiceRow: View {
-    let service: ChatService
+struct ConversationRow: View {
+    let conversation: Conversation
     let isSelected: Bool
-    var shortcutNumber: Int?
     let action: () -> Void
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
 
-    private var badgeColor: Color {
-        serviceManager.notificationSettings.badgeColor.color
-    }
-
-    private var themeAccent: Color {
-        serviceManager.currentTheme.accentColor(for: colorScheme)
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
     }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: service.iconName)
-                        .font(.system(size: 15))
-                        .frame(width: 26, height: 26)
-                        .foregroundStyle(isSelected ? themeAccent : .secondary)
-
-                    if service.notificationCount > 0 {
-                        Circle()
-                            .fill(badgeColor)
-                            .frame(width: 8, height: 8)
-                            .offset(x: 4, y: -4)
-                    }
-                }
-
-                Text(service.name)
+                Image(systemName: "bubble.left")
                     .font(.system(size: 13))
-                    .foregroundStyle(isSelected ? .primary : .secondary)
-                    .lineLimit(1)
+                    .foregroundStyle(isSelected ? accent : .secondary)
+                    .frame(width: 22)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(conversation.title)
+                        .font(.system(size: 13))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    Text(conversation.updatedAt.formatted(.relative(presentation: .named)))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
 
                 Spacer()
 
-                if service.notificationCount > 0 {
-                    Text("\(service.notificationCount)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(badgeColor, in: Capsule())
-                } else if let num = shortcutNumber {
-                    Text("⌘\(num)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.quaternary)
-                }
+                Text("\(conversation.messages.count)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.quaternary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 isSelected
-                    ? AnyShapeStyle(themeAccent.opacity(0.15))
+                    ? AnyShapeStyle(accent.opacity(0.15))
                     : AnyShapeStyle(.clear)
             )
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -283,50 +349,147 @@ struct ExpandedServiceRow: View {
     }
 }
 
-// MARK: - Compact Service Row (icon only)
+// MARK: - Compact Conversation Row
 
-struct CompactServiceRow: View {
-    let service: ChatService
+struct CompactConversationRow: View {
+    let conversation: Conversation
     let isSelected: Bool
-    var shortcutNumber: Int?
     let action: () -> Void
-    @EnvironmentObject var serviceManager: ServiceManager
+    @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
 
-    private var badgeColor: Color {
-        serviceManager.notificationSettings.badgeColor.color
-    }
-
-    private var themeAccent: Color {
-        serviceManager.currentTheme.accentColor(for: colorScheme)
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
     }
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: service.iconName)
-                    .font(.system(size: 17))
-                    .frame(width: 36, height: 36)
-                    .foregroundStyle(isSelected ? themeAccent : .secondary)
-                    .background(
-                        isSelected
-                            ? AnyShapeStyle(themeAccent.opacity(0.15))
-                            : AnyShapeStyle(.clear)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                if service.notificationCount > 0 {
-                    Circle()
-                        .fill(badgeColor)
-                        .frame(width: 9, height: 9)
-                        .offset(x: 2, y: -2)
-                }
-            }
-            .frame(maxWidth: .infinity)
+            Image(systemName: "bubble.left")
+                .font(.system(size: 15))
+                .frame(width: 36, height: 36)
+                .foregroundStyle(isSelected ? accent : .secondary)
+                .background(
+                    isSelected
+                        ? AnyShapeStyle(accent.opacity(0.15))
+                        : AnyShapeStyle(.clear)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
-        .help(service.name + (shortcutNumber != nil ? " (⌘\(shortcutNumber!))" : "")
-              + (service.notificationCount > 0 ? " — \(service.notificationCount) unread" : ""))
+        .help(conversation.title)
+    }
+}
+
+// MARK: - Model Picker Row
+
+struct ModelPickerRow: View {
+    @EnvironmentObject var chatManager: ChatManager
+
+    /// Models grouped by provider label for the menu
+    private var groupedModels: [(provider: String, icon: String, models: [ProviderModel])] {
+        let providers = chatManager.providers
+
+        var groups: [(provider: String, icon: String, models: [ProviderModel])] = []
+
+        let ollamaModels = providers.ollama.models
+        if !ollamaModels.isEmpty {
+            groups.append((provider: "Ollama (Local)", icon: "desktopcomputer", models: ollamaModels))
+        }
+
+        let openAIModels = providers.openAI.models
+        if !openAIModels.isEmpty {
+            groups.append((provider: "OpenAI", icon: "brain", models: openAIModels))
+        }
+
+        let anthropicModels = providers.anthropic.models
+        if !anthropicModels.isEmpty {
+            groups.append((provider: "Anthropic", icon: "sparkle", models: anthropicModels))
+        }
+
+        return groups
+    }
+
+    var body: some View {
+        Menu {
+            if chatManager.providers.allModels.isEmpty {
+                Text("No models available")
+                Divider()
+                Button("Open Model Manager…") {
+                    chatManager.showingModelManager = true
+                }
+            } else {
+                ForEach(groupedModels, id: \.provider) { group in
+                    Section(group.provider) {
+                        ForEach(group.models) { model in
+                            Button {
+                                chatManager.selectModel(model.id)
+                            } label: {
+                                HStack {
+                                    Image(systemName: model.isLocal ? "desktopcomputer" : "cloud")
+                                    Text(model.displayName)
+                                    if model.id == chatManager.selectedModelId {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Divider()
+                Button("Manage Models…") {
+                    chatManager.showingModelManager = true
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: selectedIcon)
+                    .font(.system(size: 13))
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Model")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                    Text(selectedDisplayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.quaternary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedDisplayName: String {
+        let qualifiedId = chatManager.selectedModelId
+        if qualifiedId.isEmpty { return "None" }
+        if let model = chatManager.providers.allModels.first(where: { $0.id == qualifiedId }) {
+            return model.displayName
+        }
+        // Fallback: strip provider prefix or :latest suffix
+        let parts = qualifiedId.split(separator: ":", maxSplits: 1)
+        if parts.count == 2 { return String(parts[1]) }
+        if qualifiedId.hasSuffix(":latest") { return String(qualifiedId.dropLast(7)) }
+        return qualifiedId
+    }
+
+    private var selectedIcon: String {
+        let qualifiedId = chatManager.selectedModelId
+        if let model = chatManager.providers.allModels.first(where: { $0.id == qualifiedId }) {
+            return model.isLocal ? "desktopcomputer" : "cloud"
+        }
+        return "cpu"
     }
 }
 
@@ -345,34 +508,32 @@ struct AboutPopoverView: View {
             Text("ChatHarbor")
                 .font(.headline)
 
-            Text("Version 1.0.1")
+            Text("Version 2.0.0")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("A lightweight, native macOS chat aggregator.\nBuilt with SwiftUI and WebKit.")
+            Text("One native macOS app for all your AI.\nOllama · OpenAI · Anthropic")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
 
-            Link(destination: URL(string: "https://d-edgar.github.io/chatharbor-site/bug-report.html")!) {
-                Label("Report a Bug", systemImage: "ladybug")
-                    .font(.caption)
+            HStack(spacing: 12) {
+                Link(destination: URL(string: "https://github.com/d-edgar/ChatHarbor")!) {
+                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                        .font(.caption)
+                }
+                Link(destination: URL(string: "https://buymeacoffee.com/dedgar")!) {
+                    Label("Support", systemImage: "cup.and.saucer")
+                        .font(.caption)
+                }
             }
             .padding(.top, 4)
 
-            HStack(spacing: 12) {
-                Link("Privacy Policy", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/privacy.html")!)
-                    .font(.system(size: 10))
-                Link("Terms of Use", destination: URL(string: "https://d-edgar.github.io/chatharbor-site/terms.html")!)
-                    .font(.system(size: 10))
-            }
-
-            Text("MIT License")
+            Text("MIT License · David Edgar")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
         .padding(16)
-        .frame(width: 240)
+        .frame(width: 260)
     }
 }
-

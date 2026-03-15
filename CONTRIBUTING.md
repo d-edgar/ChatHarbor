@@ -7,7 +7,8 @@ Thanks for your interest in contributing! Here's how to get started.
 1. Fork the repo and clone your fork
 2. Open `ChatHarbor.xcodeproj` in Xcode 16+
 3. Set your signing team under Signing & Capabilities
-4. Build and run (Cmd+R)
+4. Make sure Ollama is running locally (`ollama serve`)
+5. Build and run (Cmd+R)
 
 ## Making Changes
 
@@ -27,41 +28,38 @@ Thanks for your interest in contributing! Here's how to get started.
 Open an issue with:
 
 - macOS version
+- Ollama version (`ollama --version`)
 - Steps to reproduce
 - Expected vs actual behavior
 - Screenshots if applicable
-
-You can also use the in-app bug report at [chatharbor.app/bug-report](https://chatharbor.app/bug-report).
-
-## Adding a New Service
-
-If you want to add a preconfigured service, edit `ChatService.swift` and add an entry to the `preconfigured` array. Include the service name, URL, and an SF Symbol icon name.
 
 ## Testing Checklist
 
 Before submitting a PR, verify these still work:
 
-- Service switching and session persistence (web views stay logged in)
-- Notifications and dock badge counts
-- Google sign-in flow (should open in a popup window, not the embedded view)
-- Camera/microphone permissions for voice/video services
-- Keyboard shortcuts (Cmd+1 through Cmd+9, Cmd+R to reload)
+- Ollama connection and model listing
+- Streaming chat responses (tokens appear incrementally)
+- Conversation creation, persistence, and deletion
+- Model pulling and deletion via the Model Manager
+- Keyboard shortcuts (⌘N new chat, ⌘M model manager, ⌘. stop generating)
+- Theme switching and appearance modes
+- Sidebar collapse/expand and conversation search
 
 ## Code Style
 
 - Follow existing Swift conventions in the project
 - Use SwiftUI for new views
 - Keep files focused — one view or model per file
-- Mark classes that touch UI or WebKit with `@MainActor`
-- Keep WKWebView logic in the Services layer, not in Views
+- Mark classes that touch UI with `@MainActor`
+- Use SwiftData for any persistent state
 
 ## Architecture Notes
 
-Web views are pooled in `WebViewPool` so switching services is instant and sessions persist. All web views share a single `WKProcessPool` for cookie sharing. Google sign-in is intercepted by the navigation delegate and routed through `GoogleSignInHelper`, which opens a clean popup window that Google trusts.
+ChatHarbor uses a simple architecture: `ChatManager` is the central `ObservableObject` that coordinates between the UI and `OllamaService`. Conversations and messages are SwiftData `@Model` types persisted automatically. The Ollama service communicates with the local Ollama REST API, streaming responses via `URLSession.bytes`.
 
 ## Release Process
 
-Releases are automated via GitHub Actions. When a version tag is pushed (e.g. `v1.0.15`), the workflow builds a universal binary, code-signs it, creates a styled DMG, notarizes it with Apple, and publishes a GitHub Release. Contributors don't need to worry about this — just submit your PR and the maintainers handle the release.
+Releases are automated via GitHub Actions. When a version tag is pushed (e.g. `v2.0.0`), the workflow builds a universal binary, code-signs it, creates a styled DMG, notarizes it with Apple, and publishes a GitHub Release. Contributors don't need to worry about this — just submit your PR and the maintainers handle the release.
 
 ## License
 

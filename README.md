@@ -4,32 +4,53 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-brightgreen)](https://github.com/d-edgar/ChatHarbor/releases/latest)
 
-A lightweight, native macOS app that wraps your chat services into a single window with native notifications and dock badges. Built with Swift and WebKit, not Electron.
+One native macOS app for all your AI. Chat with Claude, GPT, local models — or pit them against each other side by side. Built with SwiftUI and SwiftData. No Electron, no browser tabs, no switching apps.
 
 ## Why ChatHarbor?
 
-Every multi-chat app out there (Franz, Rambox, Ferdi, Ferdium, Station, Wavebox) is built on Electron, which means each one is basically running a full Chrome browser. That eats RAM and battery.
+You can't use Claude next to GPT. Every provider locks you into their own UI. If you want to compare answers, you're copying prompts between browser tabs. ChatHarbor fixes that.
 
-ChatHarbor uses macOS native WebKit (`WKWebView`), sharing the system Safari engine. This means significantly lower memory usage, better battery life, and a UI that actually feels like it belongs on a Mac.
+It's a native macOS app that connects to Ollama (local models), OpenAI, and Anthropic through a single interface. Same conversation UI, same streaming, same keyboard shortcuts — regardless of which AI you're talking to.
+
+## What Makes ChatHarbor Different
+
+- **All your AI in one place**: Ollama, OpenAI, Anthropic — one app, one conversation list, one compare view. Add your API keys and go.
+- **Cross-provider compare**: Send the same prompt to Claude and GPT-4o simultaneously. Watch them respond side by side. Compare quality, speed, and style at a glance.
+- **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI.
+- **Prompt template library**: 8 built-in personas plus custom templates. Start conversations with purpose across any provider.
+- **Markdown export**: Export any conversation as a clean `.md` file with model attribution and performance stats.
+- **Truly native**: Real SwiftUI, real SwiftData persistence, real macOS integration. Not a web view.
+
+## Supported Providers
+
+| Provider | Type | Models | Setup |
+|----------|------|--------|-------|
+| **Ollama** | Local | llama3, mistral, codellama, etc. | Install Ollama, run `ollama serve` |
+| **OpenAI** | Cloud | GPT-4o, GPT-4, o1, etc. | Add API key in Settings |
+| **Anthropic** | Cloud | Claude Opus/Sonnet/Haiku | Add API key in Settings |
+
+More providers coming (Google Gemini, Groq, Together, any OpenAI-compatible endpoint).
 
 ## Features
 
-- **Native macOS app** built with SwiftUI and WebKit
-- **Preconfigured services**: Google Chat, Slack, Microsoft Teams, Discord
-- **Custom services**: Add any web based chat or tool via URL
-- **Native notifications**: Web notifications are bridged to macOS Notification Center
-- **Dock badge**: Unread counts aggregated across all services
-- **Keyboard shortcuts**: Cmd+1 through Cmd+9 to switch services, Cmd+R to reload
-- **Camera and microphone support**: Works with voice/video calls in Teams, Discord, etc.
-- **Reorderable sidebar**: Drag services into your preferred order
-- **Screen share detection**: Automatically detects when you're sharing your screen
-- **Google sign-in support**: OAuth flows open in a trusted popup so Google doesn't block them
-- **Signed and notarized**: Releases are code-signed with a Developer ID certificate and notarized by Apple
-- **Lightweight**: Fraction of the memory footprint of Electron alternatives
+- **Native macOS app** built with SwiftUI — not a web view, not Electron
+- **Multi-provider**: Ollama, OpenAI, and Anthropic in one unified interface
+- **Streaming responses**: tokens appear in real-time from any provider
+- **Conversation management**: create, search, and organize chats with SwiftData persistence
+- **Model manager**: pull, switch, and delete local Ollama models
+- **Themes**: 10 built-in color themes (6 standard + 4 seasonal)
+- **Keyboard shortcuts**: ⌘N new chat, ⌘M models, ⇧⌘K compare, ⇧⌘P prompts, ⌘. stop
+- **Performance stats**: token count, generation time, and tokens/second on every response
+- **Collapsible sidebar**: full or compact mode with conversation grouping by date
+- **Signed and notarized**: releases are code-signed and notarized by Apple
 
 ## Requirements
 
 - macOS 14 Sonoma or later
+- At least one of:
+  - [Ollama](https://ollama.com) installed and running (`ollama serve`) for local models
+  - An [OpenAI](https://platform.openai.com/api-keys) API key for GPT models
+  - An [Anthropic](https://console.anthropic.com/settings/keys) API key for Claude models
 
 ## Installation
 
@@ -47,42 +68,46 @@ cd ChatHarbor
 open ChatHarbor.xcodeproj
 ```
 
-Select your signing team under **Signing & Capabilities**, then build and run (Cmd+R).
+Select your signing team under **Signing & Capabilities**, then build and run (⌘R).
 
 ## Usage
 
-1. Launch ChatHarbor
-2. Click a service icon in the sidebar to load it
-3. Sign in to your accounts (sessions persist between launches)
-4. Grant notification permissions when prompted
-5. Use **Cmd+1** through **Cmd+9** to quickly switch between services
-6. Open **Settings** (Cmd+,) to enable/disable services or add custom ones
+1. Make sure Ollama is running: `ollama serve`
+2. Launch ChatHarbor
+3. Pull a model if you haven't already (⌘M opens the Model Manager)
+4. Click **New Chat** or press ⌘N
+5. Start chatting
 
 ## Architecture
 
 ```
 ChatHarbor/
-  ChatHarborApp.swift          # App entry point and scene configuration
-  AppDelegate.swift           # Notification permissions and dock badge
+  ChatHarborApp.swift          # App entry point, SwiftData container, scene config
+  AppDelegate.swift            # Minimal app delegate
+  ContentView.swift            # Main layout (sidebar + chat detail)
   Models/
-    ChatService.swift         # Service model with preconfigured definitions
+    ChatModels.swift           # SwiftData models: Conversation, Message, CompareSlot, PromptTemplate
+    AppTheme.swift             # Theme definitions (10 themes)
   Services/
-    ServiceManager.swift      # State management and persistence
-    WebViewPool.swift         # Pooled WKWebViews with shared cookies
-    NotificationBridge.swift  # JS injection to bridge web notifications to native
-    GoogleSignInHelper.swift  # Clean popup window for Google OAuth
-    ScreenShareDetector.swift # Detects active screen sharing sessions
+    LLMProvider.swift          # Unified provider protocol all backends conform to
+    ProviderManager.swift      # Coordinates Ollama, OpenAI, Anthropic
+    ChatManager.swift          # Central state: chat, compare, fork, export, templates
+    OllamaService.swift        # Ollama REST API client (streaming chat, pull, delete)
+    OpenAIProvider.swift       # OpenAI /v1/chat/completions (streaming)
+    AnthropicProvider.swift    # Anthropic /v1/messages (streaming)
   Views/
-    ContentView.swift         # Main NavigationSplitView layout
-    SidebarView.swift         # Service icons with notification badges
-    WebContainerView.swift    # WKWebView wrapper with navigation controls
-    SettingsView.swift        # Service management and about screen
-    KeyboardShortcuts.swift   # Cmd+N shortcuts and menu commands
+    SidebarView.swift          # Conversation list, model picker, search
+    ChatView.swift             # Message bubbles, context menus (fork/export), input area
+    CompareView.swift          # Multi-model side-by-side comparison
+    PromptLibraryView.swift    # Template browser and editor
+    ModelManagerView.swift     # Pull, select, and delete local models
+    SettingsView.swift         # General, appearance, connection settings
+    KeyboardShortcuts.swift    # Menu commands and keyboard shortcuts
 ```
 
-## How Notifications Work
+## How It Works
 
-ChatHarbor injects a small JavaScript snippet into each web view that overrides the browser `Notification` API. When a chat service triggers a web notification, the bridge captures it and creates a native `UNNotification` instead. It also watches for page title changes (many services show unread counts like "(3) Slack" in the title) to update the dock badge.
+ChatHarbor uses a unified `LLMProvider` protocol that Ollama, OpenAI, and Anthropic all conform to. Each provider handles its own API format (Ollama's `/api/chat`, OpenAI's `/v1/chat/completions`, Anthropic's `/v1/messages`) but they all stream through the same interface. This means the compare view, conversation forking, and export work identically across providers. Conversations are persisted locally using SwiftData. API keys are stored in UserDefaults (Keychain migration planned).
 
 ## Contributing
 
@@ -92,6 +117,8 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-## Disclaimer
+## Acknowledgments
 
-ChatHarbor is not affiliated with Google, Slack, Microsoft, or Discord. All product names and trademarks are the property of their respective owners.
+- [Ollama](https://ollama.com) for making local LLM inference simple
+- [OpenAI](https://openai.com) and [Anthropic](https://anthropic.com) for cloud AI
+- Built with Swift, SwiftUI, and SwiftData

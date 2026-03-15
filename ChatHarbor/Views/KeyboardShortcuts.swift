@@ -1,49 +1,73 @@
 import SwiftUI
+import SwiftData
 
 struct ChatHarborCommands: Commands {
-    @ObservedObject var serviceManager: ServiceManager
+    @ObservedObject var chatManager: ChatManager
 
     var body: some Commands {
-        CommandMenu("Services") {
-            ForEach(Array(serviceManager.enabledServices.enumerated().prefix(9)), id: \.element.id) { index, service in
-                Button("Switch to \(service.name)") {
-                    serviceManager.selectService(service.id)
-                }
-                .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+        CommandGroup(after: .newItem) {
+            Button("New Chat") {
+                // Post notification — the ContentView will handle it
+                NotificationCenter.default.post(name: .newChat, object: nil)
             }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+
+        CommandMenu("Models") {
+            Button("Models & Providers…") {
+                chatManager.settingsTab = "models"
+                chatManager.showingModelManager = true
+            }
+            .keyboardShortcut("m", modifiers: .command)
 
             Divider()
 
-            Button("Reload Current Service") {
-                if let selectedId = serviceManager.selectedServiceId {
-                    NotificationCenter.default.post(
-                        name: .reloadService,
-                        object: nil,
-                        userInfo: ["serviceId": selectedId]
-                    )
-                }
+            Button("Refresh All Providers") {
+                Task { await chatManager.providers.connectAll() }
             }
-            .keyboardShortcut("r", modifiers: .command)
+            .keyboardShortcut("r", modifiers: [.command, .shift])
 
-            Button("Go Back") {
-                if let selectedId = serviceManager.selectedServiceId {
-                    NotificationCenter.default.post(
-                        name: .goBackService,
-                        object: nil,
-                        userInfo: ["serviceId": selectedId]
-                    )
+            Divider()
+
+            // Quick model switching — all providers
+            ForEach(Array(chatManager.providers.allModels.prefix(12)), id: \.id) { model in
+                Button {
+                    chatManager.selectModel(model.id)
+                } label: {
+                    HStack {
+                        Text(model.displayName)
+                        if model.id == chatManager.selectedModelId {
+                            Text("✓")
+                        }
+                    }
                 }
             }
-            .keyboardShortcut("[", modifiers: .command)
         }
 
-        CommandMenu("Privacy") {
-            Button(ScreenShareDetector.shared.isManuallyEngaged
-                   ? "Disengage Privacy Shield"
-                   : "Engage Privacy Shield") {
-                ScreenShareDetector.shared.toggleManualEngagement()
+        CommandMenu("Chat") {
+            Button("Stop Generating") {
+                chatManager.stopGenerating()
+            }
+            .keyboardShortcut(".", modifiers: .command)
+            .disabled(!chatManager.isGenerating)
+
+            Divider()
+
+            Button("Compare Models") {
+                chatManager.showingCompareView = true
+            }
+            .keyboardShortcut("k", modifiers: [.command, .shift])
+
+            Button("Prompt Library") {
+                chatManager.showingPromptLibrary = true
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
         }
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let newChat = Notification.Name("chatHarbor.newChat")
 }
