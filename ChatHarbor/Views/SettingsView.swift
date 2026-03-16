@@ -51,6 +51,15 @@ struct ModelsProvidersSettingsView: View {
     @State private var showingDeleteConfirm: String?
     @State private var errorMessage: String?
 
+    // Connection state for each cloud provider
+    @State private var ollamaConnecting = false
+    @State private var openAIConnecting = false
+    @State private var openAIError: String?
+    @State private var openAISuccess = false
+    @State private var anthropicConnecting = false
+    @State private var anthropicError: String?
+    @State private var anthropicSuccess = false
+
     private var accent: Color {
         chatManager.currentTheme.accentColor(for: colorScheme)
     }
@@ -76,90 +85,107 @@ struct ModelsProvidersSettingsView: View {
                         TextField("http://localhost:11434", text: $chatManager.ollamaBaseURL)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11, design: .monospaced))
-                        Button("Test") {
-                            Task {
-                                if let url = URL(string: chatManager.ollamaBaseURL) {
-                                    chatManager.ollama.baseURL = url
+
+                        if ollamaConnecting {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 40)
+                        } else {
+                            Button("Test") {
+                                ollamaConnecting = true
+                                Task {
+                                    if let url = URL(string: chatManager.ollamaBaseURL) {
+                                        chatManager.ollama.baseURL = url
+                                    }
+                                    await chatManager.ollama.checkConnection()
+                                    ollamaConnecting = false
                                 }
-                                await chatManager.ollama.checkConnection()
                             }
+                            .controlSize(.small)
                         }
-                        .controlSize(.small)
                     }
 
                     // Pull model
-                    if chatManager.ollama.isConnected {
-                        Divider()
+                    Divider()
 
-                        VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
                             Text("PULL A MODEL")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.tertiary)
+                            Spacer()
+                            if !chatManager.ollama.isConnected {
+                                Text("Connect to Ollama first")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.orange)
+                            }
+                        }
 
+                        HStack(spacing: 8) {
+                            TextField("e.g. llama3.2, mistral, codellama", text: $pullModelName)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
+                                .onSubmit { if chatManager.ollama.isConnected { pullModel() } }
+                                .disabled(!chatManager.ollama.isConnected)
+
+                            Button("Pull") { pullModel() }
+                                .buttonStyle(.borderedProminent)
+                                .tint(accent)
+                                .controlSize(.small)
+                                .disabled(!chatManager.ollama.isConnected || pullModelName.trimmingCharacters(in: .whitespaces).isEmpty)
+                                .disabled(chatManager.ollama.pullProgress != nil)
+                        }
+
+                        // Pull progress
+                        if let progress = chatManager.ollama.pullProgress {
                             HStack(spacing: 8) {
-                                TextField("e.g. llama3.2, mistral, codellama", text: $pullModelName)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 12))
-                                    .onSubmit { pullModel() }
-
-                                Button("Pull") { pullModel() }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(accent)
-                                    .controlSize(.small)
-                                    .disabled(pullModelName.trimmingCharacters(in: .whitespaces).isEmpty)
-                                    .disabled(chatManager.ollama.pullProgress != nil)
-                            }
-
-                            // Pull progress
-                            if let progress = chatManager.ollama.pullProgress {
-                                HStack(spacing: 8) {
-                                    ProgressView()
-                                        .scaleEffect(0.5)
-                                    Text("Pulling \(progress.modelName)")
-                                        .font(.system(size: 11, weight: .medium))
-                                    Spacer()
-                                    if progress.total > 0 {
-                                        Text("\(Int(progress.fraction * 100))%")
-                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                            .foregroundStyle(accent)
-                                    }
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                Text("Pulling \(progress.modelName)")
+                                    .font(.system(size: 11, weight: .medium))
+                                Spacer()
+                                if progress.total > 0 {
+                                    Text("\(Int(progress.fraction * 100))%")
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(accent)
                                 }
-                                ProgressView(value: progress.fraction)
-                                    .tint(accent)
                             }
+                            ProgressView(value: progress.fraction)
+                                .tint(accent)
+                        }
 
-                            // Quick pull chips
-                            FlowLayout(spacing: 5) {
-                                ForEach([
-                                    ("llama3.2", "2B"), ("mistral", "7B"), ("codellama", "7B"),
-                                    ("gemma2", "9B"), ("phi3", "3.8B"), ("qwen2.5", "7B")
-                                ], id: \.0) { name, size in
-                                    Button {
-                                        pullModelName = name
-                                    } label: {
-                                        HStack(spacing: 3) {
-                                            Image(systemName: "arrow.down.circle")
-                                                .font(.system(size: 9))
-                                            Text(name)
-                                                .font(.system(size: 10, weight: .medium))
-                                            Text(size)
-                                                .font(.system(size: 8))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 5)
-                                                .fill(accent.opacity(0.06))
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 5)
-                                                .stroke(accent.opacity(0.15), lineWidth: 1)
-                                        )
+                        // Quick pull chips
+                        FlowLayout(spacing: 5) {
+                            ForEach([
+                                ("llama3.2", "2B"), ("mistral", "7B"), ("codellama", "7B"),
+                                ("gemma2", "9B"), ("phi3", "3.8B"), ("qwen2.5", "7B")
+                            ], id: \.0) { name, size in
+                                Button {
+                                    pullModelName = name
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.system(size: 9))
+                                        Text(name)
+                                            .font(.system(size: 10, weight: .medium))
+                                        Text(size)
+                                            .font(.system(size: 8))
+                                            .foregroundStyle(.secondary)
                                     }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(accent)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(chatManager.ollama.isConnected ? accent.opacity(0.06) : Color.gray.opacity(0.04))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .stroke(chatManager.ollama.isConnected ? accent.opacity(0.15) : Color.gray.opacity(0.1), lineWidth: 1)
+                                    )
                                 }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(chatManager.ollama.isConnected ? accent : Color.gray.opacity(0.5))
+                                .disabled(!chatManager.ollama.isConnected)
                             }
                         }
                     }
@@ -205,22 +231,78 @@ struct ModelsProvidersSettingsView: View {
                     accent: accent
                 ) {
                     // API Key
-                    HStack {
+                    HStack(spacing: 6) {
                         Text("API Key")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .frame(width: 50, alignment: .trailing)
                         SecureField("sk-...", text: Binding(
                             get: { chatManager.providers.openAI.apiKey },
-                            set: { chatManager.providers.openAI.apiKey = $0 }
+                            set: { chatManager.providers.openAI.apiKey = $0; openAIError = nil; openAISuccess = false }
                         ))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11, design: .monospaced))
-                        Button("Connect") {
-                            Task { await chatManager.providers.openAI.connect() }
+
+                        if openAIConnecting {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 60)
+                        } else {
+                            Button("Connect") {
+                                openAIConnecting = true
+                                openAIError = nil
+                                openAISuccess = false
+                                Task {
+                                    await chatManager.providers.openAI.connect()
+                                    openAIConnecting = false
+                                    if chatManager.providers.openAI.isConnected {
+                                        openAISuccess = true
+                                    } else {
+                                        openAIError = "Could not verify key"
+                                    }
+                                }
+                            }
+                            .controlSize(.small)
+                            .disabled(chatManager.providers.openAI.apiKey.isEmpty)
                         }
-                        .controlSize(.small)
-                        .disabled(chatManager.providers.openAI.apiKey.isEmpty)
+
+                        // Clear key button
+                        if !chatManager.providers.openAI.apiKey.isEmpty {
+                            Button {
+                                chatManager.providers.openAI.apiKey = ""
+                                openAISuccess = false
+                                openAIError = nil
+                                Task { await chatManager.providers.openAI.connect() }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear API key")
+                        }
+                    }
+
+                    // Status feedback
+                    if chatManager.providers.openAI.isConnected {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                            Text("Connected — \(chatManager.providers.openAI.models.count) models available")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                        }
+                    } else if let error = chatManager.providers.openAI.connectionError {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                            Text(error)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                                .lineLimit(3)
+                        }
                     }
 
                     // Models list
@@ -264,22 +346,78 @@ struct ModelsProvidersSettingsView: View {
                     accent: accent
                 ) {
                     // API Key
-                    HStack {
+                    HStack(spacing: 6) {
                         Text("API Key")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .frame(width: 50, alignment: .trailing)
                         SecureField("sk-ant-...", text: Binding(
                             get: { chatManager.providers.anthropic.apiKey },
-                            set: { chatManager.providers.anthropic.apiKey = $0 }
+                            set: { chatManager.providers.anthropic.apiKey = $0; anthropicError = nil; anthropicSuccess = false }
                         ))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11, design: .monospaced))
-                        Button("Connect") {
-                            Task { await chatManager.providers.anthropic.connect() }
+
+                        if anthropicConnecting {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 60)
+                        } else {
+                            Button("Connect") {
+                                anthropicConnecting = true
+                                anthropicError = nil
+                                anthropicSuccess = false
+                                Task {
+                                    await chatManager.providers.anthropic.connect()
+                                    anthropicConnecting = false
+                                    if chatManager.providers.anthropic.isConnected {
+                                        anthropicSuccess = true
+                                    } else {
+                                        anthropicError = "Could not verify key — check your API key and billing"
+                                    }
+                                }
+                            }
+                            .controlSize(.small)
+                            .disabled(chatManager.providers.anthropic.apiKey.isEmpty)
                         }
-                        .controlSize(.small)
-                        .disabled(chatManager.providers.anthropic.apiKey.isEmpty)
+
+                        // Clear key button
+                        if !chatManager.providers.anthropic.apiKey.isEmpty {
+                            Button {
+                                chatManager.providers.anthropic.apiKey = ""
+                                anthropicSuccess = false
+                                anthropicError = nil
+                                Task { await chatManager.providers.anthropic.connect() }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear API key")
+                        }
+                    }
+
+                    // Status feedback
+                    if chatManager.providers.anthropic.isConnected {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                            Text("Connected — \(chatManager.providers.anthropic.models.count) models available")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                        }
+                    } else if let error = chatManager.providers.anthropic.connectionError {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                            Text(error)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                                .lineLimit(3)
+                        }
                     }
 
                     // Models list

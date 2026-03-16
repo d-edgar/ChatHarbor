@@ -13,12 +13,25 @@ struct SidebarView: View {
     @Binding var isExpanded: Bool
     @State private var showingAboutPopover = false
     @State private var searchText = ""
+    @State private var collapsedForkParents: Set<UUID> = []
 
     private var filteredConversations: [Conversation] {
         if searchText.isEmpty { return conversations }
         return conversations.filter {
             $0.title.localizedCaseInsensitiveContains(searchText)
         }
+    }
+
+    /// All conversations that are forks, keyed by parent ID
+    private var forksByParent: [UUID: [Conversation]] {
+        Dictionary(grouping: filteredConversations.filter { $0.isForked }) {
+            $0.forkedFromId!
+        }
+    }
+
+    /// Top-level conversations (not forks)
+    private var rootConversations: [Conversation] {
+        filteredConversations.filter { !$0.isForked }
     }
 
     var body: some View {
@@ -155,15 +168,33 @@ struct SidebarView: View {
                                 .padding(.bottom, 4)
 
                                 ForEach(group.conversations) { conversation in
-                                    ConversationRow(
-                                        conversation: conversation,
-                                        isSelected: chatManager.selectedConversationId == conversation.id
-                                    ) {
-                                        chatManager.selectedConversationId = conversation.id
-                                    }
-                                    .contextMenu {
-                                        Button("Delete", role: .destructive) {
-                                            chatManager.deleteConversation(conversation, in: modelContext)
+                                    // Parent conversation row
+                                    conversationRow(for: conversation)
+
+                                    // Nested forks
+                                    if let forks = forksByParent[conversation.id],
+                                       !collapsedForkParents.contains(conversation.id) {
+                                        ForEach(forks) { fork in
+                                            ForkRow(
+                                                conversation: fork,
+                                                parentTitle: conversation.title,
+                                                isSelected: chatManager.selectedConversationId == fork.id
+                                            ) {
+                                                chatManager.selectedConversationId = fork.id
+                                            }
+                                            .contextMenu {
+                                                Button {
+                                                    chatManager.selectedConversationId = conversation.id
+                                                } label: {
+                                                    Label("Go to Parent", systemImage: "arrow.turn.left.up")
+                                                }
+
+                                                Divider()
+
+                                                Button("Delete Fork", role: .destructive) {
+                                                    chatManager.deleteConversation(fork, in: modelContext)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -259,7 +290,59 @@ struct SidebarView: View {
         .background(chatManager.currentTheme.sidebarColor(for: colorScheme))
     }
 
-    // MARK: - Grouped Conversations
+    // MARK: - Conversation Row Builder
+
+    @ViewBuilder
+    private func conversationRow(for conversation: Conversation) -> some View {
+        let hasForks = forksByParent[conversation.id] != nil
+        let isCollapsed = collapsedForkParents.contains(conversation.id)
+        let forkCount = forksByParent[conversation.id]?.count ?? 0
+
+        ConversationRow(
+            conversation: conversation,
+            isSelected: chatManager.selectedConversationId == conversation.id,
+            hasForks: hasForks,
+            forksCollapsed: isCollapsed,
+            forkCount: forkCount,
+            onToggleForks: {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    if collapsedForkParents.contains(conversation.id) {
+                        collapsedForkParents.remove(conversation.id)
+                    } else {
+                        collapsedForkParents.insert(conversation.id)
+                    }
+                }
+            }
+        ) {
+            chatManager.selectedConversationId = conversation.id
+        }
+        .contextMenu {
+            if hasForks {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if collapsedForkParents.contains(conversation.id) {
+                            collapsedForkParents.remove(conversation.id)
+                        } else {
+                            collapsedForkParents.insert(conversation.id)
+                        }
+                    }
+                } label: {
+                    Label(
+                        isCollapsed ? "Show \(forkCount) Fork\(forkCount == 1 ? "" : "s")" : "Hide Forks",
+                        systemImage: isCollapsed ? "arrow.triangle.branch" : "eye.slash"
+                    )
+                }
+
+                Divider()
+            }
+
+            Button("Delete", role: .destructive) {
+                chatManager.deleteConversation(conversation, in: modelContext)
+            }
+        }
+    }
+
+    // MARK: - Grouped Conversations (roots only)
 
     private struct ConversationGroup {
         let label: String
@@ -267,15 +350,15 @@ struct SidebarView: View {
     }
 
     private var groupedConversations: [ConversationGroup] {
-        let now = Date()
         let calendar = Calendar.current
+        let now = Date()
 
         var today: [Conversation] = []
         var yesterday: [Conversation] = []
         var thisWeek: [Conversation] = []
         var older: [Conversation] = []
 
-        for conv in filteredConversations {
+        for conv in rootConversations {
             if calendar.isDateInToday(conv.updatedAt) {
                 today.append(conv)
             } else if calendar.isDateInYesterday(conv.updatedAt) {
@@ -302,6 +385,10 @@ struct SidebarView: View {
 struct ConversationRow: View {
     let conversation: Conversation
     let isSelected: Bool
+    var hasForks: Bool = false
+    var forksCollapsed: Bool = false
+    var forkCount: Int = 0
+    var onToggleForks: (() -> Void)?
     let action: () -> Void
     @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
@@ -312,21 +399,49 @@ struct ConversationRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                // Fork disclosure toggle
+                if hasForks {
+                    Button {
+                        onToggleForks?()
+                    } label: {
+                        Image(systemName: forksCollapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 14, height: 14)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Spacer()
+                        .frame(width: 14)
+                }
+
                 Image(systemName: "bubble.left")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(isSelected ? accent : .secondary)
-                    .frame(width: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(conversation.title)
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundStyle(isSelected ? .primary : .secondary)
                         .lineLimit(1)
 
-                    Text(conversation.updatedAt.formatted(.relative(presentation: .named)))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                    HStack(spacing: 4) {
+                        Text(conversation.updatedAt.formatted(.relative(presentation: .named)))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+
+                        if hasForks {
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Image(systemName: "arrow.triangle.branch")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.tertiary)
+                            Text("\(forkCount)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                 }
 
                 Spacer()
@@ -335,7 +450,7 @@ struct ConversationRow: View {
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.quaternary)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(
                 isSelected
@@ -346,6 +461,98 @@ struct ConversationRow: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Fork Row (indented child)
+
+struct ForkRow: View {
+    let conversation: Conversation
+    let parentTitle: String
+    let isSelected: Bool
+    let action: () -> Void
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    /// Friendly model name for this fork
+    private var modelName: String {
+        let id = conversation.modelId
+        if id.isEmpty { return "" }
+        return chatManager.providers.providerInfo(for: id).modelName
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                // Indent + branch line
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(.tertiary.opacity(0.3))
+                        .frame(width: 1, height: 24)
+                        .padding(.leading, 20)
+
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 2)
+                }
+
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 10))
+                    .foregroundStyle(isSelected ? accent : accent.opacity(0.5))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(forkDisplayTitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 4) {
+                        if !modelName.isEmpty {
+                            Text(modelName)
+                                .font(.system(size: 9))
+                                .foregroundStyle(accent.opacity(0.7))
+                        }
+                        Text("·")
+                            .foregroundStyle(.quaternary)
+                        Text("\(conversation.messages.count) msgs")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.quaternary)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(accent.opacity(0.12))
+                    : AnyShapeStyle(.clear)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+    }
+
+    /// Strip common fork prefixes to keep it clean
+    private var forkDisplayTitle: String {
+        var title = conversation.title
+        // Strip "Fork: " or custom prefix
+        let prefix = chatManager.forkPrefix
+        if title.hasPrefix(prefix) {
+            title = String(title.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+        }
+        // If it starts with the parent title, just show what's different
+        if title == parentTitle {
+            return modelName.isEmpty ? "Fork" : modelName
+        }
+        return title
     }
 }
 
@@ -364,7 +571,7 @@ struct CompactConversationRow: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "bubble.left")
+            Image(systemName: conversation.isForked ? "arrow.triangle.branch" : "bubble.left")
                 .font(.system(size: 15))
                 .frame(width: 36, height: 36)
                 .foregroundStyle(isSelected ? accent : .secondary)
@@ -415,7 +622,7 @@ struct ModelPickerRow: View {
             if chatManager.providers.allModels.isEmpty {
                 Text("No models available")
                 Divider()
-                Button("Open Model Manager…") {
+                Button("Set Up Providers…") {
                     chatManager.showingModelManager = true
                 }
             } else {
@@ -437,7 +644,7 @@ struct ModelPickerRow: View {
                     }
                 }
                 Divider()
-                Button("Manage Models…") {
+                Button("Models & Providers…") {
                     chatManager.showingModelManager = true
                 }
             }
@@ -474,22 +681,15 @@ struct ModelPickerRow: View {
     private var selectedDisplayName: String {
         let qualifiedId = chatManager.selectedModelId
         if qualifiedId.isEmpty { return "None" }
-        if let model = chatManager.providers.allModels.first(where: { $0.id == qualifiedId }) {
-            return model.displayName
-        }
-        // Fallback: strip provider prefix or :latest suffix
-        let parts = qualifiedId.split(separator: ":", maxSplits: 1)
-        if parts.count == 2 { return String(parts[1]) }
-        if qualifiedId.hasSuffix(":latest") { return String(qualifiedId.dropLast(7)) }
-        return qualifiedId
+        let info = chatManager.providers.providerInfo(for: qualifiedId)
+        return info.modelName
     }
 
     private var selectedIcon: String {
         let qualifiedId = chatManager.selectedModelId
-        if let model = chatManager.providers.allModels.first(where: { $0.id == qualifiedId }) {
-            return model.isLocal ? "desktopcomputer" : "cloud"
-        }
-        return "cpu"
+        if qualifiedId.isEmpty { return "cpu" }
+        let info = chatManager.providers.providerInfo(for: qualifiedId)
+        return info.icon
     }
 }
 

@@ -17,12 +17,14 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
 
     @Published var isConnected: Bool = false
     @Published var models: [ProviderModel] = []
+    @Published var connectionError: String?
     @Published var apiKey: String = "" {
         didSet { persistAPIKey() }
     }
 
     private let apiKeyKey = "chatharbor.anthropic.apiKey"
     private let apiVersion = "2023-06-01"
+    private let betaFeatures = "max-tokens-3-5-sonnet-2024-07-15"
 
     // Claude models — Anthropic doesn't have a list endpoint,
     // so we maintain the catalog here.
@@ -44,6 +46,8 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     // MARK: - Connect
 
     func connect() async {
+        connectionError = nil
+
         guard !apiKey.isEmpty else {
             isConnected = false
             models = []
@@ -54,6 +58,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         do {
             guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
                 isConnected = false
+                connectionError = "Invalid API URL"
                 return
             }
 
@@ -71,12 +76,29 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
 
-            if let http = response as? HTTPURLResponse,
-               http.statusCode == 200 || http.statusCode == 429 {
-                // 429 means the key is valid but rate-limited — still connected
+            guard let http = response as? HTTPURLResponse else {
+                isConnected = false
+                connectionError = "Invalid response"
+                return
+            }
+
+            // Parse error body for non-success responses
+            var apiErrorMessage: String?
+            if http.statusCode != 200 && http.statusCode != 429 {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    apiErrorMessage = message
+                }
+            }
+
+            switch http.statusCode {
+            case 200, 429:
+                // 200 = works, 429 = key valid but rate-limited
                 isConnected = true
+                connectionError = nil
                 models = modelCatalog.map { entry in
                     ProviderModel(
                         providerId: providerId,
@@ -86,25 +108,29 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
                         isLocal: false
                     )
                 }
-            } else if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            case 401:
                 isConnected = false
                 models = []
-            } else {
-                // Some other status — assume key works, populate models
-                isConnected = true
-                models = modelCatalog.map { entry in
-                    ProviderModel(
-                        providerId: providerId,
-                        modelId: entry.id,
-                        displayName: entry.name,
-                        contextWindow: entry.context,
-                        isLocal: false
-                    )
-                }
+                connectionError = "Invalid API key"
+            case 400:
+                // 400 often means billing issue
+                isConnected = false
+                models = []
+                connectionError = apiErrorMessage ?? "Bad request — check billing at console.anthropic.com"
+            case 403:
+                isConnected = false
+                models = []
+                connectionError = apiErrorMessage ?? "Access denied — check API key permissions"
+            default:
+                // Other status codes — try to show the error
+                isConnected = false
+                models = []
+                connectionError = apiErrorMessage ?? "Unexpected response (\(http.statusCode))"
             }
         } catch {
             isConnected = false
             models = []
+            connectionError = error.localizedDescription
         }
     }
 
@@ -155,15 +181,32 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let startTime = CFAbsoluteTimeGetCurrent()
+
+        // Use data request first to check for errors, then switch to streaming
+        // For non-200 responses, we need the full body to get the error message
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
-        if let http = response as? HTTPURLResponse {
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            // Collect the error body
+            var errorBody = ""
+            for try await line in bytes.lines {
+                errorBody += line
+            }
+
+            // Try to parse Anthropic's error format
+            var errorMessage = "Anthropic returned \(http.statusCode)"
+            if let data = errorBody.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = json["error"] as? [String: Any],
+               let message = error["message"] as? String {
+                errorMessage = message
+            }
+
             switch http.statusCode {
-            case 200: break
             case 401: throw LLMProviderError.invalidAPIKey
             case 429: throw LLMProviderError.rateLimited
             default:
-                throw LLMProviderError.serverError(http.statusCode, "Anthropic returned \(http.statusCode)")
+                throw LLMProviderError.serverError(http.statusCode, errorMessage)
             }
         }
 

@@ -27,10 +27,16 @@ class ProviderManager: ObservableObject {
         allProviders.filter { $0.isConnected }
     }
 
-    // MARK: - Unified Model List
+    // MARK: - Unified Model List (computed — always up-to-date)
 
-    /// All available models across all connected providers, grouped by provider
-    @Published var allModels: [ProviderModel] = []
+    /// All available models across all connected providers
+    var allModels: [ProviderModel] {
+        var models: [ProviderModel] = []
+        models.append(contentsOf: ollama.models)
+        models.append(contentsOf: openAI.models)
+        models.append(contentsOf: anthropic.models)
+        return models
+    }
 
     // MARK: - Init
 
@@ -38,9 +44,6 @@ class ProviderManager: ObservableObject {
         self.ollama = ollama
         self.openAI = OpenAIProvider()
         self.anthropic = AnthropicProvider()
-
-        // Observe each provider's model list and rebuild the unified list
-        setupModelObservers()
     }
 
     // MARK: - Connect All
@@ -53,7 +56,8 @@ class ProviderManager: ObservableObject {
             group.addTask { await self.openAI.connect() }
             group.addTask { await self.anthropic.connect() }
         }
-        refreshModelList()
+        // Notify observers that models may have changed
+        objectWillChange.send()
     }
 
     /// Refresh a single provider
@@ -64,7 +68,7 @@ class ProviderManager: ObservableObject {
         case "anthropic": await anthropic.connect()
         default: break
         }
-        refreshModelList()
+        objectWillChange.send()
     }
 
     // MARK: - Model Lookup
@@ -99,8 +103,52 @@ class ProviderManager: ObservableObject {
                 icon: prov?.iconName ?? "cpu"
             )
         }
-        // Fallback for unqualified IDs (legacy Ollama)
+
+        // Fallback: parse the qualified ID to get a friendly name
+        let parts = qualifiedId.split(separator: ":", maxSplits: 1)
+        if parts.count == 2 {
+            let provId = String(parts[0])
+            let modelId = String(parts[1])
+            let provName = allProviders.first { $0.providerId == provId }?.displayName ?? provId.capitalized
+            return (providerName: provName, modelName: friendlyModelName(modelId), icon: providerIcon(provId))
+        }
+
         return (providerName: "Ollama", modelName: qualifiedId, icon: "desktopcomputer")
+    }
+
+    /// Turn a raw model ID like "claude-sonnet-4-20250514" into "Claude Sonnet 4"
+    func friendlyModelName(_ rawId: String) -> String {
+        // Strip date suffixes like -20250514 or -20241022
+        var name = rawId
+        if let range = name.range(of: #"-\d{8}$"#, options: .regularExpression) {
+            name = String(name[name.startIndex..<range.lowerBound])
+        }
+        // Strip :latest suffix
+        if name.hasSuffix(":latest") {
+            name = String(name.dropLast(7))
+        }
+        // Capitalize words and clean up
+        return name
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .split(separator: " ")
+            .map { word in
+                let w = String(word)
+                // Keep version numbers and known abbreviations as-is
+                if w.allSatisfy({ $0.isNumber || $0 == "." }) { return w }
+                if ["gpt", "o1", "o3"].contains(w.lowercased()) { return w.uppercased() }
+                return w.prefix(1).uppercased() + w.dropFirst()
+            }
+            .joined(separator: " ")
+    }
+
+    private func providerIcon(_ providerId: String) -> String {
+        switch providerId {
+        case "ollama": return "desktopcomputer"
+        case "openai": return "brain"
+        case "anthropic": return "sparkle"
+        default: return "cpu"
+        }
     }
 
     // MARK: - Chat
@@ -121,7 +169,6 @@ class ProviderManager: ObservableObject {
     // MARK: - Cross-Provider Compare
 
     /// Run the same prompt across multiple models (potentially different providers)
-    /// Returns the qualified model IDs being compared
     func compare(
         prompt: String,
         systemPrompt: String? = nil,
@@ -160,34 +207,5 @@ class ProviderManager: ObservableObject {
         }
 
         return tasks
-    }
-
-    // MARK: - Private
-
-    private var cancellables = Set<AnyCancellable>()
-
-    private func setupModelObservers() {
-        // Watch Ollama's model list
-        ollama.$availableModels
-            .sink { [weak self] _ in self?.refreshModelList() }
-            .store(in: &cancellables)
-
-        // Watch OpenAI's model list
-        openAI.$models
-            .sink { [weak self] _ in self?.refreshModelList() }
-            .store(in: &cancellables)
-
-        // Watch Anthropic's model list
-        anthropic.$models
-            .sink { [weak self] _ in self?.refreshModelList() }
-            .store(in: &cancellables)
-    }
-
-    private func refreshModelList() {
-        var models: [ProviderModel] = []
-        models.append(contentsOf: ollama.models)
-        models.append(contentsOf: openAI.models)
-        models.append(contentsOf: anthropic.models)
-        allModels = models
     }
 }

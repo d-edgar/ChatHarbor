@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var chatManager: ChatManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openSettings) private var openSettingsFromContent
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @State private var sidebarExpanded: Bool = true
 
@@ -37,9 +38,12 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .tint(chatManager.currentTheme.accentColor(for: colorScheme))
-        .sheet(isPresented: $chatManager.showingModelManager) {
-            ModelManagerView()
-                .environmentObject(chatManager)
+        .onChange(of: chatManager.showingModelManager) { _, show in
+            if show {
+                chatManager.showingModelManager = false
+                chatManager.settingsTab = "models"
+                openSettingsFromContent()
+            }
         }
         .sheet(isPresented: $chatManager.showingCompareView) {
             CompareView()
@@ -189,7 +193,7 @@ struct WelcomeView: View {
                         statusText: chatManager.providers.openAI.isConnected
                             ? "\(chatManager.providers.openAI.models.count) models available"
                             : chatManager.providers.openAI.apiKey.isEmpty
-                                ? "Add your API key in Settings → Providers"
+                                ? "Add your API key in Settings → Models"
                                 : "Could not connect — check your API key",
                         isLoading: retryingProvider == "OpenAI",
                         actionLabel: chatManager.providers.openAI.isConnected
@@ -216,7 +220,7 @@ struct WelcomeView: View {
                         statusText: chatManager.providers.anthropic.isConnected
                             ? "\(chatManager.providers.anthropic.models.count) models available"
                             : chatManager.providers.anthropic.apiKey.isEmpty
-                                ? "Add your API key in Settings → Providers"
+                                ? "Add your API key in Settings → Models"
                                 : "Could not connect — check your API key",
                         isLoading: retryingProvider == "Anthropic",
                         actionLabel: chatManager.providers.anthropic.isConnected

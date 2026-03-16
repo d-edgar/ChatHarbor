@@ -16,6 +16,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
 
     @Published var isConnected: Bool = false
     @Published var models: [ProviderModel] = []
+    @Published var connectionError: String?
     @Published var apiKey: String = "" {
         didSet { persistAPIKey() }
     }
@@ -38,6 +39,8 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
     // MARK: - Connect
 
     func connect() async {
+        connectionError = nil
+
         guard !apiKey.isEmpty else {
             isConnected = false
             models = []
@@ -48,6 +51,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
             // Try listing models to verify key
             guard let url = URL(string: "\(baseURL)/models") else {
                 isConnected = false
+                connectionError = "Invalid base URL"
                 return
             }
 
@@ -56,9 +60,31 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            guard let http = response as? HTTPURLResponse else {
+                isConnected = false
+                connectionError = "Invalid response"
+                models = []
+                return
+            }
+
+            if http.statusCode == 401 {
                 isConnected = false
                 models = []
+                connectionError = "Invalid API key"
+                return
+            }
+
+            guard http.statusCode == 200 else {
+                isConnected = false
+                models = []
+                // Try to parse error
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    connectionError = message
+                } else {
+                    connectionError = "OpenAI returned \(http.statusCode)"
+                }
                 return
             }
 
@@ -85,9 +111,11 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
             }
 
             isConnected = true
+            connectionError = nil
         } catch {
             isConnected = false
             models = []
+            connectionError = error.localizedDescription
         }
     }
 

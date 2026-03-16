@@ -92,6 +92,7 @@ class ChatManager: ObservableObject {
 
     private var streamTask: Task<Void, Never>?
     private var compareTasks: [Task<Void, Never>] = []
+    private var nestedCancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
@@ -145,6 +146,21 @@ class ChatManager: ObservableObject {
         // Apply appearance
         applyAppearance()
 
+        // Forward objectWillChange from nested ObservableObjects so SwiftUI re-renders
+        // (must be after all stored properties are initialized)
+        providers.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
+        ollama.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
+        providers.openAI.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
+        providers.anthropic.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
+
         // Connect all providers and dismiss splash
         Task {
             if let url = URL(string: ollamaBaseURL) {
@@ -153,9 +169,11 @@ class ChatManager: ObservableObject {
             await providers.connectAll()
 
             // Auto-select first model if none selected
-            if selectedModelId.isEmpty, let first = ollama.availableModels.first {
-                selectedModelId = "ollama:\(first.name)"
-                persistSelectedModel()
+            if selectedModelId.isEmpty || providers.allModels.first(where: { $0.id == selectedModelId }) == nil {
+                if let first = providers.allModels.first {
+                    selectedModelId = first.id
+                    persistSelectedModel()
+                }
             }
 
             try? await Task.sleep(for: .seconds(1))
@@ -255,14 +273,15 @@ class ChatManager: ObservableObject {
         try? context.save()
 
         // Build message history for the API
-        var apiMessages: [(role: String, content: String)] = []
+        var apiMessages: [ChatMessage] = []
 
         if !conversation.systemPrompt.isEmpty {
-            apiMessages.append((role: "system", content: conversation.systemPrompt))
+            apiMessages.append(ChatMessage(role: .system, content: conversation.systemPrompt))
         }
 
         for msg in conversation.sortedMessages where !msg.isStreaming {
-            apiMessages.append((role: msg.role.rawValue, content: msg.content))
+            let role = ChatMessageRole(rawValue: msg.role.rawValue) ?? .user
+            apiMessages.append(ChatMessage(role: role, content: msg.content))
         }
 
         isGenerating = true
@@ -270,8 +289,8 @@ class ChatManager: ObservableObject {
 
         streamTask = Task {
             do {
-                let result = try await ollama.chat(
-                    model: modelToUse,
+                let result = try await providers.chat(
+                    qualifiedModelId: modelToUse,
                     messages: apiMessages
                 ) { [weak self] token in
                     Task { @MainActor in
@@ -323,13 +342,11 @@ class ChatManager: ObservableObject {
         for (index, modelName) in models.enumerated() {
             let task = Task {
                 do {
-                    let messages: [(role: String, content: String)] = [
-                        (role: "user", content: prompt)
-                    ]
+                    let apiMessages = [ChatMessage(role: .user, content: prompt)]
 
-                    let result = try await ollama.chat(
-                        model: modelName,
-                        messages: messages
+                    let result = try await providers.chat(
+                        qualifiedModelId: modelName,
+                        messages: apiMessages
                     ) { [weak self] token in
                         Task { @MainActor in
                             guard let self = self, index < self.compareSlots.count else { return }
