@@ -18,18 +18,21 @@
             --text-secondary: #64748b;
             --accent: #3b82f6;
             --accent-hover: #2563eb;
+            --accent-wash: rgba(59,130,246,.06);
             --border: #e2e8f0;
+            --radius: 20px;
             --glow: rgba(59, 130, 246, 0.08);
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg: #0b0f1a;
+                --bg: #050810;
                 --surface: rgba(30, 41, 59, 0.5);
                 --text: #f1f5f9;
                 --text-secondary: #94a3b8;
                 --accent: #60a5fa;
                 --accent-hover: #93bbfd;
+                --accent-wash: rgba(96,165,250,.06);
                 --border: rgba(148, 163, 184, 0.12);
                 --glow: rgba(96, 165, 250, 0.06);
             }
@@ -41,17 +44,49 @@
             color: var(--text);
             line-height: 1.7;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(ellipse at 30% 20%, var(--glow) 0%, transparent 50%);
-            z-index: -1;
+        /* ── Animated background ─────────────────────── */
+        .bg-glow {
+            position: fixed; inset: 0; z-index: -1; overflow: hidden;
+        }
+        .bg-orb {
+            position: absolute; border-radius: 50%; filter: blur(80px);
+            will-change: transform;
+        }
+        .bg-orb-1 {
+            width: 400px; height: 400px; top: -10%; left: 5%;
+            background: rgba(59,130,246,.06);
+            animation: orbDrift1 20s ease-in-out infinite alternate;
+        }
+        .bg-orb-2 {
+            width: 300px; height: 300px; top: 40%; right: 5%;
+            background: rgba(124,58,237,.04);
+            animation: orbDrift2 25s ease-in-out infinite alternate;
+        }
+        .bg-orb-3 {
+            width: 250px; height: 250px; bottom: 5%; left: 30%;
+            background: rgba(52,211,153,.03);
+            animation: orbDrift3 18s ease-in-out infinite alternate;
+        }
+        @keyframes orbDrift1 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(5%,8%) scale(1.1)} }
+        @keyframes orbDrift2 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(-8%,-5%) scale(1.08)} }
+        @keyframes orbDrift3 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(6%,-6%) scale(1.05)} }
+
+        @media (prefers-color-scheme: dark) {
+            .bg-orb-1 { background: rgba(59,130,246,.04); }
+            .bg-orb-2 { background: rgba(124,58,237,.03); }
+            .bg-orb-3 { background: rgba(52,211,153,.02); }
+        }
+
+        /* ── Dot grid ────────────────────────────────── */
+        .dot-grid {
+            position: fixed; inset: 0; z-index: -1;
+            background-image: radial-gradient(circle, var(--border) 0.8px, transparent 0.8px);
+            background-size: 36px 36px;
+            mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(0,0,0,.3), transparent);
+            -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(0,0,0,.3), transparent);
         }
 
         .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
@@ -72,10 +107,16 @@
             font-size: 0.85rem;
             font-weight: 500;
             margin-bottom: 20px;
-            transition: color 0.2s ease;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
         }
 
-        .back:hover { color: var(--accent); text-decoration: none; }
+        .back:hover {
+            color: var(--accent);
+            text-decoration: none;
+            background: var(--accent-wash);
+        }
 
         h1 {
             font-size: 1.85rem;
@@ -112,6 +153,18 @@
             text-align: center;
             padding: 28px 0 56px;
             border-top: 1px solid var(--border);
+            position: relative;
+        }
+
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: .3;
         }
 
         footer p { font-size: 0.8rem; color: var(--text-secondary); }
@@ -123,6 +176,15 @@
     </style>
 </head>
 <body>
+
+<!-- Background effects -->
+<div class="bg-glow">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+</div>
+<div class="dot-grid"></div>
+
     <div class="container">
         <header>
             <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
