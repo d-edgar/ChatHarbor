@@ -10,11 +10,11 @@ struct ChatHarborApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(chatManager)
-                .frame(minWidth: 700, minHeight: 500)
+                .frame(minWidth: 800, minHeight: 600)
         }
         .modelContainer(for: [Conversation.self, Message.self])
         .windowStyle(.titleBar)
-        .defaultSize(width: 1000, height: 700)
+        .defaultSize(width: 1200, height: 800)
         .commands {
             ChatHarborCommands(chatManager: chatManager)
         }

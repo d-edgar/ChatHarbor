@@ -28,9 +28,11 @@ protocol LLMProvider: AnyObject {
 
     /// Stream a chat completion. Calls `onToken` for each chunk.
     /// Returns the final result with token count and duration.
+    /// `parameters` are fully transparent — exactly what gets sent to the API.
     func chat(
         model: String,
         messages: [ChatMessage],
+        parameters: ChatParameters,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult
 }
@@ -52,6 +54,7 @@ struct ProviderModel: Identifiable, Hashable {
     /// For grouping: "Anthropic" or "Ollama"
     var providerLabel: String {
         switch providerId {
+        case "apple": return "Apple Intelligence (On-Device)"
         case "ollama": return "Ollama (Local)"
         case "openai": return "OpenAI"
         case "anthropic": return "Anthropic"
@@ -73,13 +76,61 @@ enum ChatMessageRole: String {
     case assistant
 }
 
+/// Parameters that control model behavior — fully transparent to the user.
+/// Every value here maps 1:1 to what's sent to the API.
+struct ChatParameters: Sendable {
+    var temperature: Double?      // 0.0–2.0, nil = provider default
+    var maxTokens: Int?           // nil = provider default (e.g. 4096)
+    var topP: Double?             // 0.0–1.0, nil = provider default
+    var frequencyPenalty: Double?  // OpenAI only, -2.0 to 2.0
+    var presencePenalty: Double?   // OpenAI only, -2.0 to 2.0
+
+    /// Merge: conversation-level overrides provider defaults
+    func merging(over defaults: ChatParameters) -> ChatParameters {
+        ChatParameters(
+            temperature: temperature ?? defaults.temperature,
+            maxTokens: maxTokens ?? defaults.maxTokens,
+            topP: topP ?? defaults.topP,
+            frequencyPenalty: frequencyPenalty ?? defaults.frequencyPenalty,
+            presencePenalty: presencePenalty ?? defaults.presencePenalty
+        )
+    }
+
+    nonisolated static let empty = ChatParameters()
+}
+
 /// Unified result from any provider
 struct ChatResult {
     let content: String
-    let tokenCount: Int
+    let tokenCount: Int          // output tokens
+    let inputTokenCount: Int     // input (prompt) tokens
     let durationMs: Double
     let model: String
     let providerId: String
+}
+
+// MARK: - Provider Icon Mapping
+//
+// Maps provider IDs to custom asset catalog images.
+// Falls back to SF Symbols when no custom asset exists.
+
+enum ProviderIcon {
+    /// Custom asset names (from Assets.xcassets) keyed by provider ID
+    private static let customAssets: [String: String] = [
+        "anthropic": "AnthropicIcon",
+        "openai": "OpenAIIcon",
+        "ollama": "OllamaIcon",
+    ]
+
+    /// Returns true if this provider has a custom image asset
+    static func hasCustomIcon(for providerId: String) -> Bool {
+        customAssets[providerId] != nil
+    }
+
+    /// The custom asset name, or nil if none exists
+    static func customAssetName(for providerId: String) -> String? {
+        customAssets[providerId]
+    }
 }
 
 // MARK: - Provider Errors

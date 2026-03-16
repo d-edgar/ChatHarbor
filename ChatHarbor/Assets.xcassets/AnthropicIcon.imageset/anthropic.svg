@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Anthropic starburst logo - radiating lines from center -->
+  <g fill="none" stroke="black" stroke-width="3.5" stroke-linecap="round">
+    <!-- 12 rays radiating outward -->
+    <line x1="32" y1="32" x2="32" y2="6"/>
+    <line x1="32" y1="32" x2="45" y2="8.5"/>
+    <line x1="32" y1="32" x2="54.5" y2="17.5"/>
+    <line x1="32" y1="32" x2="58" y2="32"/>
+    <line x1="32" y1="32" x2="54.5" y2="46.5"/>
+    <line x1="32" y1="32" x2="45" y2="55.5"/>
+    <line x1="32" y1="32" x2="32" y2="58"/>
+    <line x1="32" y1="32" x2="19" y2="55.5"/>
+    <line x1="32" y1="32" x2="9.5" y2="46.5"/>
+    <line x1="32" y1="32" x2="6" y2="32"/>
+    <line x1="32" y1="32" x2="9.5" y2="17.5"/>
+    <line x1="32" y1="32" x2="19" y2="8.5"/>
+  </g>
+</svg>

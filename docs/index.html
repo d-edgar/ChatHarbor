@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatHarbor — All Your Chats, One Harbor</title>
+    <title>ChatHarbor — One Native App for All Your AI</title>
+    <meta name="description" content="A native macOS app that brings Apple Intelligence, Ollama, OpenAI, and Anthropic together in one window. Compare models, fork conversations, full parameter transparency.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +46,6 @@
             overflow-x: hidden;
         }
 
-        /* Subtle animated background gradient */
         body::before {
             content: '';
             position: fixed;
@@ -65,12 +65,11 @@
         }
 
         .container {
-            max-width: 720px;
+            max-width: 760px;
             margin: 0 auto;
             padding: 0 24px;
         }
 
-        /* Header */
         header {
             padding: 40px 0 24px;
             text-align: center;
@@ -107,7 +106,6 @@
             font-weight: 400;
         }
 
-        /* Main content */
         main {
             padding: 8px 0 24px;
         }
@@ -116,13 +114,49 @@
             text-align: center;
             font-size: 1.05rem;
             color: var(--text-secondary);
-            margin-bottom: 32px;
-            max-width: 540px;
+            margin-bottom: 36px;
+            max-width: 580px;
             margin-left: auto;
             margin-right: auto;
             line-height: 1.7;
         }
 
+        /* Provider bar */
+        .providers {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+
+        .provider-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .provider-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .dot-apple { background: #34d399; }
+        .dot-ollama { background: #f97316; }
+        .dot-openai { background: #a78bfa; }
+        .dot-anthropic { background: #fb923c; }
+
+        /* Feature grid */
         .features {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -133,6 +167,7 @@
         @media (max-width: 540px) {
             .features { grid-template-columns: 1fr; }
             h1 { font-size: 1.75rem; }
+            .providers { gap: 12px; }
         }
 
         .feature {
@@ -149,11 +184,6 @@
             transform: translateY(-3px);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
             border-color: var(--accent);
-        }
-
-        /* Make the 5th feature span full width when in 2-col grid */
-        .feature:last-child:nth-child(odd) {
-            grid-column: 1 / -1;
         }
 
         .feature-icon {
@@ -173,6 +203,34 @@
             color: var(--text-secondary);
             line-height: 1.55;
         }
+
+        /* Highlight section */
+        .highlight {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 36px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .highlight h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .highlight p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .highlight .emoji { font-size: 1.5rem; margin-bottom: 10px; display: block; }
 
         /* Links section */
         .links {
@@ -205,16 +263,9 @@
             transition: width 0.25s ease;
         }
 
-        .links a:hover {
-            color: var(--accent);
-            text-decoration: none;
-        }
+        .links a:hover { color: var(--accent); text-decoration: none; }
+        .links a:hover::after { width: 100%; }
 
-        .links a:hover::after {
-            width: 100%;
-        }
-
-        /* Footer */
         footer {
             text-align: center;
             padding: 20px 0 36px;
@@ -264,24 +315,24 @@
             text-decoration: none;
         }
 
-        .download-sub a:hover {
-            text-decoration: underline;
-        }
+        .download-sub a:hover { text-decoration: underline; }
 
-        /* Fade-in animation */
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         header { animation: fadeUp 0.6s ease both; }
+        .providers { animation: fadeUp 0.5s ease 0.08s both; }
         .description { animation: fadeUp 0.6s ease 0.1s both; }
         .feature:nth-child(1) { animation: fadeUp 0.5s ease 0.15s both; }
         .feature:nth-child(2) { animation: fadeUp 0.5s ease 0.2s both; }
         .feature:nth-child(3) { animation: fadeUp 0.5s ease 0.25s both; }
         .feature:nth-child(4) { animation: fadeUp 0.5s ease 0.3s both; }
         .feature:nth-child(5) { animation: fadeUp 0.5s ease 0.35s both; }
-        .links { animation: fadeUp 0.5s ease 0.4s both; }
+        .feature:nth-child(6) { animation: fadeUp 0.5s ease 0.4s both; }
+        .highlight { animation: fadeUp 0.5s ease 0.45s both; }
+        .links { animation: fadeUp 0.5s ease 0.5s both; }
     </style>
 </head>
 <body>
@@ -317,37 +368,10 @@
                     <path d="M-20,310 Q60,285 140,310 Q220,335 300,310 Q380,285 460,310 Q500,322 540,310 L540,520 L-20,520 Z" fill="url(#ocean)"/>
                     <path d="M-20,310 Q60,285 140,310 Q220,335 300,310 Q380,285 460,310 Q500,322 540,310" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.25"/>
                     <path d="M-20,350 Q80,335 160,350 Q240,365 320,350 Q400,335 480,350 Q520,358 540,350" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.15"/>
-                    <path d="M-20,385 Q70,372 150,385 Q230,398 310,385 Q390,372 470,385 Q510,392 540,385" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.1"/>
-                    <g transform="translate(55, 48)">
-                        <rect width="56" height="36" rx="12" fill="#ffffff" opacity="0.55"/>
-                        <polygon points="16,36 11,47 24,36" fill="#ffffff" opacity="0.55"/>
-                        <circle cx="18" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
-                        <circle cx="29" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
-                        <circle cx="40" cy="18" r="3.5" fill="#2563EB" opacity="0.55"/>
-                    </g>
-                    <g transform="translate(338, 55)">
-                        <rect width="74" height="48" rx="15" fill="#ffffff" opacity="0.88"/>
-                        <polygon points="20,48 14,62 30,48" fill="#ffffff" opacity="0.88"/>
-                        <circle cx="23" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
-                        <circle cx="39" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
-                        <circle cx="55" cy="24" r="5" fill="#2563EB" opacity="0.9"/>
-                    </g>
-                    <g transform="translate(190, 30)">
-                        <rect width="50" height="32" rx="11" fill="#ffffff" opacity="0.4"/>
-                        <polygon points="30,32 26,42 36,32" fill="#ffffff" opacity="0.4"/>
-                        <line x1="12" y1="13" x2="38" y2="13" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
-                        <line x1="12" y1="22" x2="30" y2="22" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
-                    </g>
-                    <g transform="translate(35, 150)">
-                        <rect width="44" height="30" rx="10" fill="#ffffff" opacity="0.35"/>
-                        <polygon points="30,30 34,39 38,30" fill="#ffffff" opacity="0.35"/>
-                        <line x1="10" y1="12" x2="34" y2="12" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
-                        <line x1="10" y1="20" x2="26" y2="20" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
-                    </g>
                 </g>
             </svg>
             <h1>ChatHarbor</h1>
-            <p class="tagline">All your chats, one harbor.</p>
+            <p class="tagline">One native app for all your AI.</p>
             <a href="https://github.com/d-edgar/ChatHarbor/releases/latest" class="download-btn" aria-label="Download ChatHarbor">
                 <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06Z"/></svg>
                 Download for macOS
@@ -356,37 +380,58 @@
         </header>
 
         <main>
+            <div class="providers">
+                <div class="provider-badge"><span class="dot dot-apple"></span> Apple Intelligence</div>
+                <div class="provider-badge"><span class="dot dot-ollama"></span> Ollama</div>
+                <div class="provider-badge"><span class="dot dot-openai"></span> OpenAI</div>
+                <div class="provider-badge"><span class="dot dot-anthropic"></span> Anthropic</div>
+            </div>
+
             <p class="description">
-                A lightweight, native macOS app that brings all your messaging services together
-                in a single window. No more switching between tabs.
+                Chat with Apple Intelligence, Ollama, OpenAI, and Anthropic side by side in one native macOS window.
+                Compare responses across models, fork conversations, and keep full control over every parameter sent to the API.
             </p>
 
             <div class="features">
                 <div class="feature">
-                    <div class="feature-icon">&#9881;&#65039;</div>
-                    <h3>20+ Services</h3>
-                    <p>Slack, Teams, Discord, WhatsApp, Telegram, and many more — all in one place.</p>
+                    <div class="feature-icon">&#9878;&#65039;</div>
+                    <h3>Multi-Provider</h3>
+                    <p>Four providers, one app. Run local models with Ollama and Apple Intelligence, or connect to OpenAI and Anthropic via API. Switch between them freely.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">&#128202;</div>
+                    <h3>Compare Models</h3>
+                    <p>Send the same prompt to 2&ndash;4 models simultaneously and see responses side by side. Cross-provider, real-time streaming, with token and speed metrics.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">&#128268;</div>
+                    <h3>Fork Conversations</h3>
+                    <p>Branch any conversation at any message. Explore different directions without losing context. Forks nest visually in the sidebar with full ancestry tracking.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">&#128065;</div>
+                    <h3>Full Transparency</h3>
+                    <p>See exactly what's being sent to the API. System prompts, temperature, max tokens, top_p &mdash; every parameter is visible, adjustable, and copyable. No hidden magic.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">&#128218;</div>
+                    <h3>Prompt Library</h3>
+                    <p>Built-in templates for coding, writing, research, and more. Create your own custom presets with named profiles that persist per conversation.</p>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">&#127912;</div>
                     <h3>Themes</h3>
-                    <p>Choose from standard and seasonal color themes, each with light and dark mode support.</p>
+                    <p>10 color themes including seasonal variants, each with light and dark mode support. The entire UI adapts to your chosen palette.</p>
                 </div>
-                <div class="feature">
-                    <div class="feature-icon">&#128276;</div>
-                    <h3>Smart Notifications</h3>
-                    <p>Fine-grained control over banners, sounds, badges, and per-service muting.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">&#128274;</div>
-                    <h3>Workspace Guard</h3>
-                    <p>Automatically clears your clipboard when switching between personal and work chats.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">&#128065;</div>
-                    <h3>Privacy Shield</h3>
-                    <p>Automatically blurs your chats when your screen is being shared or recorded.</p>
-                </div>
+            </div>
+
+            <div class="highlight">
+                <span class="emoji">&#128274;</span>
+                <h3>Private by Default</h3>
+                <p>
+                    All conversations are stored locally on your Mac using SwiftData. API keys stay on your device.
+                    Local models with Ollama and Apple Intelligence work completely offline &mdash; no data leaves your machine.
+                </p>
             </div>
         </main>
 
@@ -398,7 +443,7 @@
 
         <footer>
             <p>&copy; 2026 <a href="https://dedgar.de" style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:2px;">David Edgar</a>. All rights reserved.</p>
-            <p style="margin-top:4px;">Built with SwiftUI and WebKit for macOS.</p>
+            <p style="margin-top:4px;">Built with SwiftUI &middot; SwiftData &middot; MIT License</p>
         </footer>
     </div>
 </body>

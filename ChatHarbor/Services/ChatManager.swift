@@ -160,6 +160,9 @@ class ChatManager: ObservableObject {
         providers.anthropic.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &nestedCancellables)
+        providers.apple.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
 
         // Connect all providers and dismiss splash
         Task {
@@ -221,6 +224,13 @@ class ChatManager: ObservableObject {
             forkedFromId: conversation.id,
             forkedAtMessageId: message.id
         )
+        // Copy per-conversation parameter overrides
+        fork.temperature = conversation.temperature
+        fork.maxTokens = conversation.maxTokens
+        fork.topP = conversation.topP
+        fork.frequencyPenalty = conversation.frequencyPenalty
+        fork.presencePenalty = conversation.presencePenalty
+        fork.savedPresetName = conversation.savedPresetName
         context.insert(fork)
 
         // Copy messages up to and including the fork point
@@ -232,6 +242,7 @@ class ChatManager: ObservableObject {
                 modelUsed: msg.modelUsed
             )
             copy.tokenCount = msg.tokenCount
+            copy.inputTokenCount = msg.inputTokenCount
             copy.durationMs = msg.durationMs
             fork.messages.append(copy)
 
@@ -275,14 +286,28 @@ class ChatManager: ObservableObject {
         // Build message history for the API
         var apiMessages: [ChatMessage] = []
 
-        if !conversation.systemPrompt.isEmpty {
-            apiMessages.append(ChatMessage(role: .system, content: conversation.systemPrompt))
+        // System prompt: conversation-level → provider default → nothing
+        let systemPrompt: String = {
+            if !conversation.systemPrompt.isEmpty { return conversation.systemPrompt }
+            let parts = modelToUse.split(separator: ":", maxSplits: 1)
+            if parts.count == 2 {
+                let provDefault = providers.defaultSystemPrompt(for: String(parts[0]))
+                if !provDefault.isEmpty { return provDefault }
+            }
+            return ""
+        }()
+
+        if !systemPrompt.isEmpty {
+            apiMessages.append(ChatMessage(role: .system, content: systemPrompt))
         }
 
         for msg in conversation.sortedMessages where !msg.isStreaming {
             let role = ChatMessageRole(rawValue: msg.role.rawValue) ?? .user
             apiMessages.append(ChatMessage(role: role, content: msg.content))
         }
+
+        // Parameters: conversation-level overrides merge onto provider defaults
+        let conversationParams = conversation.chatParameters
 
         isGenerating = true
         streamingContent = ""
@@ -291,7 +316,8 @@ class ChatManager: ObservableObject {
             do {
                 let result = try await providers.chat(
                     qualifiedModelId: modelToUse,
-                    messages: apiMessages
+                    messages: apiMessages,
+                    parameters: conversationParams
                 ) { [weak self] token in
                     Task { @MainActor in
                         self?.streamingContent += token
@@ -301,7 +327,9 @@ class ChatManager: ObservableObject {
 
                 assistantMessage.isStreaming = false
                 assistantMessage.tokenCount = result.tokenCount
+                assistantMessage.inputTokenCount = result.inputTokenCount
                 assistantMessage.durationMs = result.durationMs
+                assistantMessage.modelUsed = modelToUse
                 conversation.updatedAt = Date()
                 try? context.save()
             } catch {

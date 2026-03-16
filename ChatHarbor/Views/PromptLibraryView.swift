@@ -70,7 +70,7 @@ struct PromptLibraryView: View {
             // MARK: - Search
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .font(.system(size: 13))
                 TextField("Search templates…", text: $searchText)
                     .textFieldStyle(.plain)
@@ -89,7 +89,7 @@ struct PromptLibraryView: View {
                         Spacer()
                         Image(systemName: "doc.text.magnifyingglass")
                             .font(.system(size: 36))
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.secondary)
                         Text("No templates match your search")
                             .font(.callout)
                             .foregroundStyle(.secondary)
@@ -167,7 +167,7 @@ struct TemplateCard: View {
                 if template.isBuiltIn {
                     Text("BUILT-IN")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(.quaternary.opacity(0.5), in: Capsule())
@@ -177,7 +177,7 @@ struct TemplateCard: View {
             if template.systemPrompt.isEmpty {
                 Text("No system prompt — default behavior")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .italic()
             } else {
                 Text(template.systemPrompt)

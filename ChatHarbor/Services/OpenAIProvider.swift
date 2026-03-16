@@ -12,7 +12,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
 
     let providerId = "openai"
     let displayName = "OpenAI"
-    let iconName = "brain"
+    let iconName = "hexagon"  // Hexagonal shape — closest SF Symbol to OpenAI's logo
 
     @Published var isConnected: Bool = false
     @Published var models: [ProviderModel] = []
@@ -124,6 +124,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
     func chat(
         model: String,
         messages: [ChatMessage],
+        parameters: ChatParameters = .empty,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult {
         guard !apiKey.isEmpty else { throw LLMProviderError.invalidAPIKey }
@@ -132,12 +133,19 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
             throw LLMProviderError.networkError("Invalid base URL")
         }
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
             "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
             "stream": true,
             "stream_options": ["include_usage": true]
         ]
+
+        // Transparent: only send parameters the user explicitly set
+        if let temp = parameters.temperature { body["temperature"] = temp }
+        if let maxTokens = parameters.maxTokens { body["max_tokens"] = maxTokens }
+        if let topP = parameters.topP { body["top_p"] = topP }
+        if let freqPenalty = parameters.frequencyPenalty { body["frequency_penalty"] = freqPenalty }
+        if let presPenalty = parameters.presencePenalty { body["presence_penalty"] = presPenalty }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -191,6 +199,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
         return ChatResult(
             content: fullContent,
             tokenCount: totalTokens,
+            inputTokenCount: 0,
             durationMs: elapsed,
             model: model,
             providerId: providerId

@@ -13,7 +13,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
 
     let providerId = "anthropic"
     let displayName = "Anthropic"
-    let iconName = "sparkle"
+    let iconName = "sun.max.fill"  // Starburst — closest SF Symbol to Anthropic's logo
 
     @Published var isConnected: Bool = false
     @Published var models: [ProviderModel] = []
@@ -27,7 +27,8 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     private let betaFeatures = "max-tokens-3-5-sonnet-2024-07-15"
 
     // Claude models — Anthropic doesn't have a list endpoint,
-    // so we maintain the catalog here.
+    // so we maintain the catalog here. The first entry is used for
+    // connection tests, so keep it set to the most reliable/available model.
     private let modelCatalog: [(id: String, name: String, context: Int)] = [
         ("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000),
         ("claude-opus-4-20250514", "Claude Opus 4", 200_000),
@@ -54,83 +55,114 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
             return
         }
 
-        // Verify key with a minimal request
-        do {
-            guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
-                isConnected = false
-                connectionError = "Invalid API URL"
-                return
-            }
-
-            // Send a tiny request to verify the key works
-            let body: [String: Any] = [
-                "model": "claude-3-5-haiku-20241022",
-                "max_tokens": 1,
-                "messages": [["role": "user", "content": "hi"]]
-            ]
-
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let http = response as? HTTPURLResponse else {
-                isConnected = false
-                connectionError = "Invalid response"
-                return
-            }
-
-            // Parse error body for non-success responses
-            var apiErrorMessage: String?
-            if http.statusCode != 200 && http.statusCode != 429 {
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let error = json["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    apiErrorMessage = message
-                }
-            }
-
-            switch http.statusCode {
-            case 200, 429:
-                // 200 = works, 429 = key valid but rate-limited
-                isConnected = true
-                connectionError = nil
-                models = modelCatalog.map { entry in
-                    ProviderModel(
-                        providerId: providerId,
-                        modelId: entry.id,
-                        displayName: entry.name,
-                        contextWindow: entry.context,
-                        isLocal: false
-                    )
-                }
-            case 401:
-                isConnected = false
-                models = []
-                connectionError = "Invalid API key"
-            case 400:
-                // 400 often means billing issue
-                isConnected = false
-                models = []
-                connectionError = apiErrorMessage ?? "Bad request — check billing at console.anthropic.com"
-            case 403:
-                isConnected = false
-                models = []
-                connectionError = apiErrorMessage ?? "Access denied — check API key permissions"
-            default:
-                // Other status codes — try to show the error
-                isConnected = false
-                models = []
-                connectionError = apiErrorMessage ?? "Unexpected response (\(http.statusCode))"
-            }
-        } catch {
+        // Verify key with a minimal request — try each model in the catalog
+        // until one succeeds, since some models may not be available on all accounts.
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
             isConnected = false
-            models = []
-            connectionError = error.localizedDescription
+            connectionError = "Invalid API URL"
+            return
+        }
+
+        // Models to try for the connection test, in order of preference
+        let testModels = modelCatalog.map { $0.id }
+
+        for (index, testModel) in testModels.enumerated() {
+            do {
+                let body: [String: Any] = [
+                    "model": testModel,
+                    "max_tokens": 1,
+                    "messages": [["role": "user", "content": "hi"]]
+                ]
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+                request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+
+                guard let http = response as? HTTPURLResponse else {
+                    isConnected = false
+                    connectionError = "Invalid response"
+                    return
+                }
+
+                // Parse error body for non-success responses
+                var apiErrorMessage: String?
+                var apiErrorType: String?
+                if http.statusCode != 200 && http.statusCode != 429 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let error = json["error"] as? [String: Any] {
+                        apiErrorMessage = error["message"] as? String
+                        apiErrorType = error["type"] as? String
+                    }
+                }
+
+                switch http.statusCode {
+                case 200, 429:
+                    // 200 = works, 429 = key valid but rate-limited
+                    isConnected = true
+                    connectionError = nil
+                    models = modelCatalog.map { entry in
+                        ProviderModel(
+                            providerId: providerId,
+                            modelId: entry.id,
+                            displayName: entry.name,
+                            contextWindow: entry.context,
+                            isLocal: false
+                        )
+                    }
+                    return
+
+                case 401:
+                    isConnected = false
+                    models = []
+                    connectionError = "Invalid API key"
+                    return
+
+                case 400:
+                    // Check if this is a model-not-found error — try the next model
+                    let isModelError = apiErrorType == "not_found_error"
+                        || (apiErrorMessage?.lowercased().contains("model") ?? false)
+                    if isModelError && index < testModels.count - 1 {
+                        continue // Try next model
+                    }
+                    // Not a model error, or we've exhausted all models
+                    isConnected = false
+                    models = []
+                    connectionError = apiErrorMessage ?? "Bad request — check billing at console.anthropic.com"
+                    return
+
+                case 403:
+                    isConnected = false
+                    models = []
+                    connectionError = apiErrorMessage ?? "Access denied — check API key permissions"
+                    return
+
+                case 404:
+                    // Model not found — try the next model in the catalog
+                    if index < testModels.count - 1 {
+                        continue
+                    }
+                    isConnected = false
+                    models = []
+                    connectionError = "No models available for this API key"
+                    return
+
+                default:
+                    isConnected = false
+                    models = []
+                    connectionError = apiErrorMessage ?? "Unexpected response (\(http.statusCode))"
+                    return
+                }
+            } catch {
+                isConnected = false
+                models = []
+                connectionError = error.localizedDescription
+                return
+            }
         }
     }
 
@@ -139,6 +171,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     func chat(
         model: String,
         messages: [ChatMessage],
+        parameters: ChatParameters = .empty,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult {
         guard !apiKey.isEmpty else { throw LLMProviderError.invalidAPIKey }
@@ -165,13 +198,17 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         var body: [String: Any] = [
             "model": model,
             "messages": apiMessages,
-            "max_tokens": 4096,
+            "max_tokens": parameters.maxTokens ?? 4096,
             "stream": true
         ]
 
         if let system = systemPrompt {
             body["system"] = system
         }
+
+        // Transparent: only send parameters the user explicitly set
+        if let temp = parameters.temperature { body["temperature"] = temp }
+        if let topP = parameters.topP { body["top_p"] = topP }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -211,6 +248,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         }
 
         var fullContent = ""
+        var inputTokens = 0
         var outputTokens = 0
 
         for try await line in bytes.lines {
@@ -226,6 +264,13 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
             let eventType = json["type"] as? String ?? ""
 
             switch eventType {
+            case "message_start":
+                // Initial usage contains input token count
+                if let message = json["message"] as? [String: Any],
+                   let usage = message["usage"] as? [String: Any] {
+                    inputTokens = usage["input_tokens"] as? Int ?? 0
+                }
+
             case "content_block_delta":
                 if let delta = json["delta"] as? [String: Any],
                    let text = delta["text"] as? String {
@@ -253,6 +298,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         return ChatResult(
             content: fullContent,
             tokenCount: outputTokens,
+            inputTokenCount: inputTokens,
             durationMs: elapsed,
             model: model,
             providerId: providerId

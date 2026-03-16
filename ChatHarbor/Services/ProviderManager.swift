@@ -16,10 +16,11 @@ class ProviderManager: ObservableObject {
     let ollama: OllamaService
     let openAI: OpenAIProvider
     let anthropic: AnthropicProvider
+    let apple: AppleIntelligenceProvider
 
     /// All registered providers
     var allProviders: [any LLMProvider] {
-        [ollama, openAI, anthropic]
+        [apple, ollama, openAI, anthropic]
     }
 
     /// All connected providers
@@ -32,6 +33,7 @@ class ProviderManager: ObservableObject {
     /// All available models across all connected providers
     var allModels: [ProviderModel] {
         var models: [ProviderModel] = []
+        models.append(contentsOf: apple.models)
         models.append(contentsOf: ollama.models)
         models.append(contentsOf: openAI.models)
         models.append(contentsOf: anthropic.models)
@@ -44,6 +46,7 @@ class ProviderManager: ObservableObject {
         self.ollama = ollama
         self.openAI = OpenAIProvider()
         self.anthropic = AnthropicProvider()
+        self.apple = AppleIntelligenceProvider()
     }
 
     // MARK: - Connect All
@@ -52,6 +55,7 @@ class ProviderManager: ObservableObject {
     func connectAll() async {
         // Run all connections in parallel
         await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.apple.connect() }
             group.addTask { await self.ollama.connect() }
             group.addTask { await self.openAI.connect() }
             group.addTask { await self.anthropic.connect() }
@@ -63,6 +67,7 @@ class ProviderManager: ObservableObject {
     /// Refresh a single provider
     func reconnect(_ providerId: String) async {
         switch providerId {
+        case "apple": await apple.connect()
         case "ollama": await ollama.connect()
         case "openai": await openAI.connect()
         case "anthropic": await anthropic.connect()
@@ -144,26 +149,116 @@ class ProviderManager: ObservableObject {
 
     private func providerIcon(_ providerId: String) -> String {
         switch providerId {
+        case "apple": return apple.iconName
         case "ollama": return "desktopcomputer"
-        case "openai": return "brain"
-        case "anthropic": return "sparkle"
+        case "openai": return "hexagon"
+        case "anthropic": return "sun.max.fill"
         default: return "cpu"
         }
     }
 
+    // MARK: - Provider Defaults (Transparent Settings)
+
+    /// Per-provider default system prompts — shown in Settings
+    func defaultSystemPrompt(for providerId: String) -> String {
+        UserDefaults.standard.string(forKey: "chatharbor.\(providerId).systemPrompt") ?? ""
+    }
+
+    func setDefaultSystemPrompt(_ prompt: String, for providerId: String) {
+        UserDefaults.standard.set(prompt, forKey: "chatharbor.\(providerId).systemPrompt")
+    }
+
+    /// Per-provider default parameters — what gets sent to the API unless overridden
+    func defaultParameters(for providerId: String) -> ChatParameters {
+        let prefix = "chatharbor.\(providerId).param"
+        let defaults = UserDefaults.standard
+
+        return ChatParameters(
+            temperature: defaults.object(forKey: "\(prefix).temperature") as? Double,
+            maxTokens: defaults.object(forKey: "\(prefix).maxTokens") as? Int,
+            topP: defaults.object(forKey: "\(prefix).topP") as? Double,
+            frequencyPenalty: defaults.object(forKey: "\(prefix).frequencyPenalty") as? Double,
+            presencePenalty: defaults.object(forKey: "\(prefix).presencePenalty") as? Double
+        )
+    }
+
+    func setDefaultParameter(_ key: String, value: Any?, for providerId: String) {
+        let fullKey = "chatharbor.\(providerId).param.\(key)"
+        if let value = value {
+            UserDefaults.standard.set(value, forKey: fullKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: fullKey)
+        }
+    }
+
+    /// Names of parameters each provider actually supports
+    static func supportedParameters(for providerId: String) -> [String] {
+        switch providerId {
+        case "apple":     return []  // On-device, no tuning knobs
+        case "ollama":    return ["temperature", "maxTokens", "topP", "frequencyPenalty", "presencePenalty"]
+        case "openai":    return ["temperature", "maxTokens", "topP", "frequencyPenalty", "presencePenalty"]
+        case "anthropic": return ["temperature", "maxTokens", "topP"]
+        default:          return ["temperature", "maxTokens"]
+        }
+    }
+
+    // MARK: - Pricing (per million tokens)
+
+    /// Pricing table: (inputPricePerMillion, outputPricePerMillion)
+    /// Prices from Anthropic/OpenAI public pricing pages as of May 2025.
+    /// Local models (Ollama) are free.
+    private static let pricing: [String: (input: Double, output: Double)] = [
+        // Anthropic
+        "claude-sonnet-4-20250514":     (input: 3.00, output: 15.00),
+        "claude-opus-4-20250514":       (input: 15.00, output: 75.00),
+        "claude-haiku-4-20250514":      (input: 0.80, output: 4.00),
+        "claude-3-5-sonnet-20241022":   (input: 3.00, output: 15.00),
+        "claude-3-5-haiku-20241022":    (input: 0.80, output: 4.00),
+        "claude-3-opus-20240229":       (input: 15.00, output: 75.00),
+        // OpenAI
+        "gpt-4o":                       (input: 2.50, output: 10.00),
+        "gpt-4o-mini":                  (input: 0.15, output: 0.60),
+        "gpt-4-turbo":                  (input: 10.00, output: 30.00),
+        "o1":                           (input: 15.00, output: 60.00),
+        "o1-mini":                      (input: 3.00, output: 12.00),
+        "o3-mini":                      (input: 1.10, output: 4.40),
+    ]
+
+    /// Calculate cost for a message given model and token counts
+    func costForMessage(modelId: String, inputTokens: Int, outputTokens: Int) -> Double? {
+        let rawId = rawModelId(from: modelId)
+        guard let price = Self.pricing[rawId] else { return nil }
+        let inputCost = Double(inputTokens) / 1_000_000.0 * price.input
+        let outputCost = Double(outputTokens) / 1_000_000.0 * price.output
+        return inputCost + outputCost
+    }
+
+    /// Get pricing info for a model (returns per-million-token rates)
+    func pricingInfo(for modelId: String) -> (input: Double, output: Double)? {
+        let rawId = rawModelId(from: modelId)
+        return Self.pricing[rawId]
+    }
+
     // MARK: - Chat
 
-    /// Send a chat message through the appropriate provider
+    /// Send a chat message through the appropriate provider.
+    /// Parameters are fully transparent — merged from provider defaults + conversation overrides.
     func chat(
         qualifiedModelId: String,
         messages: [ChatMessage],
+        parameters: ChatParameters = .empty,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult {
         guard let prov = provider(for: qualifiedModelId) else {
             throw LLMProviderError.notConnected
         }
         let rawId = rawModelId(from: qualifiedModelId)
-        return try await prov.chat(model: rawId, messages: messages, onToken: onToken)
+
+        // Merge: conversation params override provider defaults
+        let providerDefaults = defaultParameters(for: prov.providerId)
+        let resolved = parameters.merging(over: providerDefaults)
+
+        return try await prov.chat(model: rawId, messages: messages, parameters: resolved, onToken: onToken)
     }
 
     // MARK: - Cross-Provider Compare

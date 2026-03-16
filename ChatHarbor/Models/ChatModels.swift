@@ -11,6 +11,14 @@ final class Conversation {
     var updatedAt: Date
     var modelId: String
     var systemPrompt: String
+    /// Per-conversation parameter overrides (nil = use provider defaults)
+    var temperature: Double?
+    var maxTokens: Int?
+    var topP: Double?
+    var frequencyPenalty: Double?
+    var presencePenalty: Double?
+    /// User-assigned name for the current prompt/parameter preset (one word, max 16 chars)
+    var savedPresetName: String?
     /// If this conversation was forked, the ID of the source conversation
     var forkedFromId: UUID?
     /// The message ID at which the fork occurred
@@ -35,6 +43,17 @@ final class Conversation {
         self.forkedFromId = forkedFromId
         self.forkedAtMessageId = forkedAtMessageId
         self.messages = []
+    }
+
+    /// Build ChatParameters from this conversation's overrides
+    var chatParameters: ChatParameters {
+        ChatParameters(
+            temperature: temperature,
+            maxTokens: maxTokens,
+            topP: topP,
+            frequencyPenalty: frequencyPenalty,
+            presencePenalty: presencePenalty
+        )
     }
 
     /// Sorted messages by creation date
@@ -68,6 +87,7 @@ final class Message {
     var createdAt: Date
     var isStreaming: Bool
     var tokenCount: Int?
+    var inputTokenCount: Int?
     var durationMs: Double?
     /// Which model produced this response (for multi-model compare)
     var modelUsed: String?

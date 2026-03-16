@@ -122,7 +122,7 @@ struct CompareView: View {
 
             Image(systemName: "square.split.2x1")
                 .font(.system(size: 40))
-                .foregroundStyle(.quaternary)
+                .foregroundStyle(.secondary)
 
             Text("Compare Models Side by Side")
                 .font(.headline)
@@ -162,7 +162,7 @@ struct CompareView: View {
                 Spacer()
                 Text("\(selectedModels.count) of 4 selected")
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
 
             if groupedModels.isEmpty {
@@ -181,7 +181,7 @@ struct CompareView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(group.provider.uppercased())
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .padding(.leading, 2)
 
                     LazyVGrid(columns: [
@@ -208,11 +208,11 @@ struct CompareView: View {
                                     if model.isLocal {
                                         Image(systemName: "desktopcomputer")
                                             .font(.system(size: 9))
-                                            .foregroundStyle(.tertiary)
+                                            .foregroundStyle(.secondary)
                                     } else {
                                         Image(systemName: "cloud")
                                             .font(.system(size: 9))
-                                            .foregroundStyle(.tertiary)
+                                            .foregroundStyle(.secondary)
                                     }
                                 }
                                 .padding(.horizontal, 10)
@@ -325,7 +325,7 @@ struct CompareColumn: View {
                         .scaleEffect(0.6)
                     Text("Thinking…")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(10)
             } else {
@@ -351,7 +351,7 @@ struct CompareColumn: View {
                     }
                 }
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.quaternary)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
             }

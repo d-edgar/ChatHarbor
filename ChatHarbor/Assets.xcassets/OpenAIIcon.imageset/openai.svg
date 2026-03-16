@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- OpenAI hexagonal knot/flower logo approximation -->
+  <g fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Hexagonal shape with inner detail -->
+    <path d="M32 6 L52 17 L52 39 L32 50 L12 39 L12 17 Z"/>
+    <path d="M32 6 L32 28"/>
+    <path d="M52 17 L32 28"/>
+    <path d="M52 39 L32 28"/>
+    <path d="M32 50 L32 28"/>
+    <path d="M12 39 L32 28"/>
+    <path d="M12 17 L32 28"/>
+    <!-- Bottom extension lines for the "knot" effect -->
+    <line x1="32" y1="50" x2="32" y2="58"/>
+    <line x1="12" y1="39" x2="7" y2="42"/>
+    <line x1="52" y1="39" x2="57" y2="42"/>
+  </g>
+</svg>

@@ -162,9 +162,38 @@ struct WelcomeView: View {
                 VStack(spacing: 10) {
                     Text("YOUR PROVIDERS")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    // Apple Intelligence (on-device)
+                    ProviderCard(
+                        icon: chatManager.providers.apple.iconName,
+                        name: "Apple Intelligence",
+                        subtitle: "On-device, private, free",
+                        isConnected: chatManager.providers.apple.isConnected,
+                        modelCount: chatManager.providers.apple.models.count,
+                        statusText: chatManager.providers.apple.isConnected
+                            ? "On-device model ready"
+                            : chatManager.providers.apple.isEnabled
+                                ? chatManager.providers.apple.availabilityDetail
+                                : "Enable in Settings → Models",
+                        isLoading: retryingProvider == "Apple",
+                        actionLabel: chatManager.providers.apple.isConnected
+                            ? nil
+                            : chatManager.providers.apple.isEnabled ? "Retry" : "Set Up",
+                        action: {
+                            if !chatManager.providers.apple.isEnabled {
+                                openModelsSettings()
+                            } else {
+                                retryProvider("Apple") {
+                                    await chatManager.providers.apple.connect()
+                                }
+                            }
+                        },
+                        accent: accent
+                    )
+
+                    // Ollama (local)
                     ProviderCard(
                         icon: "desktopcomputer",
                         name: "Ollama",
@@ -251,7 +280,7 @@ struct WelcomeView: View {
                         .foregroundStyle(.secondary)
 
                     Text("·")
-                        .foregroundStyle(.quaternary)
+                        .foregroundStyle(.secondary)
 
                     Label("\(modelCount) models available", systemImage: "cpu")
                         .font(.system(size: 12))
@@ -406,7 +435,7 @@ struct KeyboardHint: View {
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
     }
 }

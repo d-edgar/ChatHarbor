@@ -73,15 +73,25 @@ final class OllamaService: ObservableObject {
     func chat(
         model: String,
         messages: [(role: String, content: String)],
+        parameters: ChatParameters = .empty,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatCompletionResult {
         let url = baseURL.appendingPathComponent("api/chat")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
             "messages": messages.map { ["role": $0.role, "content": $0.content] },
             "stream": true
         ]
+
+        // Ollama uses an "options" dict for model parameters
+        var options: [String: Any] = [:]
+        if let temp = parameters.temperature { options["temperature"] = temp }
+        if let maxTokens = parameters.maxTokens { options["num_predict"] = maxTokens }
+        if let topP = parameters.topP { options["top_p"] = topP }
+        if let freqPenalty = parameters.frequencyPenalty { options["frequency_penalty"] = freqPenalty }
+        if let presPenalty = parameters.presencePenalty { options["presence_penalty"] = presPenalty }
+        if !options.isEmpty { body["options"] = options }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -267,15 +277,17 @@ extension OllamaService: LLMProvider {
     func chat(
         model: String,
         messages: [ChatMessage],
+        parameters: ChatParameters = .empty,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult {
         let apiMessages = messages.map { (role: $0.role.rawValue, content: $0.content) }
 
-        let result = try await chat(model: model, messages: apiMessages, onToken: onToken)
+        let result = try await chat(model: model, messages: apiMessages, parameters: parameters, onToken: onToken)
 
         return ChatResult(
             content: result.content,
             tokenCount: result.tokenCount,
+            inputTokenCount: 0,
             durationMs: result.durationMs,
             model: model,
             providerId: "ollama"

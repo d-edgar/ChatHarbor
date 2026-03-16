@@ -54,11 +54,7 @@
             z-index: -1;
         }
 
-        .container {
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
+        .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
 
         header {
             padding: 48px 0 32px;
@@ -92,15 +88,9 @@
             margin-bottom: 8px;
         }
 
-        .effective {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
+        .effective { font-size: 0.85rem; color: var(--text-secondary); }
 
-        main {
-            padding-bottom: 48px;
-            animation: fadeUp 0.5s ease 0.1s both;
-        }
+        main { padding-bottom: 48px; animation: fadeUp 0.5s ease 0.1s both; }
 
         h2 {
             font-size: 1.1rem;
@@ -110,31 +100,13 @@
             letter-spacing: -0.01em;
         }
 
-        p {
-            margin-bottom: 16px;
-            color: var(--text);
-        }
+        p { margin-bottom: 16px; color: var(--text); }
+        p.secondary { color: var(--text-secondary); }
 
-        p.secondary {
-            color: var(--text-secondary);
-        }
+        ul { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 8px; color: var(--text); }
 
-        ul {
-            margin-bottom: 16px;
-            padding-left: 24px;
-        }
-
-        li {
-            margin-bottom: 8px;
-            color: var(--text);
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
+        a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
         a:hover { color: var(--accent-hover); text-decoration: underline; }
 
         footer {
@@ -143,10 +115,7 @@
             border-top: 1px solid var(--border);
         }
 
-        footer p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
+        footer p { font-size: 0.8rem; color: var(--text-secondary); }
 
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(12px); }
@@ -159,79 +128,75 @@
         <header>
             <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
             <h1>Privacy Policy</h1>
-            <p class="effective">Effective date: March 1, 2026</p>
+            <p class="effective">Effective date: March 15, 2026</p>
         </header>
 
         <main>
             <p>
                 ChatHarbor ("the App") is developed by David Edgar. This Privacy Policy explains how the App
-                handles your information. The short version: ChatHarbor does not collect, store, or transmit
-                any of your personal data.
+                handles your information. The short version: <strong>ChatHarbor does not collect, store, or
+                transmit any of your personal data to us.</strong>
+            </p>
+
+            <h2>How the App Works</h2>
+            <p>
+                ChatHarbor is a native macOS application that lets you chat with AI models from multiple
+                providers &mdash; Apple Intelligence (on-device), Ollama (local), OpenAI (cloud), and
+                Anthropic (cloud). The App sends your messages directly to the provider you select and
+                displays the response. ChatHarbor itself does not operate as an intermediary or relay.
             </p>
 
             <h2>Information We Do Not Collect</h2>
             <p>
-                ChatHarbor is a native macOS application that displays web-based messaging services
-                inside embedded browser views. The App itself does not collect, track, or store any
-                personal information, including but not limited to:
+                The App does not collect, track, or store any personal information on our servers, including
+                but not limited to:
             </p>
             <ul>
                 <li>Names, email addresses, or contact details</li>
                 <li>Usage analytics or telemetry data</li>
-                <li>Chat messages, files, or media content</li>
+                <li>Chat messages or conversation history (stored locally on your Mac only)</li>
                 <li>Device identifiers or IP addresses</li>
-                <li>Location data</li>
                 <li>Crash reports or diagnostic data</li>
             </ul>
 
-            <h2>How the App Works</h2>
-            <p>
-                ChatHarbor loads third-party messaging services (such as Slack, Discord, WhatsApp, and others)
-                using macOS WebKit web views. When you use these services through ChatHarbor, you are
-                interacting directly with those services' own websites. Any data you provide to those
-                services is governed by their respective privacy policies, not this one.
-            </p>
-
             <h2>Local Data Storage</h2>
             <p>
-                The App stores your preferences (such as which services you have added, your theme selection,
-                notification settings, and appearance mode) locally on your Mac using macOS UserDefaults.
+                All conversations, messages, and settings are stored locally on your Mac. Specifically:
+            </p>
+            <ul>
+                <li><strong>Conversations and messages</strong> are persisted using SwiftData in your Application Support directory.</li>
+                <li><strong>Preferences</strong> (selected theme, default model, appearance mode, prompt templates) are stored in macOS UserDefaults.</li>
+                <li><strong>API keys</strong> for OpenAI and Anthropic are stored locally in UserDefaults on your device. Keychain migration is planned for a future release.</li>
+            </ul>
+            <p>
                 This data never leaves your device and is not accessible to anyone other than you.
             </p>
+
+            <h2>Cloud API Providers</h2>
             <p>
-                Web content loaded by each service (cookies, local storage, cached data) is stored locally
-                on your Mac by the WebKit framework, just as it would be in Safari or any other browser.
-                ChatHarbor does not access, read, or transmit this data.
+                When you use OpenAI or Anthropic models, your messages are sent directly from your Mac to
+                the provider's API servers. These communications are governed by the respective provider's
+                privacy policy and terms of service:
+            </p>
+            <ul>
+                <li><a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI Privacy Policy</a></li>
+                <li><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic Privacy Policy</a></li>
+            </ul>
+            <p>
+                ChatHarbor has no control over and assumes no responsibility for the data practices of
+                these third-party providers.
             </p>
 
-            <h2>Third-Party Services</h2>
+            <h2>Local &amp; On-Device Models</h2>
             <p>
-                The messaging services you access through ChatHarbor are operated by third parties. Each
-                service has its own privacy policy and data practices. ChatHarbor has no control over and
-                assumes no responsibility for the content, privacy policies, or practices of any third-party
-                service. We encourage you to review the privacy policies of any service you use.
-            </p>
-
-            <h2>Workspace Guard &amp; Clipboard</h2>
-            <p>
-                If you enable the Workspace Guard feature, ChatHarbor may clear your macOS clipboard when
-                you switch between personal and workspace services. This action is performed entirely on
-                your local device. The contents of your clipboard are not read, logged, or transmitted — they
-                are simply cleared.
-            </p>
-
-            <h2>Notifications</h2>
-            <p>
-                ChatHarbor may deliver local notifications on your Mac when a messaging service reports
-                new activity. These notifications are generated and delivered entirely on your device
-                using Apple's notification system. No notification data is sent to any external server.
+                When you use Apple Intelligence or Ollama models, all processing happens entirely on your
+                Mac. No data is sent to any external server. These providers work completely offline.
             </p>
 
             <h2>Children's Privacy</h2>
             <p>
-                ChatHarbor is not directed at children under the age of 13. We do not knowingly collect
-                personal information from children. Since the App does not collect any personal information
-                from any user, there is no data to identify or address.
+                ChatHarbor is not directed at children under the age of 13. Since the App does not collect
+                any personal information from any user, there is no data to identify or address.
             </p>
 
             <h2>Changes to This Policy</h2>

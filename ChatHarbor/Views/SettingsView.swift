@@ -21,6 +21,13 @@ struct SettingsView: View {
                 }
                 .tag("models")
 
+            PromptsParametersSettingsView()
+                .environmentObject(chatManager)
+                .tabItem {
+                    Label("Prompts", systemImage: "slider.horizontal.3")
+                }
+                .tag("prompts")
+
             AppearanceSettingsView()
                 .environmentObject(chatManager)
                 .tabItem {
@@ -35,6 +42,11 @@ struct SettingsView: View {
                 .tag("about")
         }
         .frame(width: 620, height: 600)
+        .onDisappear {
+            // Reset to General tab so next ⌘, opens cleanly
+            // instead of staying stuck on Models (with Ollama field focused)
+            chatManager.settingsTab = "general"
+        }
     }
 }
 
@@ -67,6 +79,67 @@ struct ModelsProvidersSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // MARK: - Apple Intelligence (Local, On-Device)
+                ProviderSetupSection(
+                    icon: chatManager.providers.apple.iconName,
+                    name: "Apple Intelligence",
+                    subtitle: "Free, on-device, private — built into macOS",
+                    isConnected: chatManager.providers.apple.isConnected,
+                    modelCount: chatManager.providers.apple.models.count,
+                    providerId: "apple",
+                    accent: accent
+                ) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // On/off toggle
+                        HStack {
+                            Toggle(isOn: Binding(
+                                get: { chatManager.providers.apple.isEnabled },
+                                set: { chatManager.providers.apple.isEnabled = $0 }
+                            )) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Enable Apple Intelligence")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text("Uses Apple's on-device foundation model · No API key needed")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .tint(accent)
+                        }
+
+                        // Status / availability detail
+                        if chatManager.providers.apple.isEnabled {
+                            HStack(spacing: 4) {
+                                if chatManager.providers.apple.isConnected {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.green)
+                                    Text(chatManager.providers.apple.availabilityDetail)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.orange)
+                                    Text(chatManager.providers.apple.availabilityDetail)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.orange)
+                                        .lineLimit(3)
+                                }
+                            }
+                        }
+
+                        // Info badges
+                        HStack(spacing: 8) {
+                            InfoBadge(icon: "lock.shield", text: "On-device", color: .green)
+                            InfoBadge(icon: "wifi.slash", text: "Works offline", color: .blue)
+                            InfoBadge(icon: "dollarsign.circle", text: "Free", color: accent)
+                            InfoBadge(icon: "memorychip", text: "4K context", color: .secondary)
+                        }
+                    }
+                }
+
                 // MARK: - Ollama (Local)
                 ProviderSetupSection(
                     icon: "desktopcomputer",
@@ -74,6 +147,7 @@ struct ModelsProvidersSettingsView: View {
                     subtitle: "Free, local, private — runs on your Mac",
                     isConnected: chatManager.ollama.isConnected,
                     modelCount: chatManager.ollama.availableModels.count,
+                    providerId: "ollama",
                     accent: accent
                 ) {
                     // Server URL
@@ -112,7 +186,7 @@ struct ModelsProvidersSettingsView: View {
                         HStack {
                             Text("PULL A MODEL")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                             Spacer()
                             if !chatManager.ollama.isConnected {
                                 Text("Connect to Ollama first")
@@ -198,11 +272,11 @@ struct ModelsProvidersSettingsView: View {
                             HStack {
                                 Text("INSTALLED")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                                 Spacer()
                                 Text("\(chatManager.ollama.availableModels.count) models")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
 
                             ForEach(chatManager.ollama.availableModels) { model in
@@ -223,11 +297,12 @@ struct ModelsProvidersSettingsView: View {
 
                 // MARK: - OpenAI
                 ProviderSetupSection(
-                    icon: "brain",
+                    icon: "hexagon",
                     name: "OpenAI",
                     subtitle: "GPT-4o, o1, o3 — platform.openai.com/api-keys",
                     isConnected: chatManager.providers.openAI.isConnected,
                     modelCount: chatManager.providers.openAI.models.count,
+                    providerId: "openai",
                     accent: accent
                 ) {
                     // API Key
@@ -276,7 +351,7 @@ struct ModelsProvidersSettingsView: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 12))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
                             .help("Clear API key")
@@ -313,11 +388,11 @@ struct ModelsProvidersSettingsView: View {
                             HStack {
                                 Text("AVAILABLE")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                                 Spacer()
                                 Text("\(chatManager.providers.openAI.models.count) models")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
 
                             ForEach(chatManager.providers.openAI.models) { model in
@@ -338,11 +413,12 @@ struct ModelsProvidersSettingsView: View {
 
                 // MARK: - Anthropic
                 ProviderSetupSection(
-                    icon: "sparkle",
+                    icon: "sun.max.fill",
                     name: "Anthropic",
                     subtitle: "Claude Sonnet, Opus, Haiku — console.anthropic.com",
                     isConnected: chatManager.providers.anthropic.isConnected,
                     modelCount: chatManager.providers.anthropic.models.count,
+                    providerId: "anthropic",
                     accent: accent
                 ) {
                     // API Key
@@ -391,7 +467,7 @@ struct ModelsProvidersSettingsView: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 12))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
                             .help("Clear API key")
@@ -428,11 +504,11 @@ struct ModelsProvidersSettingsView: View {
                             HStack {
                                 Text("AVAILABLE")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                                 Spacer()
                                 Text("\(chatManager.providers.anthropic.models.count) models")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
 
                             ForEach(chatManager.providers.anthropic.models) { model in
@@ -519,6 +595,7 @@ struct ProviderSetupSection<Content: View>: View {
     let subtitle: String
     let isConnected: Bool
     let modelCount: Int
+    var providerId: String? = nil  // For custom logo lookup
     let accent: Color
     @ViewBuilder let content: Content
 
@@ -526,10 +603,17 @@ struct ProviderSetupSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundStyle(isConnected ? accent : Color.gray.opacity(0.5))
-                    .frame(width: 32, height: 32)
+                Group {
+                    if let pid = providerId, ProviderIcon.hasCustomIcon(for: pid) {
+                        ProviderIconView(providerId: pid, sfSymbolFallback: icon)
+                            .frame(width: 18, height: 18)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 18))
+                    }
+                }
+                .foregroundStyle(isConnected ? accent : Color.gray.opacity(0.5))
+                .frame(width: 32, height: 32)
                     .background(
                         RoundedRectangle(cornerRadius: 7)
                             .fill(isConnected ? accent.opacity(0.1) : Color.gray.opacity(0.05))
@@ -553,7 +637,7 @@ struct ProviderSetupSection<Content: View>: View {
 
                     Text(subtitle)
                         .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -570,6 +654,34 @@ struct ProviderSetupSection<Content: View>: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .stroke(isConnected ? accent.opacity(0.12) : Color.gray.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Info Badge (small tag for provider features)
+
+struct InfoBadge: View {
+    let icon: String
+    let text: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 8))
+            Text(text)
+                .font(.system(size: 9, weight: .medium))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(color.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(color.opacity(0.15), lineWidth: 0.5)
         )
     }
 }
@@ -613,7 +725,7 @@ struct SettingsModelRow: View {
             if !detail.isEmpty {
                 Text(detail)
                     .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -636,6 +748,379 @@ struct SettingsModelRow: View {
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
         .onHover { h in withAnimation(.easeInOut(duration: 0.1)) { isHovering = h } }
+    }
+}
+
+// MARK: - Prompts & Parameters Settings
+//
+// Full transparency: see and control every system prompt and parameter
+// that gets sent to each provider's API. No hidden magic.
+
+struct PromptsParametersSettingsView: View {
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Intro
+                HStack(spacing: 8) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 14))
+                        .foregroundStyle(accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Full Transparency")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Every setting here maps directly to what's sent to the API. No hidden prompts, no secret parameters.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(accent.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent.opacity(0.12), lineWidth: 1))
+
+                // Per-provider sections
+                let providerData: [(id: String, name: String, icon: String, connected: Bool)] = chatManager.providers.allProviders.map {
+                    (id: $0.providerId, name: $0.displayName, icon: $0.iconName, connected: $0.isConnected)
+                }
+                ForEach(providerData, id: \.id) { prov in
+                    ProviderPromptsSection(
+                        providerId: prov.id,
+                        providerName: prov.name,
+                        icon: prov.icon,
+                        isConnected: prov.connected,
+                        accent: accent
+                    )
+                    .environmentObject(chatManager)
+                }
+            }
+            .padding(20)
+        }
+    }
+}
+
+// MARK: - Per-Provider Prompts & Parameters Section
+
+struct ProviderPromptsSection: View {
+    let providerId: String
+    let providerName: String
+    let icon: String
+    let isConnected: Bool
+    let accent: Color
+    @EnvironmentObject var chatManager: ChatManager
+
+    @State private var systemPrompt: String = ""
+    @State private var temperature: Double? = nil
+    @State private var maxTokens: Int? = nil
+    @State private var topP: Double? = nil
+    @State private var frequencyPenalty: Double? = nil
+    @State private var presencePenalty: Double? = nil
+    @State private var isExpanded: Bool = true
+
+    private var supportedParams: [String] {
+        ProviderManager.supportedParameters(for: providerId)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header (clickable to expand/collapse)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(isConnected ? accent : .gray)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isConnected ? accent.opacity(0.1) : Color.gray.opacity(0.05))
+                        )
+
+                    Text(providerName)
+                        .font(.system(size: 13, weight: .semibold))
+
+                    if !isConnected {
+                        Text("Not connected")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+
+            if isExpanded {
+                Divider().padding(.horizontal, 12)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    // System Prompt
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label("Default System Prompt", systemImage: "text.bubble")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if !systemPrompt.isEmpty {
+                                Text("\(systemPrompt.count) chars")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        TextEditor(text: $systemPrompt)
+                            .font(.system(size: 11))
+                            .frame(minHeight: 60, maxHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .padding(6)
+                            .background(Color.gray.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.1), lineWidth: 1))
+                            .onChange(of: systemPrompt) { _, newValue in
+                                chatManager.providers.setDefaultSystemPrompt(newValue, for: providerId)
+                            }
+
+                        Text("Sent as the system message for every new conversation using this provider, unless overridden per-conversation.")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // Parameters
+                    if !supportedParams.isEmpty {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("API Parameters", systemImage: "slider.horizontal.3")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+
+                            Text("These values are sent directly in the API request body. Leave blank for provider defaults.")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ], spacing: 10) {
+                            if supportedParams.contains("temperature") {
+                                ParameterSliderField(
+                                    label: "temperature",
+                                    apiKey: "temperature",
+                                    value: $temperature,
+                                    range: 0...2,
+                                    step: 0.1,
+                                    description: "Higher = more creative, lower = more focused",
+                                    providerId: providerId
+                                )
+                                .environmentObject(chatManager)
+                            }
+
+                            if supportedParams.contains("maxTokens") {
+                                ParameterIntField(
+                                    label: "max_tokens",
+                                    apiKey: "maxTokens",
+                                    value: $maxTokens,
+                                    placeholder: providerId == "anthropic" ? "4096" : "default",
+                                    description: "Maximum response length in tokens",
+                                    providerId: providerId
+                                )
+                                .environmentObject(chatManager)
+                            }
+
+                            if supportedParams.contains("topP") {
+                                ParameterSliderField(
+                                    label: "top_p",
+                                    apiKey: "topP",
+                                    value: $topP,
+                                    range: 0...1,
+                                    step: 0.05,
+                                    description: "Nucleus sampling threshold",
+                                    providerId: providerId
+                                )
+                                .environmentObject(chatManager)
+                            }
+
+                            if supportedParams.contains("frequencyPenalty") {
+                                ParameterSliderField(
+                                    label: "frequency_penalty",
+                                    apiKey: "frequencyPenalty",
+                                    value: $frequencyPenalty,
+                                    range: -2...2,
+                                    step: 0.1,
+                                    description: "Reduce repetition of frequent tokens",
+                                    providerId: providerId
+                                )
+                                .environmentObject(chatManager)
+                            }
+
+                            if supportedParams.contains("presencePenalty") {
+                                ParameterSliderField(
+                                    label: "presence_penalty",
+                                    apiKey: "presencePenalty",
+                                    value: $presencePenalty,
+                                    range: -2...2,
+                                    step: 0.1,
+                                    description: "Encourage talking about new topics",
+                                    providerId: providerId
+                                )
+                                .environmentObject(chatManager)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                            Text("This provider's parameters are fixed (on-device model).")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(12)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isConnected ? accent.opacity(0.02) : Color.gray.opacity(0.02))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isConnected ? accent.opacity(0.12) : Color.gray.opacity(0.08), lineWidth: 1)
+        )
+        .onAppear { loadDefaults() }
+    }
+
+    private func loadDefaults() {
+        systemPrompt = chatManager.providers.defaultSystemPrompt(for: providerId)
+        let params = chatManager.providers.defaultParameters(for: providerId)
+        temperature = params.temperature
+        maxTokens = params.maxTokens
+        topP = params.topP
+        frequencyPenalty = params.frequencyPenalty
+        presencePenalty = params.presencePenalty
+    }
+}
+
+// MARK: - Parameter Slider Field
+
+struct ParameterSliderField: View {
+    let label: String          // API key name shown to user
+    let apiKey: String         // Internal storage key
+    @Binding var value: Double?
+    let range: ClosedRange<Double>
+    let step: Double
+    let description: String
+    let providerId: String
+    @EnvironmentObject var chatManager: ChatManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let val = value {
+                    Text(String(format: step < 0.1 ? "%.2f" : "%.1f", val))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    Button {
+                        value = nil
+                        chatManager.providers.setDefaultParameter(apiKey, value: nil, for: providerId)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to provider default")
+                } else {
+                    Text("default")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Slider(
+                value: Binding(
+                    get: { value ?? (range.lowerBound + range.upperBound) / 2 },
+                    set: { newVal in
+                        value = newVal
+                        chatManager.providers.setDefaultParameter(apiKey, value: newVal, for: providerId)
+                    }
+                ),
+                in: range,
+                step: step
+            )
+            .controlSize(.small)
+
+            Text(description)
+                .font(.system(size: 8))
+                .foregroundStyle(.secondary)
+        }
+        .padding(8)
+        .background(Color.gray.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - Parameter Int Field
+
+struct ParameterIntField: View {
+    let label: String
+    let apiKey: String
+    @Binding var value: Int?
+    let placeholder: String
+    let description: String
+    let providerId: String
+    @EnvironmentObject var chatManager: ChatManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if value != nil {
+                    Button {
+                        value = nil
+                        chatManager.providers.setDefaultParameter(apiKey, value: nil, for: providerId)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to provider default")
+                }
+            }
+
+            TextField(placeholder, value: $value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11, design: .monospaced))
+                .onChange(of: value) { _, newVal in
+                    chatManager.providers.setDefaultParameter(apiKey, value: newVal, for: providerId)
+                }
+
+            Text(description)
+                .font(.system(size: 8))
+                .foregroundStyle(.secondary)
+        }
+        .padding(8)
+        .background(Color.gray.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -670,6 +1155,15 @@ struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Picker("Model", selection: $chatManager.selectedModelId) {
+                        let appleModels = chatManager.providers.apple.models
+                        if !appleModels.isEmpty {
+                            Section("Apple Intelligence (On-Device)") {
+                                ForEach(appleModels) { model in
+                                    Label(model.displayName, systemImage: chatManager.providers.apple.iconName)
+                                        .tag(model.id)
+                                }
+                            }
+                        }
                         let ollamaModels = chatManager.providers.ollama.models
                         if !ollamaModels.isEmpty {
                             Section("Ollama (Local)") {
@@ -708,7 +1202,7 @@ struct GeneralSettingsView: View {
                 HStack {
                     Text("When off, use Shift+Enter to send.")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     Spacer()
                 }
                 Toggle("Auto-title new conversations", isOn: $chatManager.autoTitleConversations)
@@ -727,7 +1221,7 @@ struct GeneralSettingsView: View {
                 }
                 Text("When you fork a conversation, the new chat is titled \"\(chatManager.forkPrefix) Original Title\".")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
 
             // Data & Storage
@@ -747,7 +1241,7 @@ struct GeneralSettingsView: View {
                 }
                 Text("All data stays on your Mac. API keys stored in UserDefaults (Keychain migration planned).")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -769,7 +1263,7 @@ struct SettingsPathRow: View {
             HStack(spacing: 4) {
                 Image(systemName: "folder")
                     .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                 Text(path)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
@@ -784,7 +1278,7 @@ struct SettingsPathRow: View {
                         .font(.system(size: 9))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .help("Copy path")
                 Button {
                     let expanded = NSString(string: path).expandingTildeInPath
@@ -794,12 +1288,12 @@ struct SettingsPathRow: View {
                         .font(.system(size: 9))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .help("Show in Finder")
             }
             Text(description)
                 .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -905,7 +1399,7 @@ struct AboutSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("One native macOS app for all your AI.\nChat with Ollama, OpenAI, and Anthropic models side by side.\nCompare responses, fork conversations across providers,\nand keep everything in one place.")
+                Text("One native macOS app for all your AI.\nChat with Apple Intelligence, Ollama, OpenAI, and Anthropic\nside by side. Compare responses, fork conversations\nacross providers, and keep everything in one place.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -917,9 +1411,15 @@ struct AboutSettingsView: View {
                 VStack(spacing: 8) {
                     Text("POWERED BY")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
 
-                    HStack(spacing: 20) {
+                    HStack(spacing: 16) {
+                        AboutProviderLink(
+                            name: "Apple",
+                            detail: "On-device AI",
+                            url: "https://developer.apple.com/apple-intelligence/",
+                            icon: "apple.logo"
+                        )
                         AboutProviderLink(
                             name: "Ollama",
                             detail: "Local inference",
@@ -966,11 +1466,11 @@ struct AboutSettingsView: View {
 
                 Text("Built with SwiftUI · SwiftData · MIT License")
                     .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
 
                 Text("Copyright © 2026 David Edgar")
                     .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
@@ -996,7 +1496,7 @@ struct AboutProviderLink: View {
                     .font(.system(size: 11, weight: .medium))
                 Text(detail)
                     .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .frame(width: 80)
         }

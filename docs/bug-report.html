@@ -56,11 +56,7 @@
             z-index: -1;
         }
 
-        .container {
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
+        .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
 
         header {
             padding: 48px 0 32px;
@@ -94,15 +90,9 @@
             margin-bottom: 8px;
         }
 
-        .subtitle {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-        }
+        .subtitle { font-size: 0.95rem; color: var(--text-secondary); }
 
-        main {
-            padding-bottom: 48px;
-            animation: fadeUp 0.5s ease 0.1s both;
-        }
+        main { padding-bottom: 48px; animation: fadeUp 0.5s ease 0.1s both; }
 
         h2 {
             font-size: 1.1rem;
@@ -112,14 +102,8 @@
             letter-spacing: -0.01em;
         }
 
-        p {
-            margin-bottom: 16px;
-            color: var(--text);
-        }
-
-        p.secondary {
-            color: var(--text-secondary);
-        }
+        p { margin-bottom: 16px; color: var(--text); }
+        p.secondary { color: var(--text-secondary); }
 
         .option-card {
             background: var(--surface);
@@ -138,17 +122,8 @@
             border-color: var(--accent);
         }
 
-        .option-card h3 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .option-card p {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            margin-bottom: 16px;
-        }
+        .option-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+        .option-card p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; }
 
         .option-card a.btn {
             display: inline-block;
@@ -168,11 +143,7 @@
             text-decoration: none;
         }
 
-        .checklist {
-            margin: 16px 0;
-            padding-left: 0;
-            list-style: none;
-        }
+        .checklist { margin: 16px 0; padding-left: 0; list-style: none; }
 
         .checklist li {
             position: relative;
@@ -192,9 +163,6 @@
             background: var(--glow);
             border: 1.5px solid var(--accent);
             border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .checklist li::after {
@@ -212,12 +180,7 @@
             font-weight: 700;
         }
 
-        a {
-            color: var(--accent);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
+        a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
         a:hover { color: var(--accent-hover); text-decoration: underline; }
 
         footer {
@@ -226,10 +189,7 @@
             border-top: 1px solid var(--border);
         }
 
-        footer p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
+        footer p { font-size: 0.8rem; color: var(--text-secondary); }
 
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(12px); }
@@ -256,7 +216,7 @@
                 <p>
                     Send a quick email describing the issue. This is the easiest option if you're not on GitHub.
                 </p>
-                <a class="btn" href="mailto:david.emerson.edgar@gmail.com?subject=ChatHarbor%20Bug%20Report&body=%0A---%0AmacOS%20Version%3A%20%0AChatHarbor%20Version%3A%20%0A%0ADescribe%20the%20issue%3A%0A%0ASteps%20to%20reproduce%3A%0A1.%20%0A2.%20%0A3.%20%0A%0AExpected%20behavior%3A%0A%0AActual%20behavior%3A%0A">
+                <a class="btn" href="mailto:david.emerson.edgar@gmail.com?subject=ChatHarbor%20Bug%20Report&body=%0A---%0AmacOS%20Version%3A%20%0AChatHarbor%20Version%3A%20%0AAI%20Provider%3A%20%0AModel%3A%20%0A%0ADescribe%20the%20issue%3A%0A%0ASteps%20to%20reproduce%3A%0A1.%20%0A2.%20%0A3.%20%0A%0AExpected%20behavior%3A%0A%0AActual%20behavior%3A%0A">
                     Send Bug Report Email
                 </a>
             </div>
@@ -277,18 +237,18 @@
                 To help us fix the issue quickly, please try to include as much of the following as you can:
             </p>
             <ul class="checklist">
-                <li>Your macOS version (e.g., macOS 15.3)</li>
-                <li>ChatHarbor version (found in the About section)</li>
-                <li>Which messaging service was affected</li>
+                <li>Your macOS version (e.g., macOS 15.4 or macOS 26 beta)</li>
+                <li>ChatHarbor version (found in Settings &rarr; About)</li>
+                <li>Which AI provider and model was affected (e.g., Anthropic &mdash; Claude Sonnet 4, Ollama &mdash; llama3.2)</li>
                 <li>Steps to reproduce the issue</li>
                 <li>What you expected to happen vs. what actually happened</li>
-                <li>Screenshots, if applicable</li>
+                <li>Screenshots or the API payload from "What's being sent" in Conversation Settings, if applicable</li>
             </ul>
 
             <h2>Feature Requests</h2>
             <p>
                 Have an idea for a new feature or improvement? We'd love to hear it. Feel free to use the
-                same channels above — just change the subject to "Feature Request" so we can keep things organized.
+                same channels above &mdash; just change the subject to "Feature Request" so we can keep things organized.
             </p>
         </main>
 

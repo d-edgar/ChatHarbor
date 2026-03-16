@@ -54,11 +54,7 @@
             z-index: -1;
         }
 
-        .container {
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
+        .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
 
         header {
             padding: 48px 0 32px;
@@ -92,15 +88,9 @@
             margin-bottom: 8px;
         }
 
-        .effective {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
+        .effective { font-size: 0.85rem; color: var(--text-secondary); }
 
-        main {
-            padding-bottom: 48px;
-            animation: fadeUp 0.5s ease 0.1s both;
-        }
+        main { padding-bottom: 48px; animation: fadeUp 0.5s ease 0.1s both; }
 
         h2 {
             font-size: 1.1rem;
@@ -110,27 +100,12 @@
             letter-spacing: -0.01em;
         }
 
-        p {
-            margin-bottom: 16px;
-            color: var(--text);
-        }
+        p { margin-bottom: 16px; color: var(--text); }
 
-        ul {
-            margin-bottom: 16px;
-            padding-left: 24px;
-        }
+        ul { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 8px; color: var(--text); }
 
-        li {
-            margin-bottom: 8px;
-            color: var(--text);
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
+        a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
         a:hover { color: var(--accent-hover); text-decoration: underline; }
 
         footer {
@@ -139,10 +114,7 @@
             border-top: 1px solid var(--border);
         }
 
-        footer p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
+        footer p { font-size: 0.8rem; color: var(--text-secondary); }
 
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(12px); }
@@ -155,7 +127,7 @@
         <header>
             <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
             <h1>Terms of Use</h1>
-            <p class="effective">Effective date: March 1, 2026</p>
+            <p class="effective">Effective date: March 15, 2026</p>
         </header>
 
         <main>
@@ -173,90 +145,99 @@
 
             <h2>2. Description of Service</h2>
             <p>
-                ChatHarbor is a native macOS application that aggregates web-based messaging services
-                into a single window using embedded browser views. The App provides a convenience layer
-                for accessing third-party messaging platforms. ChatHarbor does not operate, control, or
-                modify these third-party services in any way.
+                ChatHarbor is a native macOS application that provides a unified interface for chatting with
+                AI language models from multiple providers, including Apple Intelligence (on-device), Ollama
+                (local), OpenAI (cloud API), and Anthropic (cloud API). The App sends your messages directly
+                to the provider you select, displays the response, and stores conversations locally on your Mac.
+                ChatHarbor does not operate, host, or modify any AI model.
             </p>
 
             <h2>3. License</h2>
             <p>
-                Subject to your compliance with these Terms, we grant you a limited, non-exclusive,
-                non-transferable, revocable license to download and use the App on any macOS device
-                that you own or control, for your personal, non-commercial use, in accordance with
-                Apple's usage rules set forth in the App Store Terms of Service.
+                ChatHarbor is released under the MIT License. Subject to the terms of that license, you are
+                free to use, modify, and distribute the App. The source code is available on
+                <a href="https://github.com/d-edgar/ChatHarbor">GitHub</a>.
             </p>
 
-            <h2>4. Third-Party Services</h2>
+            <h2>4. Third-Party AI Providers</h2>
             <p>
-                ChatHarbor displays content from third-party messaging services. Your use of those
-                services is subject to their respective terms of service and privacy policies. We are
-                not responsible for the availability, content, policies, or practices of any third-party
-                service. You acknowledge that:
+                When you use cloud-based AI models through ChatHarbor, your messages are sent to the
+                respective provider's API. Your use of those services is subject to their terms of service
+                and privacy policies. You acknowledge that:
             </p>
             <ul>
-                <li>We have no affiliation with or endorsement from the third-party services accessible through the App.</li>
-                <li>Third-party services may change, restrict, or discontinue their web interfaces at any time, which may affect the App's functionality.</li>
-                <li>You are solely responsible for your accounts with and use of any third-party service.</li>
+                <li>We have no affiliation with or endorsement from OpenAI, Anthropic, Apple, or the Ollama project.</li>
+                <li>Third-party providers may change, restrict, or discontinue their APIs at any time, which may affect the App's functionality.</li>
+                <li>You are solely responsible for your API keys, accounts, and usage with any third-party provider.</li>
+                <li>You are responsible for any costs incurred through your use of paid API services.</li>
             </ul>
 
-            <h2>5. Trademarks</h2>
+            <h2>5. API Keys &amp; Security</h2>
             <p>
-                All third-party product names, logos, and brands mentioned in or accessible through the
-                App are the property of their respective owners. ChatHarbor is not endorsed by, affiliated
-                with, or sponsored by any of the third-party services it supports. Any use of third-party
+                ChatHarbor stores your API keys locally on your device. You are responsible for keeping your
+                API keys secure. Do not share your API keys or your ChatHarbor data directory with untrusted
+                parties. If you believe your API key has been compromised, revoke it immediately through the
+                respective provider's dashboard.
+            </p>
+
+            <h2>6. Trademarks</h2>
+            <p>
+                All third-party product names, logos, and brands (including Apple Intelligence, OpenAI, GPT,
+                Claude, Anthropic, and Ollama) are the property of their respective owners. ChatHarbor is not
+                endorsed by, affiliated with, or sponsored by any of these entities. Any use of third-party
                 names is for identification purposes only.
             </p>
 
-            <h2>6. User Conduct</h2>
+            <h2>7. User Conduct</h2>
             <p>
                 You agree not to use the App to:
             </p>
             <ul>
                 <li>Violate any applicable laws or regulations.</li>
-                <li>Violate the terms of service of any third-party messaging service.</li>
-                <li>Engage in any activity that could harm, disable, or impair the App or any third-party service.</li>
-                <li>Reverse engineer, decompile, or disassemble the App, except to the extent permitted by applicable law.</li>
+                <li>Violate the terms of service or acceptable use policies of any AI provider.</li>
+                <li>Generate content that is harmful, abusive, or illegal.</li>
+                <li>Attempt to circumvent safety measures implemented by AI providers.</li>
             </ul>
 
-            <h2>7. Disclaimer of Warranties</h2>
+            <h2>8. Disclaimer of Warranties</h2>
             <p>
                 THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER
                 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY,
                 FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP
-                WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF HARMFUL COMPONENTS.
+                WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF HARMFUL COMPONENTS. AI-GENERATED RESPONSES
+                MAY BE INACCURATE, INCOMPLETE, OR MISLEADING.
             </p>
 
-            <h2>8. Limitation of Liability</h2>
+            <h2>9. Limitation of Liability</h2>
             <p>
                 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE DEVELOPER BE
                 LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY
                 LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA,
                 USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR USE OF OR INABILITY TO USE
-                THE APP.
+                THE APP OR ANY AI-GENERATED CONTENT.
             </p>
 
-            <h2>9. Modifications to the App</h2>
+            <h2>10. Modifications to the App</h2>
             <p>
                 We reserve the right to modify, suspend, or discontinue the App (or any features) at any
                 time without notice. We shall not be liable to you or any third party for any modification,
                 suspension, or discontinuance of the App.
             </p>
 
-            <h2>10. Changes to These Terms</h2>
+            <h2>11. Changes to These Terms</h2>
             <p>
                 We may revise these Terms from time to time. The most current version will always be
                 available on this page. By continuing to use the App after revisions become effective,
                 you agree to be bound by the revised Terms.
             </p>
 
-            <h2>11. Governing Law</h2>
+            <h2>12. Governing Law</h2>
             <p>
                 These Terms shall be governed by and construed in accordance with the laws of the
                 United States, without regard to conflict of law principles.
             </p>
 
-            <h2>12. Contact</h2>
+            <h2>13. Contact</h2>
             <p>
                 If you have any questions about these Terms, please contact us at:
             </p>

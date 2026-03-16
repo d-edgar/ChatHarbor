@@ -22,10 +22,25 @@ struct SidebarView: View {
         }
     }
 
-    /// All conversations that are forks, keyed by parent ID
+    /// All conversations that are forks, keyed by ROOT ancestor ID.
+    /// This ensures fork-of-forks nest under the original conversation,
+    /// not under an intermediate fork that's itself nested.
     private var forksByParent: [UUID: [Conversation]] {
-        Dictionary(grouping: filteredConversations.filter { $0.isForked }) {
-            $0.forkedFromId!
+        let allConvs = filteredConversations
+        let byId = Dictionary(uniqueKeysWithValues: allConvs.map { ($0.id, $0) })
+
+        // Walk up the fork chain to find the root ancestor
+        func rootAncestorId(of conv: Conversation) -> UUID {
+            var current = conv
+            while let parentId = current.forkedFromId,
+                  let parent = byId[parentId] {
+                current = parent
+            }
+            return current.id
+        }
+
+        return Dictionary(grouping: allConvs.filter { $0.isForked }) {
+            rootAncestorId(of: $0)
         }
     }
 
@@ -109,7 +124,7 @@ struct SidebarView: View {
                         Spacer()
                         Text("⌘N")
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -139,7 +154,7 @@ struct SidebarView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     TextField("Search…", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
@@ -160,7 +175,7 @@ struct SidebarView: View {
                                 HStack {
                                     Text(group.label.uppercased())
                                         .font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(.secondary)
                                     Spacer()
                                 }
                                 .padding(.horizontal, 14)
@@ -221,9 +236,11 @@ struct SidebarView: View {
             // MARK: - Footer
             VStack(spacing: 0) {
                 if isExpanded {
-                    // Model picker
-                    ModelPickerRow()
-                        .environmentObject(chatManager)
+                    // Model picker — shows the conversation's model if one is selected
+                    ModelPickerRow(
+                        conversationModelId: conversations.first(where: { $0.id == chatManager.selectedConversationId })?.modelId
+                    )
+                    .environmentObject(chatManager)
 
                     Divider()
                         .padding(.horizontal, 14)
@@ -263,7 +280,7 @@ struct SidebarView: View {
                             Spacer()
                             Text("v2.0.0")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -407,7 +424,7 @@ struct ConversationRow: View {
                     } label: {
                         Image(systemName: forksCollapsed ? "chevron.right" : "chevron.down")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                             .frame(width: 14, height: 14)
                     }
                     .buttonStyle(.plain)
@@ -429,17 +446,17 @@ struct ConversationRow: View {
                     HStack(spacing: 4) {
                         Text(conversation.updatedAt.formatted(.relative(presentation: .named)))
                             .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
 
                         if hasForks {
                             Text("·")
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                             Image(systemName: "arrow.triangle.branch")
                                 .font(.system(size: 8))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                             Text("\(forkCount)")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -448,7 +465,7 @@ struct ConversationRow: View {
 
                 Text("\(conversation.messages.count)")
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -497,7 +514,7 @@ struct ForkRow: View {
 
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 8))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .padding(.leading, 2)
                 }
 
@@ -518,10 +535,10 @@ struct ForkRow: View {
                                 .foregroundStyle(accent.opacity(0.7))
                         }
                         Text("·")
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.secondary)
                         Text("\(conversation.messages.count) msgs")
                             .font(.system(size: 9))
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -592,12 +609,28 @@ struct CompactConversationRow: View {
 
 struct ModelPickerRow: View {
     @EnvironmentObject var chatManager: ChatManager
+    /// The conversation-level model override, if any
+    var conversationModelId: String? = nil
+
+    /// The effective model for display and selection
+    private var effectiveModelId: String {
+        if let convModel = conversationModelId, !convModel.isEmpty {
+            return convModel
+        }
+        return chatManager.selectedModelId
+    }
 
     /// Models grouped by provider label for the menu
     private var groupedModels: [(provider: String, icon: String, models: [ProviderModel])] {
         let providers = chatManager.providers
 
         var groups: [(provider: String, icon: String, models: [ProviderModel])] = []
+
+        // Apple Intelligence (on-device)
+        let appleModels = providers.apple.models
+        if !appleModels.isEmpty {
+            groups.append((provider: "Apple Intelligence (On-Device)", icon: providers.apple.iconName, models: appleModels))
+        }
 
         let ollamaModels = providers.ollama.models
         if !ollamaModels.isEmpty {
@@ -635,7 +668,7 @@ struct ModelPickerRow: View {
                                 HStack {
                                     Image(systemName: model.isLocal ? "desktopcomputer" : "cloud")
                                     Text(model.displayName)
-                                    if model.id == chatManager.selectedModelId {
+                                    if model.id == effectiveModelId {
                                         Image(systemName: "checkmark")
                                     }
                                 }
@@ -658,7 +691,7 @@ struct ModelPickerRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Model")
                         .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     Text(selectedDisplayName)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
@@ -669,7 +702,7 @@ struct ModelPickerRow: View {
 
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9))
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -679,16 +712,14 @@ struct ModelPickerRow: View {
     }
 
     private var selectedDisplayName: String {
-        let qualifiedId = chatManager.selectedModelId
-        if qualifiedId.isEmpty { return "None" }
-        let info = chatManager.providers.providerInfo(for: qualifiedId)
+        if effectiveModelId.isEmpty { return "None" }
+        let info = chatManager.providers.providerInfo(for: effectiveModelId)
         return info.modelName
     }
 
     private var selectedIcon: String {
-        let qualifiedId = chatManager.selectedModelId
-        if qualifiedId.isEmpty { return "cpu" }
-        let info = chatManager.providers.providerInfo(for: qualifiedId)
+        if effectiveModelId.isEmpty { return "cpu" }
+        let info = chatManager.providers.providerInfo(for: effectiveModelId)
         return info.icon
     }
 }
@@ -714,7 +745,7 @@ struct AboutPopoverView: View {
 
             Text("One native macOS app for all your AI.\nOllama · OpenAI · Anthropic")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 12) {
@@ -731,7 +762,7 @@ struct AboutPopoverView: View {
 
             Text("MIT License · David Edgar")
                 .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .padding(16)
         .frame(width: 260)
