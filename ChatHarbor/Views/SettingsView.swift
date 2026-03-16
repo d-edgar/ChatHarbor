@@ -28,6 +28,13 @@ struct SettingsView: View {
                 }
                 .tag("prompts")
 
+            BrainstormSettingsView()
+                .environmentObject(chatManager)
+                .tabItem {
+                    Label("Brainstorm", systemImage: "brain.head.profile")
+                }
+                .tag("brainstorm")
+
             AppearanceSettingsView()
                 .environmentObject(chatManager)
                 .tabItem {
@@ -41,7 +48,7 @@ struct SettingsView: View {
                 }
                 .tag("about")
         }
-        .frame(width: 620, height: 600)
+        .frame(width: 680, height: 640)
         .onDisappear {
             // Reset to General tab so next ⌘, opens cleanly
             // instead of staying stuck on Models (with Ollama field focused)
@@ -1541,5 +1548,558 @@ struct ThemeCard: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Brainstorm Settings
+//
+// Configure defaults for brainstorm sessions: which roles are enabled,
+// what model each role should use, default rounds, and role descriptions.
+
+struct BrainstormSettingsView: View {
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    private var allModels: [ProviderModel] {
+        chatManager.providers.allModels
+    }
+
+    private var groupedModels: [(provider: String, models: [ProviderModel])] {
+        let grouped = Dictionary(grouping: allModels, by: { $0.providerLabel })
+        return grouped
+            .sorted { $0.key < $1.key }
+            .map { (provider: $0.key, models: $0.value) }
+    }
+
+    private var selectedMethod: BrainstormMethod {
+        BrainstormMethod(rawValue: chatManager.brainstormDefaultMethod) ?? .osborn
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // MARK: - Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Brainstorm Defaults", systemImage: "brain.head.profile")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text("Configure the default method, roles, models, and settings for new brainstorm sessions.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                // MARK: - Default Method
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("DEFAULT METHOD")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Text("The method determines the roles, phase flow, and prompting strategy. You can always change the method per-session.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(BrainstormMethod.allCases) { method in
+                        MethodSettingsRow(
+                            method: method,
+                            isSelected: selectedMethod == method,
+                            accent: accent
+                        ) {
+                            chatManager.brainstormDefaultMethod = method.rawValue
+                        }
+                    }
+                }
+
+                Divider()
+
+                // MARK: - Session Defaults
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("SESSION DEFAULTS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 16) {
+                        Text("Default Ideation Rounds")
+                            .font(.system(size: 13))
+                        Picker("", selection: $chatManager.brainstormDefaultRounds) {
+                            ForEach(1...5, id: \.self) { n in
+                                Text("\(n)").tag(n)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 200)
+                        Spacer()
+                    }
+
+                    Text("Each round sends your topic to all active ideation roles sequentially. More rounds means more ideas and longer sessions.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                // MARK: - Role Configuration
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("ROLE DEFAULTS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    Text("Choose which roles are enabled by default and assign a preferred model for each. These can be changed per-session. Roles are shared across methods — each method picks the roles it needs.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(BrainstormRole.allCases) { role in
+                        BrainstormRoleSettingsCard(
+                            role: role,
+                            isEnabled: chatManager.brainstormEnabledRoles.contains(role.rawValue),
+                            selectedModelId: chatManager.brainstormDefaultModels[role.rawValue] ?? "",
+                            groupedModels: groupedModels,
+                            accent: accent,
+                            onToggle: { enabled in
+                                if enabled {
+                                    chatManager.brainstormEnabledRoles.insert(role.rawValue)
+                                } else {
+                                    chatManager.brainstormEnabledRoles.remove(role.rawValue)
+                                }
+                            },
+                            onModelChange: { modelId in
+                                chatManager.brainstormDefaultModels[role.rawValue] = modelId
+                            }
+                        )
+                    }
+                }
+
+                Divider()
+
+                // MARK: - Method Reference
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("METHOD REFERENCE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(BrainstormMethod.allCases) { method in
+                        MethodReferenceCard(method: method, accent: accent)
+                    }
+                }
+
+                // MARK: - Reset
+                HStack {
+                    Spacer()
+                    Button("Reset to Defaults") {
+                        chatManager.brainstormDefaultRounds = 3
+                        chatManager.brainstormDefaultMethod = BrainstormMethod.osborn.rawValue
+                        chatManager.brainstormEnabledRoles = Set(BrainstormRole.allCases.map(\.rawValue))
+                        chatManager.brainstormDefaultModels = [:]
+                    }
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+// MARK: - Role Settings Card
+
+struct BrainstormRoleSettingsCard: View {
+    let role: BrainstormRole
+    let isEnabled: Bool
+    let selectedModelId: String
+    let groupedModels: [(provider: String, models: [ProviderModel])]
+    let accent: Color
+    let onToggle: (Bool) -> Void
+    let onModelChange: (String) -> Void
+
+    @State private var expanded: Bool = false
+
+    private var roleColor: Color {
+        colorForRole(role.color)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header row
+            HStack(spacing: 12) {
+                Toggle("", isOn: Binding(
+                    get: { isEnabled },
+                    set: { onToggle($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+
+                Image(systemName: role.icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(isEnabled ? roleColor : .gray)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(isEnabled ? roleColor.opacity(0.1) : Color.gray.opacity(0.06))
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(role.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isEnabled ? .primary : .secondary)
+
+                    Text(role.shortDescription)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 12)
+
+                // Phase badges
+                HStack(spacing: 3) {
+                    ForEach(role.activePhases, id: \.self) { phase in
+                        Text(phase.badgeName)
+                            .font(.system(size: 8, weight: .medium))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(roleColor.opacity(0.08), in: Capsule())
+                            .foregroundStyle(roleColor)
+                    }
+                }
+
+                // Model picker
+                Picker("", selection: Binding(
+                    get: { selectedModelId },
+                    set: { onModelChange($0) }
+                )) {
+                    Text("Auto-assign").tag("")
+                    ForEach(groupedModels, id: \.provider) { group in
+                        Section(group.provider) {
+                            ForEach(group.models) { model in
+                                Text(model.displayName).tag(model.id)
+                            }
+                        }
+                    }
+                }
+                .frame(width: 200)
+                .disabled(!isEnabled)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        expanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            // Expanded detail
+            if expanded {
+                Divider()
+                    .padding(.horizontal, 14)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    // Phase-by-phase behavior
+                    Text("BEHAVIOR BY PHASE")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    if !role.framingPrompt.isEmpty && role == .facilitator {
+                        phaseDetail(
+                            name: "Framing",
+                            icon: "scope",
+                            detail: "Restates the topic as a clear problem statement. Identifies key dimensions and assumptions to clarify."
+                        )
+                    }
+
+                    if role.activePhases.contains(.ideation) {
+                        phaseDetail(
+                            name: "Ideation",
+                            icon: "lightbulb.max",
+                            detail: ideationSummary
+                        )
+                    }
+
+                    if role.activePhases.contains(.evaluation) {
+                        phaseDetail(
+                            name: "Evaluation",
+                            icon: "checkmark.seal",
+                            detail: evaluationSummary
+                        )
+                    }
+
+                    if role.activePhases.contains(.synthesis) {
+                        phaseDetail(
+                            name: "Synthesis",
+                            icon: "doc.text",
+                            detail: synthesisSummary
+                        )
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isEnabled ? roleColor.opacity(0.02) : Color.gray.opacity(0.02))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isEnabled ? roleColor.opacity(0.12) : Color.gray.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func phaseDetail(name: String, icon: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundStyle(roleColor)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var ideationSummary: String {
+        switch role {
+        case .facilitator:
+            return "Identifies emerging themes, suggests combinations, and proposes new angles. Keeps the group on track."
+        case .wildCard:
+            return "Generates bold, unconventional ideas. Makes unexpected connections. Pushes boundaries on quantity and creativity."
+        case .pragmatist:
+            return "Generates ideas grounded in feasibility, timelines, and budgets. Finds the practical kernel in wild ideas."
+        case .devilsAdvocate:
+            return "Observes silently during ideation. Takes notes for the evaluation phase."
+        case .scribe:
+            return "Observes and tracks all ideas being generated for the final summary."
+        case .whitHat:
+            return "Focuses on facts, data, and objective information. What do we know? What data is missing?"
+        case .redHat:
+            return "Shares gut feelings, emotions, and intuitions. What excites or worries about this topic?"
+        case .blackHat:
+            return "Identifies risks, dangers, and weaknesses. What could go wrong?"
+        case .yellowHat:
+            return "Focuses on benefits, value, and optimism. What's the best-case scenario?"
+        case .greenHat:
+            return "Generates creative alternatives and new possibilities. Thinks laterally."
+        case .saboteur:
+            return "Brainstorms ways to make the problem worse. Creative destruction as a springboard."
+        case .inverter:
+            return "Not active during ideation. Waits for saboteur ideas to invert in evaluation."
+        case .contributor:
+            return "Reviews previous contributions, then adds 2–3 new ideas that build on or extend the conversation."
+        }
+    }
+
+    private var evaluationSummary: String {
+        switch role {
+        case .facilitator:
+            return "Groups ideas into themes. Proposes a shortlist of the 3–5 strongest ideas for the group."
+        case .wildCard:
+            return "Advocates for the most exciting ideas. Suggests how to make shortlisted ideas bolder."
+        case .pragmatist:
+            return "Assesses feasibility and effort-to-impact ratio. Proposes MVP versions of ambitious ideas."
+        case .devilsAdvocate:
+            return "Finds weaknesses, challenges assumptions, and stress-tests each shortlisted idea. Constructive but rigorous."
+        case .scribe:
+            return "Observes and tracks the evaluation discussion for the final summary."
+        case .inverter:
+            return "Flips each saboteur idea into a genuine, constructive solution. Turns negatives into positives."
+        default:
+            return ""
+        }
+    }
+
+    private var synthesisSummary: String {
+        switch role {
+        case .facilitator:
+            return "Summarizes the session: problem, top ideas, evaluation insights. Provides recommendations and next steps."
+        case .scribe:
+            return "Produces a clean, organized document: problem statement, all ideas by theme, evaluation highlights, recommendations, and action items."
+        default:
+            return ""
+        }
+    }
+}
+
+// MARK: - Method Settings Row
+
+struct MethodSettingsRow: View {
+    let method: BrainstormMethod
+    let isSelected: Bool
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: method.icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(isSelected ? accent : .secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(isSelected ? accent.opacity(0.1) : Color.gray.opacity(0.06))
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(method.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+
+                    Text(method.description)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                // Phase flow
+                HStack(spacing: 3) {
+                    ForEach(method.phases, id: \.self) { phase in
+                        Text(phase.badgeName)
+                            .font(.system(size: 8, weight: .medium))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(accent.opacity(isSelected ? 0.1 : 0.05), in: Capsule())
+                            .foregroundStyle(isSelected ? accent : .secondary)
+                    }
+                }
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(accent)
+                }
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? accent.opacity(0.03) : Color.gray.opacity(0.02))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? accent.opacity(0.2) : Color.gray.opacity(0.08), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Method Reference Card
+
+struct MethodReferenceCard: View {
+    let method: BrainstormMethod
+    let accent: Color
+    @State private var expanded: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    expanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: method.icon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(accent)
+                        .frame(width: 24, height: 24)
+                        .background(accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 5))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(method.displayName)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(method.description)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(expanded ? nil : 1)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(10)
+
+            if expanded {
+                Divider()
+                    .padding(.horizontal, 10)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    // Phases
+                    Text("PHASES")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(method.phases, id: \.self) { phase in
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: phase.icon)
+                                .font(.system(size: 10))
+                                .foregroundStyle(accent)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(phase.displayName)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(phase.description)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    // Roles
+                    Text("DEFAULT ROLES")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+
+                    FlowLayout(spacing: 6) {
+                        ForEach(method.defaultRoles, id: \.self) { role in
+                            HStack(spacing: 3) {
+                                Image(systemName: role.icon)
+                                    .font(.system(size: 9))
+                                Text(role.displayName)
+                                    .font(.system(size: 10))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(colorForRole(role.color).opacity(0.08), in: Capsule())
+                            .foregroundStyle(colorForRole(role.color))
+                            .fixedSize()
+                        }
+                    }
+
+                    // Required roles
+                    if !method.requiredRoles.isEmpty {
+                        Text("Required: \(method.requiredRoles.map(\.displayName).joined(separator: ", "))")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+            }
+        }
+        .background(.quaternary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
     }
 }

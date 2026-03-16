@@ -7,13 +7,17 @@ import SwiftData
 
 struct SidebarView: View {
     @EnvironmentObject var chatManager: ChatManager
+    @EnvironmentObject var brainstormManager: BrainstormManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
+    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
     @Binding var isExpanded: Bool
+    @Binding var sidebarWidth: CGFloat
     @State private var showingAboutPopover = false
     @State private var searchText = ""
     @State private var collapsedForkParents: Set<UUID> = []
+    @State private var brainstormsCollapsed: Bool = false
 
     private var filteredConversations: [Conversation] {
         if searchText.isEmpty { return conversations }
@@ -110,42 +114,85 @@ struct SidebarView: View {
 
             Divider()
 
-            // MARK: - New Chat Button
+            // MARK: - New Chat / Brainstorm Buttons
             if isExpanded {
-                Button {
-                    let conversation = chatManager.createConversation(in: modelContext)
-                    chatManager.selectedConversationId = conversation.id
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.bubble")
-                            .font(.system(size: 13))
-                        Text("New Chat")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Text("⌘N")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Button {
+                        chatManager.selectedBrainstormId = nil
+                        let conversation = chatManager.createConversation(in: modelContext)
+                        chatManager.selectedConversationId = conversation.id
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus.bubble")
+                                .font(.system(size: 12))
+                            Text("Chat")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+
+                    Button {
+                        chatManager.selectedConversationId = nil
+                        let session = brainstormManager.createSession(
+                            topic: "",
+                            participants: [],
+                            in: modelContext
+                        )
+                        chatManager.selectedBrainstormId = session.id
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 12))
+                            Text("Brainstorm")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
                 .padding(.top, 8)
             } else {
-                Button {
-                    let conversation = chatManager.createConversation(in: modelContext)
-                    chatManager.selectedConversationId = conversation.id
-                } label: {
-                    Image(systemName: "plus.bubble")
-                        .font(.system(size: 17))
-                        .frame(width: 36, height: 36)
-                        .foregroundStyle(.secondary)
+                VStack(spacing: 4) {
+                    Button {
+                        chatManager.selectedBrainstormId = nil
+                        let conversation = chatManager.createConversation(in: modelContext)
+                        chatManager.selectedConversationId = conversation.id
+                    } label: {
+                        Image(systemName: "plus.bubble")
+                            .font(.system(size: 17))
+                            .frame(width: 36, height: 36)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Chat (⌘N)")
+
+                    Button {
+                        chatManager.selectedConversationId = nil
+                        let session = brainstormManager.createSession(
+                            topic: "",
+                            participants: [],
+                            in: modelContext
+                        )
+                        chatManager.selectedBrainstormId = session.id
+                    } label: {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 17))
+                            .frame(width: 36, height: 36)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Brainstorm (⇧⌘B)")
                 }
-                .buttonStyle(.plain)
-                .help("New Chat (⌘N)")
                 .padding(.top, 8)
             }
 
@@ -227,6 +274,62 @@ struct SidebarView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                // MARK: - Brainstorm Sessions
+                if isExpanded && !brainstormSessions.isEmpty {
+                    Divider()
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 4)
+
+                    HStack {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                brainstormsCollapsed.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: brainstormsCollapsed ? "chevron.right" : "chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 14, height: 14)
+
+                                Image(systemName: "brain.head.profile")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+
+                                Text("BRAINSTORMS")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Text("\(brainstormSessions.count)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+
+                    if !brainstormsCollapsed {
+                        ForEach(brainstormSessions) { session in
+                            BrainstormSessionRow(
+                                session: session,
+                                isSelected: chatManager.selectedBrainstormId == session.id
+                            ) {
+                                chatManager.selectedConversationId = nil
+                                chatManager.selectedBrainstormId = session.id
+                            }
+                            .contextMenu {
+                                Button("Delete", role: .destructive) {
+                                    brainstormManager.deleteSession(session, in: modelContext)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(minLength: 0)
@@ -303,7 +406,7 @@ struct SidebarView: View {
             }
             .padding(.bottom, 4)
         }
-        .frame(width: isExpanded ? 220 : 52)
+        .frame(width: isExpanded ? sidebarWidth : 52)
         .background(chatManager.currentTheme.sidebarColor(for: colorScheme))
     }
 
@@ -721,6 +824,71 @@ struct ModelPickerRow: View {
         if effectiveModelId.isEmpty { return "cpu" }
         let info = chatManager.providers.providerInfo(for: effectiveModelId)
         return info.icon
+    }
+}
+
+// MARK: - Brainstorm Session Row
+
+struct BrainstormSessionRow: View {
+    let session: BrainstormSession
+    let isSelected: Bool
+    let action: () -> Void
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accent: Color {
+        chatManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: session.isComplete ? "brain.head.profile.fill" : "brain.head.profile")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isSelected ? accent : .secondary)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(session.title.isEmpty ? "New Brainstorm" : session.title)
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 4) {
+                        Text(session.method.displayName)
+                            .font(.system(size: 10))
+                            .foregroundStyle(accent.opacity(0.7))
+
+                        Text("·")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+
+                        Text(session.phase.badgeName)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(accent.opacity(0.7))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(accent.opacity(0.08), in: Capsule())
+                    }
+                }
+
+                Spacer()
+
+                // Participant count
+                Text("\(session.participants.filter(\.isEnabled).count)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(accent.opacity(0.15))
+                    : AnyShapeStyle(.clear)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
     }
 }
 

@@ -1,13 +1,17 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct ContentView: View {
     @EnvironmentObject var chatManager: ChatManager
+    @EnvironmentObject var brainstormManager: BrainstormManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openSettings) private var openSettingsFromContent
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
+    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
     @State private var sidebarExpanded: Bool = true
+    @State private var sidebarWidth: CGFloat = 260
 
     /// The currently selected conversation, resolved from the ID
     private var selectedConversation: Conversation? {
@@ -15,18 +19,31 @@ struct ContentView: View {
         return conversations.first(where: { $0.id == id })
     }
 
+    /// The currently selected brainstorm session
+    private var selectedBrainstorm: BrainstormSession? {
+        guard let id = chatManager.selectedBrainstormId else { return nil }
+        return brainstormSessions.first(where: { $0.id == id })
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // MARK: - Sidebar
-            SidebarView(isExpanded: $sidebarExpanded)
+            SidebarView(isExpanded: $sidebarExpanded, sidebarWidth: $sidebarWidth)
                 .environmentObject(chatManager)
+                .environmentObject(brainstormManager)
 
-            Divider()
+            // Resizable divider handle
+            SidebarResizeHandle(sidebarWidth: $sidebarWidth, isExpanded: sidebarExpanded)
 
             // MARK: - Detail
             Group {
                 if chatManager.isLaunching {
                     SplashView()
+                } else if let brainstorm = selectedBrainstorm {
+                    BrainstormView(session: brainstorm)
+                        .id(brainstorm.id)
+                        .environmentObject(brainstormManager)
+                        .environmentObject(chatManager)
                 } else if let conversation = selectedConversation {
                     ChatView(conversation: conversation)
                         .id(conversation.id)
@@ -326,6 +343,7 @@ struct WelcomeView: View {
                 HStack(spacing: 16) {
                     KeyboardHint(key: "⌘N", label: "New chat")
                     KeyboardHint(key: "⌘M", label: "Models")
+                    KeyboardHint(key: "⇧⌘B", label: "Brainstorm")
                     KeyboardHint(key: "⇧⌘K", label: "Compare")
                     KeyboardHint(key: "⇧⌘P", label: "Prompts")
                     KeyboardHint(key: "⌘,", label: "Settings")
@@ -437,5 +455,52 @@ struct KeyboardHint: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - Sidebar Resize Handle
+
+/// A thin draggable divider that lets the user resize the sidebar.
+struct SidebarResizeHandle: View {
+    @Binding var sidebarWidth: CGFloat
+    var isExpanded: Bool
+    @State private var isDragging = false
+    @State private var dragStartWidth: CGFloat = 0
+
+    var body: some View {
+        Rectangle()
+            .fill(isDragging ? Color.accentColor.opacity(0.3) : Color.clear)
+            .frame(width: 5)
+            .contentShape(Rectangle())
+            .overlay(
+                Rectangle()
+                    .fill(.separator)
+                    .frame(width: 1)
+            )
+            .onHover { hovering in
+                if isExpanded {
+                    if hovering {
+                        NSCursor.resizeLeftRight.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if isExpanded {
+                            if !isDragging {
+                                isDragging = true
+                                dragStartWidth = sidebarWidth
+                            }
+                            let newWidth = dragStartWidth + value.translation.width
+                            sidebarWidth = min(max(newWidth, 200), 400)
+                        }
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
     }
 }

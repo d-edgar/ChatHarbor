@@ -62,6 +62,13 @@ struct ChatHarborCommands: Commands {
                 chatManager.showingPromptLibrary = true
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button("New Brainstorm") {
+                NotificationCenter.default.post(name: .newBrainstorm, object: nil)
+            }
+            .keyboardShortcut("b", modifiers: [.command, .shift])
         }
     }
 }
@@ -70,4 +77,5 @@ struct ChatHarborCommands: Commands {
 
 extension Notification.Name {
     static let newChat = Notification.Name("chatHarbor.newChat")
+    static let newBrainstorm = Notification.Name("chatHarbor.newBrainstorm")
 }

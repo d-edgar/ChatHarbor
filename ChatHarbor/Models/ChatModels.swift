@@ -5,12 +5,12 @@ import SwiftData
 
 @Model
 final class Conversation {
-    var id: UUID
-    var title: String
-    var createdAt: Date
-    var updatedAt: Date
-    var modelId: String
-    var systemPrompt: String
+    var id: UUID = UUID()
+    var title: String = "New Conversation"
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var modelId: String = ""
+    var systemPrompt: String = ""
     /// Per-conversation parameter overrides (nil = use provider defaults)
     var temperature: Double?
     var maxTokens: Int?
@@ -25,7 +25,7 @@ final class Conversation {
     var forkedAtMessageId: UUID?
 
     @Relationship(deleteRule: .cascade, inverse: \Message.conversation)
-    var messages: [Message]
+    var messages: [Message] = []
 
     init(
         title: String = "New Conversation",
@@ -81,11 +81,11 @@ final class Conversation {
 
 @Model
 final class Message {
-    var id: UUID
-    var role: MessageRole
-    var content: String
-    var createdAt: Date
-    var isStreaming: Bool
+    var id: UUID = UUID()
+    var role: MessageRole = MessageRole.user
+    var content: String = ""
+    var createdAt: Date = Date()
+    var isStreaming: Bool = false
     var tokenCount: Int?
     var inputTokenCount: Int?
     var durationMs: Double?

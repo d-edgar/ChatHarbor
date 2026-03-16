@@ -14,7 +14,14 @@ class ChatManager: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var selectedConversationId: UUID?
+    @Published var selectedConversationId: UUID? {
+        didSet {
+            // Selecting a conversation deselects any brainstorm
+            if selectedConversationId != nil && selectedBrainstormId != nil {
+                selectedBrainstormId = nil
+            }
+        }
+    }
     @Published var selectedModelId: String = ""
     @Published var isGenerating: Bool = false
     @Published var streamingContent: String = ""
@@ -28,6 +35,18 @@ class ChatManager: ObservableObject {
     @Published var compareSlots: [CompareSlot] = []
     @Published var isComparing: Bool = false
     @Published var comparePrompt: String = ""
+
+    // Brainstorm mode
+    @Published var showingBrainstormView: Bool = false
+    @Published var selectedBrainstormId: UUID? {
+        didSet {
+            // Selecting a brainstorm deselects any conversation
+            if selectedBrainstormId != nil && selectedConversationId != nil {
+                selectedConversationId = nil
+            }
+        }
+    }
+    lazy var brainstormManager: BrainstormManager = BrainstormManager(providers: providers)
 
     // Prompt templates
     @Published var customTemplates: [PromptTemplate] = [] {
@@ -70,6 +89,27 @@ class ChatManager: ObservableObject {
         didSet { UserDefaults.standard.set(autoTitleConversations, forKey: autoTitleKey) }
     }
 
+    // MARK: - Brainstorm Defaults
+
+    @Published var brainstormDefaultRounds: Int {
+        didSet { UserDefaults.standard.set(brainstormDefaultRounds, forKey: brainstormRoundsKey) }
+    }
+
+    /// Default model IDs for each brainstorm role (keyed by role rawValue)
+    @Published var brainstormDefaultModels: [String: String] {
+        didSet { persistBrainstormModels() }
+    }
+
+    /// Which roles are enabled by default when creating a new brainstorm
+    @Published var brainstormEnabledRoles: Set<String> {
+        didSet { persistBrainstormEnabledRoles() }
+    }
+
+    /// Default brainstorming method for new sessions
+    @Published var brainstormDefaultMethod: String {
+        didSet { UserDefaults.standard.set(brainstormDefaultMethod, forKey: brainstormMethodKey) }
+    }
+
     /// The resolved theme object
     var currentTheme: AppTheme {
         ThemeCatalog.theme(forId: selectedThemeId)
@@ -89,6 +129,10 @@ class ChatManager: ObservableObject {
     private let streamResponsesKey = "chatharbor.streamResponses"
     private let sendOnEnterKey = "chatharbor.sendOnEnter"
     private let autoTitleKey = "chatharbor.autoTitle"
+    private let brainstormRoundsKey = "chatharbor.brainstorm.defaultRounds"
+    private let brainstormModelsKey = "chatharbor.brainstorm.defaultModels"
+    private let brainstormEnabledRolesKey = "chatharbor.brainstorm.enabledRoles"
+    private let brainstormMethodKey = "chatharbor.brainstorm.defaultMethod"
 
     private var streamTask: Task<Void, Never>?
     private var compareTasks: [Task<Void, Never>] = []
@@ -143,6 +187,22 @@ class ChatManager: ObservableObject {
             self.customTemplates = decoded
         }
 
+        // Load brainstorm defaults
+        self.brainstormDefaultRounds = UserDefaults.standard.object(forKey: brainstormRoundsKey) as? Int ?? 3
+        if let data = UserDefaults.standard.data(forKey: brainstormModelsKey),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            self.brainstormDefaultModels = decoded
+        } else {
+            self.brainstormDefaultModels = [:]
+        }
+        if let saved = UserDefaults.standard.stringArray(forKey: brainstormEnabledRolesKey) {
+            self.brainstormEnabledRoles = Set(saved)
+        } else {
+            // All roles enabled by default
+            self.brainstormEnabledRoles = Set(BrainstormRole.allCases.map(\.rawValue))
+        }
+        self.brainstormDefaultMethod = UserDefaults.standard.string(forKey: brainstormMethodKey) ?? BrainstormMethod.osborn.rawValue
+
         // Apply appearance
         applyAppearance()
 
@@ -163,9 +223,12 @@ class ChatManager: ObservableObject {
         providers.apple.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &nestedCancellables)
-
         // Connect all providers and dismiss splash
         Task {
+            // Subscribe to brainstorm manager changes (deferred to avoid lazy var issues during init)
+            brainstormManager.objectWillChange
+                .sink { [weak self] _ in self?.objectWillChange.send() }
+                .store(in: &nestedCancellables)
             if let url = URL(string: ollamaBaseURL) {
                 ollama.baseURL = url
             }
@@ -559,6 +622,16 @@ class ChatManager: ObservableObject {
         if let data = try? JSONEncoder().encode(customTemplates) {
             UserDefaults.standard.set(data, forKey: templatesKey)
         }
+    }
+
+    private func persistBrainstormModels() {
+        if let data = try? JSONEncoder().encode(brainstormDefaultModels) {
+            UserDefaults.standard.set(data, forKey: brainstormModelsKey)
+        }
+    }
+
+    private func persistBrainstormEnabledRoles() {
+        UserDefaults.standard.set(Array(brainstormEnabledRoles), forKey: brainstormEnabledRolesKey)
     }
 }
 
