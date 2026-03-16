@@ -22,9 +22,12 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         didSet { persistAPIKey() }
     }
 
-    private let apiKeyKey = "chatharbor.anthropic.apiKey"
+    private let keychainKey = "chatharbor.anthropic.apiKey"
     private let apiVersion = "2023-06-01"
     private let betaFeatures = "max-tokens-3-5-sonnet-2024-07-15"
+
+    /// Legacy UserDefaults key — used only for one-time migration
+    private let legacyUserDefaultsKey = "chatharbor.anthropic.apiKey"
 
     // Claude models — Anthropic doesn't have a list endpoint,
     // so we maintain the catalog here. The first entry is used for
@@ -39,7 +42,13 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     ]
 
     init() {
-        if let saved = UserDefaults.standard.string(forKey: apiKeyKey) {
+        // Migrate any existing plaintext key from UserDefaults → Keychain
+        KeychainHelper.migrateFromUserDefaults(
+            userDefaultsKey: legacyUserDefaultsKey,
+            keychainKey: keychainKey
+        )
+
+        if let saved = KeychainHelper.load(forKey: keychainKey) {
             self.apiKey = saved
         }
     }
@@ -308,6 +317,10 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     // MARK: - Persistence
 
     private func persistAPIKey() {
-        UserDefaults.standard.set(apiKey, forKey: apiKeyKey)
+        if apiKey.isEmpty {
+            KeychainHelper.delete(forKey: keychainKey)
+        } else {
+            KeychainHelper.save(apiKey, forKey: keychainKey)
+        }
     }
 }

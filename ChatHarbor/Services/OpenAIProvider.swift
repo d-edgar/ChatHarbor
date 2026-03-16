@@ -21,14 +21,23 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
         didSet { persistAPIKey() }
     }
     @Published var baseURL: String = "https://api.openai.com/v1" {
-        didSet { UserDefaults.standard.set(baseURL, forKey: "chatharbor.openai.baseURL") }
+        didSet { UserDefaults.standard.set(baseURL, forKey: baseURLKey) }
     }
 
-    private let apiKeyKey = "chatharbor.openai.apiKey"
+    private let keychainKey = "chatharbor.openai.apiKey"
     private let baseURLKey = "chatharbor.openai.baseURL"
 
+    /// Legacy UserDefaults key — used only for one-time migration
+    private let legacyUserDefaultsKey = "chatharbor.openai.apiKey"
+
     init() {
-        if let saved = UserDefaults.standard.string(forKey: apiKeyKey) {
+        // Migrate any existing plaintext key from UserDefaults → Keychain
+        KeychainHelper.migrateFromUserDefaults(
+            userDefaultsKey: legacyUserDefaultsKey,
+            keychainKey: keychainKey
+        )
+
+        if let saved = KeychainHelper.load(forKey: keychainKey) {
             self.apiKey = saved
         }
         if let saved = UserDefaults.standard.string(forKey: baseURLKey), !saved.isEmpty {
@@ -209,7 +218,11 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
     // MARK: - Persistence
 
     private func persistAPIKey() {
-        UserDefaults.standard.set(apiKey, forKey: apiKeyKey)
+        if apiKey.isEmpty {
+            KeychainHelper.delete(forKey: keychainKey)
+        } else {
+            KeychainHelper.save(apiKey, forKey: keychainKey)
+        }
     }
 
     // MARK: - Friendly Names
