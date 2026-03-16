@@ -175,12 +175,22 @@ struct BrainstormView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(session.sortedEntries) { entry in
-                        BrainstormEntryCard(entry: entry, accent: accent)
-                            .id(entry.id)
+                    ForEach(session.sortedEntries.filter { entry in
+                        // Hide the entry currently being streamed — the
+                        // streaming indicator below handles its display
+                        entry.id != brainstormManager.currentEntry?.id
+                    }) { entry in
+                        BrainstormEntryCard(
+                            entry: entry,
+                            accent: accent,
+                            onRetry: entry.error != nil ? { alternateModelId in
+                                retryEntry(entry, withModel: alternateModelId)
+                            } : nil
+                        )
+                        .id(entry.id)
                     }
 
-                    // Streaming indicator
+                    // Streaming indicator (single view for the active entry)
                     if brainstormManager.isRunning, let current = brainstormManager.currentEntry {
                         streamingIndicator(for: current)
                     }
@@ -204,6 +214,13 @@ struct BrainstormView: View {
             }
             .onChange(of: brainstormManager.streamingContent) { _, _ in
                 proxy.scrollTo("bottom", anchor: .bottom)
+            }
+            .onChange(of: brainstormManager.awaitingUserInput) { _, awaiting in
+                if awaiting {
+                    withAnimation {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                }
             }
         }
     }
@@ -261,12 +278,36 @@ struct BrainstormView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
+            // Session stats
+            sessionStats
+
             HStack(spacing: 8) {
                 if session.phase == .ideation {
                     Button {
                         brainstormManager.continueIdeation(session: session, context: modelContext)
                     } label: {
                         Label("Next Round", systemImage: "arrow.forward")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+
+                // Export report (always available at synthesis checkpoint)
+                if session.phase == .synthesis || session.phase == .complete {
+                    Button {
+                        showingExport = true
+                    } label: {
+                        Label("Export Report", systemImage: "doc.text")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        copyReportToClipboard()
+                    } label: {
+                        Label("Copy Report", systemImage: "doc.on.doc")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .buttonStyle(.bordered)
@@ -310,6 +351,19 @@ struct BrainstormView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 12) {
+            // Resume button when session is stuck between phases
+            if isResumable {
+                Button {
+                    brainstormManager.run(session: session, context: modelContext)
+                } label: {
+                    Label("Resume", systemImage: "play.fill")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .controlSize(.small)
+            }
+
             TextField(inputPlaceholder, text: $userInput, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
@@ -321,7 +375,7 @@ struct BrainstormView: View {
                 }
                 .font(.body)
                 .padding(.vertical, 8)
-                .disabled(!brainstormManager.awaitingUserInput && session.phase != .setup)
+                .disabled(!brainstormManager.awaitingUserInput && !isResumable && session.phase != .setup)
 
             Button {
                 submitInput()
@@ -338,6 +392,15 @@ struct BrainstormView: View {
         .background(.bar)
     }
 
+    /// Whether the session is in a resumable state (not running, not awaiting input,
+    /// but also not complete or in setup)
+    private var isResumable: Bool {
+        !brainstormManager.isRunning
+        && !brainstormManager.awaitingUserInput
+        && session.phase != .setup
+        && session.phase != .complete
+    }
+
     private var inputPlaceholder: String {
         if brainstormManager.awaitingUserInput {
             return "Add your thoughts or direction…"
@@ -345,19 +408,60 @@ struct BrainstormView: View {
         if brainstormManager.isRunning {
             return "Waiting for models to finish…"
         }
+        if isResumable {
+            return "Type feedback, or tap Resume to continue…"
+        }
         return "Session is paused"
     }
 
     private var canSubmit: Bool {
         let hasText = !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return hasText && brainstormManager.awaitingUserInput
+        return hasText && (brainstormManager.awaitingUserInput || isResumable)
+    }
+
+    /// Summary stats for the session
+    private var sessionStats: some View {
+        let entries = session.sortedEntries.filter { !$0.isUserInput && $0.error == nil }
+        let totalTokens = entries.compactMap(\.tokenCount).reduce(0, +)
+        let totalInputTokens = entries.compactMap(\.inputTokenCount).reduce(0, +)
+        let totalDuration = entries.compactMap(\.durationMs).reduce(0, +)
+        let entryCount = entries.count
+
+        return HStack(spacing: 12) {
+            if entryCount > 0 {
+                Label("\(entryCount) responses", systemImage: "text.bubble")
+                Label("\(totalTokens + totalInputTokens) tokens", systemImage: "number")
+                if totalDuration > 0 {
+                    Label(ChatManager.formatDuration(totalDuration), systemImage: "clock")
+                }
+            }
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(.secondary)
+    }
+
+    private func copyReportToClipboard() {
+        let markdown = brainstormManager.exportToMarkdown(session)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
+    }
+
+    private func retryEntry(_ entry: BrainstormEntry, withModel alternateModelId: String? = nil) {
+        brainstormManager.retryFailedEntry(entry, session: session, context: modelContext, alternateModelId: alternateModelId)
     }
 
     private func submitInput() {
         let text = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, brainstormManager.awaitingUserInput else { return }
-        userInput = ""
-        brainstormManager.submitUserInput(text, session: session, context: modelContext)
+        guard !text.isEmpty else { return }
+
+        if brainstormManager.awaitingUserInput {
+            userInput = ""
+            brainstormManager.submitUserInput(text, session: session, context: modelContext)
+        } else if isResumable {
+            // Record user feedback, then resume
+            userInput = ""
+            brainstormManager.submitUserInput(text, session: session, context: modelContext)
+        }
     }
 
     // MARK: - Helpers
@@ -382,6 +486,8 @@ struct BrainstormView: View {
 struct BrainstormEntryCard: View {
     let entry: BrainstormEntry
     let accent: Color
+    /// Retry with an optional different model ID (nil = same model)
+    var onRetry: ((String?) -> Void)?
     @EnvironmentObject var chatManager: ChatManager
 
     private var roleColor: Color {
@@ -434,12 +540,54 @@ struct BrainstormEntryCard: View {
 
             // Content
             if let error = entry.error {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let onRetry {
+                        HStack(spacing: 8) {
+                            // Retry with same model
+                            Button {
+                                onRetry(nil)
+                            } label: {
+                                Label("Retry", systemImage: "arrow.clockwise")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            // Retry with a different model
+                            Menu {
+                                let allModels = chatManager.providers.allModels
+                                ForEach(allModels) { model in
+                                    Button {
+                                        onRetry(model.id)
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: model.isLocal ? "desktopcomputer" : "cloud")
+                                            Text(model.displayName)
+                                            if model.id == entry.qualifiedModelId {
+                                                Text("(current)")
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label("Try Different Model", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+
+                            Spacer()
+                        }
+                    }
                 }
             } else if entry.content.isEmpty && entry.isStreaming {
                 HStack(spacing: 4) {
@@ -449,29 +597,26 @@ struct BrainstormEntryCard: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Text(LocalizedStringKey(entry.content))
-                    .font(.body)
-                    .textSelection(.enabled)
+                MarkdownText(content: entry.content)
             }
 
-            // Stats
-            if !entry.isStreaming, entry.error == nil, !entry.isUserInput {
-                HStack(spacing: 6) {
-                    if let tokens = entry.tokenCount {
-                        Text("\(tokens) tok")
-                    }
-                    if let tokens = entry.tokenCount, let ms = entry.durationMs,
-                       tokens > 0, ms > 0 {
-                        Text("·")
-                        Text(String(format: "%.1f tok/s", Double(tokens) / (ms / 1000.0)))
-                    }
-                    if let ms = entry.durationMs {
-                        Text("·")
-                        Text(ChatManager.formatDuration(ms))
+            // Stats — show whenever any metadata exists
+            if !entry.isStreaming, entry.error == nil, !entry.isUserInput,
+               (entry.tokenCount != nil || entry.durationMs != nil) {
+                HStack(spacing: 5) {
+                    Image(systemName: "gauge.low")
+                        .font(.system(size: 9))
+
+                    let parts = entryStatParts(entry)
+                    ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                        if index > 0 {
+                            Text("·")
+                        }
+                        Text(part)
                     }
                 }
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
             }
         }
         .padding(14)
@@ -491,6 +636,22 @@ struct BrainstormEntryCard: View {
                     lineWidth: 1
                 )
         )
+    }
+
+    /// Build an array of stat strings, avoiding leading/trailing separators
+    private func entryStatParts(_ entry: BrainstormEntry) -> [String] {
+        var parts: [String] = []
+        if let tokens = entry.tokenCount, tokens > 0 {
+            parts.append("\(tokens) tok")
+        }
+        if let tokens = entry.tokenCount, let ms = entry.durationMs,
+           tokens > 0, ms > 0 {
+            parts.append(String(format: "%.1f tok/s", Double(tokens) / (ms / 1000.0)))
+        }
+        if let ms = entry.durationMs, ms > 0 {
+            parts.append(ChatManager.formatDuration(ms))
+        }
+        return parts
     }
 }
 

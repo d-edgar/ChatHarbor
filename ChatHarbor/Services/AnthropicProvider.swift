@@ -33,12 +33,17 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
     // so we maintain the catalog here. The first entry is used for
     // connection tests, so keep it set to the most reliable/available model.
     private let modelCatalog: [(id: String, name: String, context: Int)] = [
-        ("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000),
+        // Latest generation
+        ("claude-opus-4-6", "Claude Opus 4.6", 200_000),
+        ("claude-sonnet-4-6", "Claude Sonnet 4.6", 200_000),
+        ("claude-haiku-4-5-20251001", "Claude Haiku 4.5", 200_000),
+        // Previous generation
+        ("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5", 200_000),
         ("claude-opus-4-20250514", "Claude Opus 4", 200_000),
-        ("claude-haiku-4-20250514", "Claude Haiku 4", 200_000),
+        ("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000),
+        // Legacy
         ("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet", 200_000),
         ("claude-3-5-haiku-20241022", "Claude 3.5 Haiku", 200_000),
-        ("claude-3-opus-20240229", "Claude 3 Opus", 200_000),
     ]
 
     init() {

@@ -873,8 +873,8 @@ struct BrainstormSessionRow: View {
 
                 Spacer()
 
-                // Participant count
-                Text("\(session.participants.filter(\.isEnabled).count)")
+                // Entry count
+                Text("\(session.entries.filter { !$0.isUserInput && $0.error == nil && !$0.content.isEmpty }.count)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
             }

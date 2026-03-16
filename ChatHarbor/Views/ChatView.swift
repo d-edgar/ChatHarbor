@@ -469,8 +469,9 @@ struct MessageRow: View {
                         )
                 }
 
-                // Clickable token/cost pill
-                if let tokens = message.tokenCount, !isUser, !message.isStreaming {
+                // Clickable token/cost pill — show whenever any metadata exists
+                if !isUser, !message.isStreaming,
+                   (message.tokenCount != nil || message.durationMs != nil) {
                     Button {
                         showUsagePopover = true
                     } label: {
@@ -478,14 +479,21 @@ struct MessageRow: View {
                             Image(systemName: "chart.bar.fill")
                                 .font(.system(size: 8))
 
-                            Text("\(tokens) tokens")
+                            if let tokens = message.tokenCount, tokens > 0 {
+                                Text("\(tokens) tokens")
+                            } else if let duration = message.durationMs, duration > 0 {
+                                // No token count — lead with duration instead
+                                Text(formatDuration(duration))
+                            }
 
-                            if let cost = messageCost {
+                            if let tokens = message.tokenCount, tokens > 0,
+                               let cost = messageCost {
                                 Text("·")
                                 Text(formatCost(cost))
                             }
 
-                            if let duration = message.durationMs, duration > 0 {
+                            if let tokens = message.tokenCount, tokens > 0,
+                               let duration = message.durationMs, duration > 0 {
                                 Text("·")
                                 Text(formatDuration(duration))
                             }

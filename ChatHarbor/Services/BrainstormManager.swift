@@ -115,10 +115,77 @@ class BrainstormManager: ObservableObject {
         currentEntry = nil
     }
 
-    /// User provides input at a checkpoint, then advance
-    func submitUserInput(_ text: String, session: BrainstormSession, context: ModelContext) {
-        guard awaitingUserInput else { return }
+    /// Retry a failed entry — clears the error, re-streams the response.
+    /// Pass an `alternateModelId` to switch to a different model for this entry.
+    func retryFailedEntry(_ entry: BrainstormEntry, session: BrainstormSession, context: ModelContext, alternateModelId: String? = nil) {
+        guard entry.error != nil, !isRunning else { return }
 
+        // Use alternate model if provided, otherwise keep the original
+        let modelId: String
+        if let alt = alternateModelId {
+            modelId = alt
+            entry.qualifiedModelId = alt
+        } else {
+            guard let existing = entry.qualifiedModelId else { return }
+            modelId = existing
+        }
+
+        // Clear the failed state
+        entry.error = nil
+        entry.content = ""
+        entry.isStreaming = true
+        try? context.save()
+
+        isRunning = true
+        currentEntry = entry
+
+        // Determine the appropriate prompt based on the entry's phase and role
+        let systemPrompt: String
+        let userMessage: String
+
+        switch entry.phase {
+        case .framing:
+            systemPrompt = entry.role.framingPrompt
+            userMessage = "Here is the brainstorm topic:\n\n\(session.topic)\n\nPlease reframe this as a clear problem statement and identify key dimensions to explore."
+
+        case .ideation:
+            systemPrompt = entry.role.ideationPrompt
+            userMessage = buildIdeationUserMessage(
+                session: session,
+                previousIdeas: buildIdeationContext(session: session),
+                round: entry.round
+            )
+
+        case .evaluation:
+            systemPrompt = entry.role.evaluationPrompt
+            let allIdeas = buildIdeationContext(session: session)
+            userMessage = "## Problem Statement\n\(session.problemStatement)\n\n## All Ideas from Ideation\n\(allIdeas)\n\nPlease evaluate these ideas according to your role."
+
+        case .synthesis:
+            systemPrompt = entry.role.synthesisPrompt
+            let fullContext = buildFullSessionContext(session: session)
+            userMessage = "## Full Brainstorm Session\n\n\(fullContext)\n\nPlease provide your synthesis according to your role."
+
+        default:
+            isRunning = false
+            currentEntry = nil
+            return
+        }
+
+        currentTask = Task {
+            await generate(
+                entry: entry,
+                systemPrompt: systemPrompt,
+                userMessage: userMessage,
+                modelId: modelId,
+                context: context
+            )
+            isRunning = false
+        }
+    }
+
+    /// User provides input at a checkpoint (or resumable state), then advance
+    func submitUserInput(_ text: String, session: BrainstormSession, context: ModelContext) {
         // Record user input as an entry
         let entry = BrainstormEntry(
             phase: session.phase,
