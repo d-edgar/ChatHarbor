@@ -116,24 +116,32 @@ struct SidebarView: View {
 
             // MARK: - New Chat / Brainstorm Buttons
             if isExpanded {
-                HStack(spacing: 4) {
+                HStack(spacing: 8) {
                     Button {
                         chatManager.selectedBrainstormId = nil
                         let conversation = chatManager.createConversation(in: modelContext)
                         chatManager.selectedConversationId = conversation.id
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "plus.bubble")
+                            Image(systemName: "plus.bubble.fill")
                                 .font(.system(size: 12))
                             Text("Chat")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 12, weight: .semibold))
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .contentShape(Rectangle())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(chatManager.currentTheme.accentColor(for: colorScheme).opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(chatManager.currentTheme.accentColor(for: colorScheme).opacity(0.25), lineWidth: 1)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(chatManager.currentTheme.accentColor(for: colorScheme))
 
                     Button {
                         chatManager.selectedConversationId = nil
@@ -148,18 +156,24 @@ struct SidebarView: View {
                             Image(systemName: "brain.head.profile")
                                 .font(.system(size: 12))
                             Text("Brainstorm")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 12, weight: .semibold))
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .contentShape(Rectangle())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.purple.opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.purple.opacity(0.25), lineWidth: 1)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-
-                    Spacer()
+                    .foregroundStyle(.purple)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 10)
                 .padding(.top, 8)
             } else {
                 VStack(spacing: 4) {
@@ -171,6 +185,7 @@ struct SidebarView: View {
                         Image(systemName: "plus.bubble")
                             .font(.system(size: 17))
                             .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -188,6 +203,7 @@ struct SidebarView: View {
                         Image(systemName: "brain.head.profile")
                             .font(.system(size: 17))
                             .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -217,46 +233,34 @@ struct SidebarView: View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     if isExpanded {
-                        ForEach(groupedConversations, id: \.label) { group in
-                            if !group.conversations.isEmpty {
-                                HStack {
-                                    Text(group.label.uppercased())
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.top, 12)
-                                .padding(.bottom, 4)
+                        Spacer().frame(height: 6)
 
-                                ForEach(group.conversations) { conversation in
-                                    // Parent conversation row
-                                    conversationRow(for: conversation)
+                        ForEach(rootConversations) { conversation in
+                            // Parent conversation row
+                            conversationRow(for: conversation)
 
-                                    // Nested forks
-                                    if let forks = forksByParent[conversation.id],
-                                       !collapsedForkParents.contains(conversation.id) {
-                                        ForEach(forks) { fork in
-                                            ForkRow(
-                                                conversation: fork,
-                                                parentTitle: conversation.title,
-                                                isSelected: chatManager.selectedConversationId == fork.id
-                                            ) {
-                                                chatManager.selectedConversationId = fork.id
-                                            }
-                                            .contextMenu {
-                                                Button {
-                                                    chatManager.selectedConversationId = conversation.id
-                                                } label: {
-                                                    Label("Go to Parent", systemImage: "arrow.turn.left.up")
-                                                }
+                            // Nested forks
+                            if let forks = forksByParent[conversation.id],
+                               !collapsedForkParents.contains(conversation.id) {
+                                ForEach(forks) { fork in
+                                    ForkRow(
+                                        conversation: fork,
+                                        parentTitle: conversation.title,
+                                        isSelected: chatManager.selectedConversationId == fork.id
+                                    ) {
+                                        chatManager.selectedConversationId = fork.id
+                                    }
+                                    .contextMenu {
+                                        Button {
+                                            chatManager.selectedConversationId = conversation.id
+                                        } label: {
+                                            Label("Go to Parent", systemImage: "arrow.turn.left.up")
+                                        }
 
-                                                Divider()
+                                        Divider()
 
-                                                Button("Delete Fork", role: .destructive) {
-                                                    chatManager.deleteConversation(fork, in: modelContext)
-                                                }
-                                            }
+                                        Button("Delete Fork", role: .destructive) {
+                                            chatManager.deleteConversation(fork, in: modelContext)
                                         }
                                     }
                                 }
@@ -323,11 +327,54 @@ struct SidebarView: View {
                                 chatManager.selectedBrainstormId = session.id
                             }
                             .contextMenu {
+                                if session.hasQAConversation {
+                                    Button {
+                                        chatManager.selectedConversationId = nil
+                                        chatManager.selectedBrainstormId = session.id
+                                        let modelId = session.qaModelId ?? chatManager.providers.allModels.first?.id ?? ""
+                                        if !modelId.isEmpty {
+                                            brainstormManager.enterQAMode(session: session, modelId: modelId, context: modelContext)
+                                        }
+                                    } label: {
+                                        Label("Resume Q&A", systemImage: "bubble.left.and.text.bubble.right")
+                                    }
+
+                                    Divider()
+                                }
+
+                                if session.isComplete {
+                                    Button {
+                                        let newSession = brainstormManager.rerunSession(session, in: modelContext)
+                                        chatManager.selectedConversationId = nil
+                                        chatManager.selectedBrainstormId = newSession.id
+                                    } label: {
+                                        Label("Rerun Brainstorm", systemImage: "arrow.clockwise")
+                                    }
+
+                                    Button {
+                                        let newSession = brainstormManager.cloneSessionForSetup(session, in: modelContext)
+                                        chatManager.selectedConversationId = nil
+                                        chatManager.selectedBrainstormId = newSession.id
+                                    } label: {
+                                        Label("Rerun with Changes", systemImage: "arrow.clockwise.circle")
+                                    }
+
+                                    Divider()
+                                }
+
                                 Button("Delete", role: .destructive) {
                                     brainstormManager.deleteSession(session, in: modelContext)
                                 }
                             }
                         }
+                    }
+                }
+            }
+            .onAppear {
+                // Default all fork groups to collapsed
+                for conversation in rootConversations {
+                    if forksByParent[conversation.id] != nil {
+                        collapsedForkParents.insert(conversation.id)
                     }
                 }
             }
@@ -387,6 +434,7 @@ struct SidebarView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showingAboutPopover, arrowEdge: .trailing) {
@@ -462,42 +510,6 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Grouped Conversations (roots only)
-
-    private struct ConversationGroup {
-        let label: String
-        let conversations: [Conversation]
-    }
-
-    private var groupedConversations: [ConversationGroup] {
-        let calendar = Calendar.current
-        let now = Date()
-
-        var today: [Conversation] = []
-        var yesterday: [Conversation] = []
-        var thisWeek: [Conversation] = []
-        var older: [Conversation] = []
-
-        for conv in rootConversations {
-            if calendar.isDateInToday(conv.updatedAt) {
-                today.append(conv)
-            } else if calendar.isDateInYesterday(conv.updatedAt) {
-                yesterday.append(conv)
-            } else if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now),
-                      conv.updatedAt > weekAgo {
-                thisWeek.append(conv)
-            } else {
-                older.append(conv)
-            }
-        }
-
-        return [
-            ConversationGroup(label: "Today", conversations: today),
-            ConversationGroup(label: "Yesterday", conversations: yesterday),
-            ConversationGroup(label: "This Week", conversations: thisWeek),
-            ConversationGroup(label: "Older", conversations: older),
-        ]
-    }
 }
 
 // MARK: - Conversation Row
@@ -518,68 +530,66 @@ struct ConversationRow: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                // Fork disclosure toggle
-                if hasForks {
-                    Button {
-                        onToggleForks?()
-                    } label: {
-                        Image(systemName: forksCollapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 14, height: 14)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Spacer()
-                        .frame(width: 14)
+        HStack(spacing: 0) {
+            // Fork disclosure toggle — separate from the row button so clicks register independently
+            if hasForks {
+                Button {
+                    onToggleForks?()
+                } label: {
+                    Image(systemName: forksCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 28)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+            } else {
+                Spacer()
+                    .frame(width: 22)
+            }
 
-                Image(systemName: "bubble.left")
-                    .font(.system(size: 12))
-                    .foregroundStyle(isSelected ? accent : .secondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(conversation.title)
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Image(systemName: "bubble.left")
                         .font(.system(size: 12))
-                        .foregroundStyle(isSelected ? .primary : .secondary)
-                        .lineLimit(1)
+                        .foregroundStyle(isSelected ? accent : .secondary)
 
-                    HStack(spacing: 4) {
-                        Text(conversation.updatedAt.formatted(.relative(presentation: .named)))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(conversation.title)
+                            .font(.system(size: 12))
+                            .foregroundStyle(isSelected ? .primary : .secondary)
+                            .lineLimit(1)
 
                         if hasForks {
-                            Text("·")
-                                .foregroundStyle(.secondary)
-                            Image(systemName: "arrow.triangle.branch")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary)
-                            Text("\(forkCount)")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.triangle.branch")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.secondary)
+                                Text("\(forkCount)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+
+                    Spacer()
+
+                    Text("\(conversation.messages.count)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
-
-                Spacer()
-
-                Text("\(conversation.messages.count)")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+                .background(
+                    isSelected
+                        ? AnyShapeStyle(accent.opacity(0.15))
+                        : AnyShapeStyle(.clear)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                isSelected
-                    ? AnyShapeStyle(accent.opacity(0.15))
-                    : AnyShapeStyle(.clear)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 4)
     }
 }
@@ -649,6 +659,7 @@ struct ForkRow: View {
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
+            .contentShape(Rectangle())
             .background(
                 isSelected
                     ? AnyShapeStyle(accent.opacity(0.12))
@@ -834,10 +845,16 @@ struct BrainstormSessionRow: View {
     let isSelected: Bool
     let action: () -> Void
     @EnvironmentObject var chatManager: ChatManager
+    @EnvironmentObject var brainstormManager: BrainstormManager
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
 
     private var accent: Color {
         chatManager.currentTheme.accentColor(for: colorScheme)
+    }
+
+    private var hasQA: Bool {
+        session.hasQAConversation
     }
 
     var body: some View {
@@ -868,6 +885,25 @@ struct BrainstormSessionRow: View {
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(accent.opacity(0.08), in: Capsule())
+
+                        if hasQA {
+                            Button {
+                                chatManager.selectedConversationId = nil
+                                chatManager.selectedBrainstormId = session.id
+                                let modelId = session.qaModelId ?? chatManager.providers.allModels.first?.id ?? ""
+                                if !modelId.isEmpty {
+                                    brainstormManager.enterQAMode(session: session, modelId: modelId, context: modelContext)
+                                }
+                            } label: {
+                                Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.purple.opacity(0.7))
+                                    .frame(width: 20, height: 20)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Resume Q&A conversation")
+                        }
                     }
                 }
 
@@ -880,6 +916,7 @@ struct BrainstormSessionRow: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
+            .contentShape(Rectangle())
             .background(
                 isSelected
                     ? AnyShapeStyle(accent.opacity(0.15))

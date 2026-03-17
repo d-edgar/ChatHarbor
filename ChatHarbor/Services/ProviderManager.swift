@@ -208,10 +208,16 @@ class ProviderManager: ObservableObject {
     /// Prices from Anthropic/OpenAI public pricing pages as of May 2025.
     /// Local models (Ollama) are free.
     private static let pricing: [String: (input: Double, output: Double)] = [
-        // Anthropic
-        "claude-sonnet-4-20250514":     (input: 3.00, output: 15.00),
+        // Anthropic — latest generation
+        "claude-opus-4-6":              (input: 15.00, output: 75.00),
+        "claude-sonnet-4-6":            (input: 3.00, output: 15.00),
+        "claude-haiku-4-5-20251001":    (input: 0.80, output: 4.00),
+        // Anthropic — previous generation
+        "claude-sonnet-4-5-20250929":   (input: 3.00, output: 15.00),
         "claude-opus-4-20250514":       (input: 15.00, output: 75.00),
+        "claude-sonnet-4-20250514":     (input: 3.00, output: 15.00),
         "claude-haiku-4-20250514":      (input: 0.80, output: 4.00),
+        // Anthropic — legacy
         "claude-3-5-sonnet-20241022":   (input: 3.00, output: 15.00),
         "claude-3-5-haiku-20241022":    (input: 0.80, output: 4.00),
         "claude-3-opus-20240229":       (input: 15.00, output: 75.00),

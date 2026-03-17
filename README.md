@@ -15,7 +15,7 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 ## What Makes ChatHarbor Different
 
 - **All your AI in one place**: Ollama, OpenAI, Anthropic, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use on-device Apple Intelligence for free.
-- **Structured brainstorming**: Run guided brainstorm sessions using Osborn, Six Thinking Hats, Reverse Brainstorm, Round Robin, or fully custom frameworks. Each session walks through phases with user checkpoints, idea tracking, and exportable reports.
+- **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports five built-in methods plus fully custom frameworks. See [Brainstorm Mode](#brainstorm-mode) below.
 - **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, speed, and cost at a glance.
 - **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
 - **Token & cost transparency**: Every response shows token count, estimated cost, and generation time. Click for a full usage breakdown per message and per conversation.
@@ -32,11 +32,41 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 | **Anthropic** | Cloud | Claude Opus/Sonnet/Haiku | Add API key in Settings |
 | **Apple Intelligence** | On-device | macOS 26+ built-in models | No setup — just works |
 
+## Brainstorm Mode
+
+Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Instead of a back-and-forth chat, you set up a session with a topic, choose a brainstorming method, assign AI participants to specific roles, and let them collaborate through a series of guided phases. Each participant contributes from their assigned perspective, and you can intervene at checkpoints to steer the conversation.
+
+### How It Works
+
+1. **Pick a method.** Choose from five built-in frameworks or create your own. Each method defines a set of phases the session progresses through automatically.
+2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so participants genuinely argue from different angles. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
+3. **Run the session.** The session advances through phases (e.g., Ideation → Critique → Refinement → Synthesis). At each checkpoint, you review what the participants have generated and decide whether to continue, redirect, or inject your own ideas.
+4. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
+5. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
+
+### Built-in Methods
+
+| Method | Phases | Best For |
+|--------|--------|----------|
+| **Osborn's Brainstorming** | Ideation → Critique → Refinement → Synthesis | Classic divergent-then-convergent thinking |
+| **Six Thinking Hats** | Facts → Emotions → Risks → Benefits → Creativity → Process | Structured parallel thinking from multiple perspectives |
+| **Reverse Brainstorm** | Anti-ideation → Analysis → Inversion → Synthesis | Finding solutions by first brainstorming ways to cause the problem |
+| **Round Robin** | Multiple sequential rounds → Synthesis | Ensuring every participant contributes equally |
+| **Custom** | You define the phases | Whatever structure fits your problem |
+
+### Session Features
+
+Each brainstorm entry shows the participant's role, the model used, the phase and round number, and a clickable stats pill with token count, generation speed, duration, and estimated cost. Clicking the pill opens a detailed usage popover with per-million-token pricing and a link to your provider's billing dashboard. Session-level stats in the header aggregate totals across all entries.
+
+Completed sessions display a prominent Q&A card at the bottom of the timeline. If you've already had a Q&A conversation, it shows the model and message count and lets you resume directly. You can also start a new Q&A with a different model at any time.
+
+Sessions can be rerun with the same or different participants, and individual failed entries can be retried with an alternate model.
+
 ## Features
 
 - **Native macOS app** built with SwiftUI — not a web view, not Electron
 - **Multi-provider**: Ollama, OpenAI, Anthropic, and Apple Intelligence in one unified interface
-- **Multi-method brainstorming**: Osborn, Six Thinking Hats, Reverse Brainstorm, Round Robin, or custom frameworks with phased progression and exportable reports
+- **Multi-method brainstorming**: Osborn, Six Thinking Hats, Reverse Brainstorm, Round Robin, or custom frameworks with phased progression, role-based AI participants, post-session Q&A, and exportable reports (Markdown + PDF)
 - **Model comparison**: send one prompt to 2–4 models and compare responses side by side
 - **Conversation forking**: replay any conversation through a different model with nested fork support
 - **Streaming responses**: tokens appear in real-time from any provider
@@ -101,6 +131,7 @@ ChatHarbor/
     LLMProvider.swift          # Unified provider protocol all backends conform to
     ProviderManager.swift      # Coordinates Ollama, OpenAI, Anthropic, Apple Intelligence
     ChatManager.swift          # Central state: chat, compare, fork, export, templates
+    BrainstormManager.swift    # Brainstorm session orchestration, streaming, Q&A mode
     KeychainHelper.swift       # Secure API key storage with UserDefaults migration
     OllamaService.swift        # Ollama REST API client (streaming chat, pull, delete)
     OpenAIProvider.swift       # OpenAI /v1/chat/completions (streaming)

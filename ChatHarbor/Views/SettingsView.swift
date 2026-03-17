@@ -387,6 +387,14 @@ struct ModelsProvidersSettingsView: View {
                         }
                     }
 
+                    // Quick links
+                    providerLinks(
+                        console: ("API Dashboard", "https://platform.openai.com/usage"),
+                        pricing: ("Pricing", "https://openai.com/api/pricing"),
+                        docs: ("Docs", "https://platform.openai.com/docs"),
+                        keys: ("API Keys", "https://platform.openai.com/api-keys")
+                    )
+
                     // Models list
                     if !chatManager.providers.openAI.models.isEmpty {
                         Divider()
@@ -503,6 +511,14 @@ struct ModelsProvidersSettingsView: View {
                         }
                     }
 
+                    // Quick links
+                    providerLinks(
+                        console: ("Console", "https://console.anthropic.com"),
+                        pricing: ("Pricing", "https://www.anthropic.com/pricing#702702"),
+                        docs: ("Docs", "https://docs.anthropic.com"),
+                        keys: ("API Keys", "https://console.anthropic.com/settings/keys")
+                    )
+
                     // Models list
                     if !chatManager.providers.anthropic.models.isEmpty {
                         Divider()
@@ -590,6 +606,39 @@ struct ModelsProvidersSettingsView: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+    // MARK: - Provider Links Helper
+
+    @ViewBuilder
+    private func providerLinks(
+        console: (label: String, url: String),
+        pricing: (label: String, url: String),
+        docs: (label: String, url: String),
+        keys: (label: String, url: String)
+    ) -> some View {
+        HStack(spacing: 10) {
+            ForEach(
+                [console, pricing, docs, keys],
+                id: \.label
+            ) { link in
+                Button {
+                    if let url = URL(string: link.url) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(link.label)
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 7))
+                    }
+                    .font(.system(size: 10))
+                    .foregroundStyle(accent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
         }
     }
 }

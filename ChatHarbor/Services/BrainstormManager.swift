@@ -30,6 +30,12 @@ class BrainstormManager: ObservableObject {
 
     private var currentTask: Task<Void, Never>?
 
+    /// Throttle streaming UI updates to ~30fps to avoid re-render storms
+    private var streamingBuffer: String = ""
+    private var lastStreamFlush: Date = .distantPast
+    private var streamFlushTask: Task<Void, Never>?
+    private let streamFlushInterval: TimeInterval = 0.033  // ~30fps
+
     // MARK: - Init
 
     init(providers: ProviderManager) {
@@ -108,11 +114,75 @@ class BrainstormManager: ObservableObject {
         currentTask?.cancel()
         currentTask = nil
         isRunning = false
-        streamingContent = ""
+        resetStreamingBuffer()
         if let entry = currentEntry {
             entry.isStreaming = false
         }
         currentEntry = nil
+    }
+
+    /// Append a token to the streaming buffer and flush to the UI at a throttled rate.
+    /// This prevents re-rendering the entire view hierarchy on every single token.
+    @MainActor
+    private func appendStreamingToken(_ token: String) {
+        streamingBuffer += token
+        let now = Date()
+        if now.timeIntervalSince(lastStreamFlush) >= streamFlushInterval {
+            flushStreamingBuffer()
+        } else if streamFlushTask == nil {
+            streamFlushTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(self?.streamFlushInterval ?? 0.033 * 1_000_000_000))
+                self?.flushStreamingBuffer()
+                self?.streamFlushTask = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func flushStreamingBuffer() {
+        guard !streamingBuffer.isEmpty else { return }
+        streamingContent = streamingBuffer
+        lastStreamFlush = Date()
+    }
+
+    @MainActor
+    private func resetStreamingBuffer() {
+        streamFlushTask?.cancel()
+        streamFlushTask = nil
+        streamingBuffer = ""
+        streamingContent = ""
+        lastStreamFlush = .distantPast
+    }
+
+    @MainActor
+    private func appendQAStreamingToken(_ token: String) {
+        qaStreamingBuffer += token
+        let now = Date()
+        if now.timeIntervalSince(lastQAStreamFlush) >= streamFlushInterval {
+            flushQAStreamingBuffer()
+        } else if qaStreamFlushTask == nil {
+            qaStreamFlushTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(self?.streamFlushInterval ?? 0.033 * 1_000_000_000))
+                self?.flushQAStreamingBuffer()
+                self?.qaStreamFlushTask = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func flushQAStreamingBuffer() {
+        guard !qaStreamingBuffer.isEmpty else { return }
+        qaStreamingContent = qaStreamingBuffer
+        lastQAStreamFlush = Date()
+    }
+
+    @MainActor
+    private func resetQAStreamingBuffer() {
+        qaStreamFlushTask?.cancel()
+        qaStreamFlushTask = nil
+        qaStreamingBuffer = ""
+        qaStreamingContent = ""
+        lastQAStreamFlush = .distantPast
     }
 
     /// Retry a failed entry — clears the error, re-streams the response.
@@ -489,7 +559,7 @@ class BrainstormManager: ObservableObject {
         modelId: String,
         context: ModelContext
     ) async {
-        streamingContent = ""
+        resetStreamingBuffer()
 
         var messages: [ChatMessage] = []
         if !systemPrompt.isEmpty {
@@ -504,7 +574,7 @@ class BrainstormManager: ObservableObject {
                 parameters: ChatParameters(temperature: 0.9, maxTokens: 2048)
             ) { [weak self] token in
                 Task { @MainActor in
-                    self?.streamingContent += token
+                    self?.appendStreamingToken(token)
                     entry.content += token
                 }
             }
@@ -522,7 +592,7 @@ class BrainstormManager: ObservableObject {
             }
         }
 
-        streamingContent = ""
+        resetStreamingBuffer()
         currentEntry = nil
     }
 
@@ -644,5 +714,369 @@ class BrainstormManager: ObservableObject {
 
         md += "---\n\n*Generated with ChatHarbor Brainstorm*\n"
         return md
+    }
+
+    /// Export the brainstorm as a styled HTML string suitable for PDF rendering
+    func exportToHTML(_ session: BrainstormSession) -> String {
+        let md = exportToMarkdown(session)
+        return convertMarkdownToStyledHTML(md, title: session.title)
+    }
+
+    /// Convert a markdown string to a clean, print-friendly HTML document
+    private func convertMarkdownToStyledHTML(_ markdown: String, title: String) -> String {
+        // Simple markdown → HTML conversion (handles headers, bold, lists, paragraphs, hr)
+        var html = markdown
+
+        // Escape HTML entities first (preserve markdown syntax)
+        // Skip this since our markdown doesn't have raw HTML
+
+        // Convert headers (must process ### before ## before #)
+        let headerPatterns: [(pattern: String, tag: String)] = [
+            ("^### (.+)$", "h3"),
+            ("^## (.+)$", "h2"),
+            ("^# (.+)$", "h1")
+        ]
+        for (pattern, tag) in headerPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .anchorsMatchLines) {
+                html = regex.stringByReplacingMatches(
+                    in: html, range: NSRange(html.startIndex..., in: html),
+                    withTemplate: "<\(tag)>$1</\(tag)>"
+                )
+            }
+        }
+
+        // Bold: **text**
+        if let boldRegex = try? NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*") {
+            html = boldRegex.stringByReplacingMatches(
+                in: html, range: NSRange(html.startIndex..., in: html),
+                withTemplate: "<strong>$1</strong>"
+            )
+        }
+
+        // Italic: *text* (single asterisks not preceded/followed by another asterisk)
+        if let italicRegex = try? NSRegularExpression(pattern: "(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)") {
+            html = italicRegex.stringByReplacingMatches(
+                in: html, range: NSRange(html.startIndex..., in: html),
+                withTemplate: "<em>$1</em>"
+            )
+        }
+
+        // Unordered list items: - text
+        if let listRegex = try? NSRegularExpression(pattern: "^- (.+)$", options: .anchorsMatchLines) {
+            html = listRegex.stringByReplacingMatches(
+                in: html, range: NSRange(html.startIndex..., in: html),
+                withTemplate: "<li>$1</li>"
+            )
+        }
+        // Wrap consecutive <li> items in <ul>
+        if let ulRegex = try? NSRegularExpression(pattern: "(<li>.+</li>\n?)+", options: .dotMatchesLineSeparators) {
+            let matches = ulRegex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+            for match in matches.reversed() {
+                if let range = Range(match.range, in: html) {
+                    let listContent = String(html[range])
+                    html.replaceSubrange(range, with: "<ul>\(listContent)</ul>")
+                }
+            }
+        }
+
+        // Numbered list items: 1. text
+        if let olRegex = try? NSRegularExpression(pattern: "^\\d+\\. (.+)$", options: .anchorsMatchLines) {
+            html = olRegex.stringByReplacingMatches(
+                in: html, range: NSRange(html.startIndex..., in: html),
+                withTemplate: "<li>$1</li>"
+            )
+        }
+
+        // Horizontal rules: ---
+        if let hrRegex = try? NSRegularExpression(pattern: "^---+$", options: .anchorsMatchLines) {
+            html = hrRegex.stringByReplacingMatches(
+                in: html, range: NSRange(html.startIndex..., in: html),
+                withTemplate: "<hr>"
+            )
+        }
+
+        // Wrap remaining plain-text lines in <p> tags (lines that aren't already wrapped)
+        let lines = html.components(separatedBy: "\n")
+        var processedLines: [String] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                processedLines.append("")
+            } else if trimmed.hasPrefix("<h") || trimmed.hasPrefix("<ul") || trimmed.hasPrefix("<li")
+                        || trimmed.hasPrefix("</ul") || trimmed.hasPrefix("<hr") || trimmed.hasPrefix("<ol")
+                        || trimmed.hasPrefix("</ol") {
+                processedLines.append(line)
+            } else {
+                processedLines.append("<p>\(line)</p>")
+            }
+        }
+        html = processedLines.joined(separator: "\n")
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <title>\(title)</title>
+        <style>
+            @page { margin: 0.75in; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                font-size: 12px;
+                line-height: 1.6;
+                color: #1d1d1f;
+                max-width: 100%;
+                padding: 0;
+            }
+            h1 {
+                font-size: 22px;
+                font-weight: 700;
+                border-bottom: 2px solid #0071e3;
+                padding-bottom: 8px;
+                margin-top: 0;
+                color: #1d1d1f;
+            }
+            h2 {
+                font-size: 16px;
+                font-weight: 600;
+                color: #0071e3;
+                margin-top: 24px;
+                margin-bottom: 8px;
+            }
+            h3 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d1d1f;
+                margin-top: 16px;
+                margin-bottom: 6px;
+            }
+            p { margin: 6px 0; }
+            em { color: #6e6e73; }
+            ul, ol { padding-left: 20px; margin: 8px 0; }
+            li { margin: 3px 0; }
+            strong { color: #1d1d1f; }
+            hr {
+                border: none;
+                border-top: 1px solid #d2d2d7;
+                margin: 24px 0;
+            }
+        </style>
+        </head>
+        <body>
+        \(html)
+        </body>
+        </html>
+        """
+    }
+
+    // MARK: - Rerun
+
+    /// Clone session configuration and start a fresh run immediately
+    func rerunSession(
+        _ session: BrainstormSession,
+        in context: ModelContext
+    ) -> BrainstormSession {
+        let newSession = BrainstormSession(
+            title: "\(session.title) (Rerun)",
+            topic: session.topic,
+            method: session.method,
+            maxRounds: session.maxRounds
+        )
+        newSession.participants = session.participants
+        context.insert(newSession)
+        try? context.save()
+        selectedSessionId = newSession.id
+        // Kick off immediately
+        run(session: newSession, context: context)
+        return newSession
+    }
+
+    /// Clone session configuration into a new session in setup phase (for tweaking before launch)
+    func cloneSessionForSetup(
+        _ session: BrainstormSession,
+        in context: ModelContext
+    ) -> BrainstormSession {
+        let newSession = BrainstormSession(
+            title: "\(session.title) (Copy)",
+            topic: session.topic,
+            method: session.method,
+            maxRounds: session.maxRounds
+        )
+        newSession.participants = session.participants
+        // Stay in setup so the user can tweak before launching
+        context.insert(newSession)
+        try? context.save()
+        selectedSessionId = newSession.id
+        return newSession
+    }
+
+    // MARK: - Post-Brainstorm Q&A
+
+    /// Published state for the Q&A conversation mode
+    @Published var qaMessages: [BrainstormQAMessage] = []
+    @Published var isQAStreaming: Bool = false
+    @Published var qaStreamingContent: String = ""
+    private var qaStreamingBuffer: String = ""
+    private var lastQAStreamFlush: Date = .distantPast
+    private var qaStreamFlushTask: Task<Void, Never>?
+    @Published var qaModelId: String?
+    @Published var isQAMode: Bool = false
+    /// The active Q&A session (kept as a reference for saving)
+    private weak var qaSession: BrainstormSession?
+    /// ModelContext for persisting Q&A changes
+    private var qaContext: ModelContext?
+
+    /// Check if a session has Q&A conversation history
+    func hasQAHistory(for session: BrainstormSession) -> Bool {
+        return session.hasQAConversation
+    }
+
+    /// Overload that takes a sessionId — checks the active session if it matches
+    func hasQAHistory(for sessionId: UUID) -> Bool {
+        if qaSession?.id == sessionId && !qaMessages.isEmpty {
+            return true
+        }
+        // Can't check SwiftData without the session object from here,
+        // but the sidebar passes the session object directly
+        return false
+    }
+
+    /// Enter Q&A mode for a completed session
+    func enterQAMode(session: BrainstormSession, modelId: String, context: ModelContext? = nil) {
+        qaModelId = modelId
+        isQAMode = true
+        qaSession = session
+        qaContext = context
+        // Restore previous Q&A conversation from persisted data
+        qaMessages = session.qaMessages.map { stored in
+            BrainstormQAMessage(
+                role: stored.isUser ? .user : .assistant,
+                content: stored.content,
+                tokenCount: stored.tokenCount,
+                durationMs: stored.durationMs
+            )
+        }
+        // Restore the last model used if none specified
+        if session.qaModelId != nil && modelId.isEmpty {
+            qaModelId = session.qaModelId
+        }
+        resetQAStreamingBuffer()
+        isQAStreaming = false
+    }
+
+    /// Exit Q&A mode (persists conversation to SwiftData)
+    func exitQAMode() {
+        currentTask?.cancel()
+        // Save conversation to the session model
+        persistQAMessages()
+        isQAMode = false
+        resetQAStreamingBuffer()
+        isQAStreaming = false
+    }
+
+    /// Persist current Q&A messages to the session's SwiftData model
+    private func persistQAMessages() {
+        guard let session = qaSession else { return }
+        session.qaMessages = qaMessages.map { msg in
+            StoredQAMessage(
+                isUser: msg.role == .user,
+                content: msg.content,
+                qualifiedModelId: msg.role == .assistant ? qaModelId : nil,
+                tokenCount: msg.tokenCount,
+                durationMs: msg.durationMs
+            )
+        }
+        session.qaModelId = qaModelId
+        session.updatedAt = Date()
+        try? qaContext?.save()
+    }
+
+    /// Send a Q&A message about the brainstorm session
+    func sendQAMessage(_ text: String, session: BrainstormSession) {
+        guard let modelId = qaModelId, !isQAStreaming else { return }
+
+        // Add user message
+        qaMessages.append(BrainstormQAMessage(role: .user, content: text))
+
+        // Build the full context: system prompt + session transcript + conversation history
+        let transcript = exportToMarkdown(session)
+        let systemPrompt = """
+        You are a helpful assistant analyzing a brainstorm session that was conducted in ChatHarbor. \
+        Below is the full transcript of the session. The user will ask questions about the ideas, \
+        the participants' contributions, patterns in the discussion, or request further development \
+        of specific ideas. Answer based on the session content. Be specific — reference which role \
+        or model said what when relevant.
+
+        ## Full Session Transcript
+
+        \(transcript)
+        """
+
+        var messages: [ChatMessage] = [
+            ChatMessage(role: .system, content: systemPrompt)
+        ]
+
+        // Add conversation history
+        for msg in qaMessages {
+            messages.append(ChatMessage(
+                role: msg.role == .user ? .user : .assistant,
+                content: msg.content
+            ))
+        }
+
+        isQAStreaming = true
+        resetQAStreamingBuffer()
+
+        currentTask = Task {
+            do {
+                let result = try await providers.chat(
+                    qualifiedModelId: modelId,
+                    messages: messages,
+                    parameters: ChatParameters(temperature: 0.7, maxTokens: 2048)
+                ) { [weak self] token in
+                    Task { @MainActor in
+                        self?.appendQAStreamingToken(token)
+                    }
+                }
+
+                // Flush any remaining buffered content before reading
+                flushQAStreamingBuffer()
+                let response = qaStreamingContent
+                qaMessages.append(BrainstormQAMessage(
+                    role: .assistant,
+                    content: response,
+                    tokenCount: result.tokenCount,
+                    durationMs: result.durationMs
+                ))
+            } catch {
+                if !Task.isCancelled {
+                    qaMessages.append(BrainstormQAMessage(
+                        role: .assistant,
+                        content: "Error: \(error.localizedDescription)"
+                    ))
+                }
+            }
+
+            resetQAStreamingBuffer()
+            isQAStreaming = false
+
+            // Persist conversation to SwiftData
+            persistQAMessages()
+        }
+    }
+}
+
+// MARK: - Q&A Message Model
+
+struct BrainstormQAMessage: Identifiable {
+    let id: UUID = UUID()
+    let role: QARole
+    let content: String
+    var tokenCount: Int?
+    var durationMs: Double?
+
+    enum QARole {
+        case user
+        case assistant
     }
 }

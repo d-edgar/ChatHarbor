@@ -453,7 +453,7 @@ struct MessageRow: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
                     )
-                } else {
+                } else if isUser {
                     Text(LocalizedStringKey(message.content))
                         .font(.system(size: 13))
                         .lineSpacing(3)
@@ -461,11 +461,17 @@ struct MessageRow: View {
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    isUser
-                                        ? accent.opacity(isDark ? 0.25 : 0.15)
-                                        : (isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-                                )
+                                .fill(accent.opacity(isDark ? 0.25 : 0.15))
+                        )
+                } else {
+                    MarkdownText(content: message.content)
+                        .font(.system(size: 13))
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
                         )
                 }
 
@@ -531,6 +537,11 @@ struct MessageRow: View {
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
+        .onDisappear {
+            // Kill popover when bubble scrolls off-screen to prevent
+            // layout loop in LazyVStack
+            showUsagePopover = false
+        }
     }
 
     private func formatDuration(_ ms: Double) -> String {

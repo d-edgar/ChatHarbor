@@ -32,6 +32,12 @@ final class BrainstormSession {
     /// Serialized participant data (role + model assignments)
     var participantsData: Data?
 
+    /// Serialized Q&A conversation messages
+    var qaMessagesData: Data?
+
+    /// The model ID last used for Q&A on this session
+    var qaModelId: String?
+
     @Relationship(deleteRule: .cascade, inverse: \BrainstormEntry.session)
     var entries: [BrainstormEntry] = []
 
@@ -78,6 +84,20 @@ final class BrainstormSession {
         set {
             participantsData = try? JSONEncoder().encode(newValue)
         }
+    }
+
+    var qaMessages: [StoredQAMessage] {
+        get {
+            guard let data = qaMessagesData else { return [] }
+            return (try? JSONDecoder().decode([StoredQAMessage].self, from: data)) ?? []
+        }
+        set {
+            qaMessagesData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var hasQAConversation: Bool {
+        qaMessagesData != nil && !qaMessages.isEmpty
     }
 
     var sortedEntries: [BrainstormEntry] {
@@ -576,4 +596,18 @@ struct BrainstormParticipant: Identifiable, Codable, Hashable {
         self.qualifiedModelId = qualifiedModelId
         self.isEnabled = isEnabled
     }
+}
+
+// MARK: - Stored Q&A Message
+//
+// Codable representation of a Q&A conversation message for SwiftData persistence.
+
+struct StoredQAMessage: Identifiable, Codable {
+    var id: UUID = UUID()
+    var isUser: Bool
+    var content: String
+    var qualifiedModelId: String?
+    var tokenCount: Int?
+    var durationMs: Double?
+    var createdAt: Date = Date()
 }
