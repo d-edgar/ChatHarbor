@@ -177,6 +177,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
 
         var fullContent = ""
         var totalTokens = 0
+        var totalInputTokens = 0
 
         for try await line in bytes.lines {
             // SSE format: "data: {...}" or "data: [DONE]"
@@ -200,6 +201,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
             // Extract usage from final chunk (stream_options.include_usage)
             if let usage = json["usage"] as? [String: Any] {
                 totalTokens = usage["completion_tokens"] as? Int ?? 0
+                totalInputTokens = usage["prompt_tokens"] as? Int ?? 0
             }
         }
 
@@ -208,7 +210,7 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
         return ChatResult(
             content: fullContent,
             tokenCount: totalTokens,
-            inputTokenCount: 0,
+            inputTokenCount: totalInputTokens,
             durationMs: elapsed,
             model: model,
             providerId: providerId

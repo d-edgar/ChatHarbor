@@ -14,7 +14,8 @@ enum KeychainHelper {
     /// Overwrites any existing value for that key.
     @discardableResult
     static func save(_ value: String, forKey key: String) -> Bool {
-        guard let data = value.data(using: .utf8) else { return false }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return false }
 
         // Delete any existing item first (update = delete + add)
         delete(forKey: key)

@@ -42,6 +42,15 @@ class BrainstormManager: ObservableObject {
         self.providers = providers
     }
 
+    /// Save SwiftData context with error logging instead of silent failure
+    private func safeSave(_ context: ModelContext, label: String = "") {
+        do {
+            try context.save()
+        } catch {
+            print("[BrainstormManager] Failed to save\(label.isEmpty ? "" : " (\(label))"): \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Session Lifecycle
 
     /// Create a new brainstorm session
@@ -58,7 +67,7 @@ class BrainstormManager: ObservableObject {
         )
         session.participants = participants
         context.insert(session)
-        try? context.save()
+        safeSave(context)
         selectedSessionId = session.id
         return session
     }
@@ -69,7 +78,7 @@ class BrainstormManager: ObservableObject {
             selectedSessionId = nil
         }
         context.delete(session)
-        try? context.save()
+        safeSave(context)
     }
 
     // MARK: - Phase Execution
@@ -86,7 +95,7 @@ class BrainstormManager: ObservableObject {
                 // Move to framing
                 session.phase = .framing
                 session.updatedAt = Date()
-                try? context.save()
+                safeSave(context)
                 await runFraming(session: session, context: context)
 
             case .framing:
@@ -128,6 +137,8 @@ class BrainstormManager: ObservableObject {
         streamingBuffer += token
         let now = Date()
         if now.timeIntervalSince(lastStreamFlush) >= streamFlushInterval {
+            streamFlushTask?.cancel()
+            streamFlushTask = nil
             flushStreamingBuffer()
         } else if streamFlushTask == nil {
             streamFlushTask = Task { @MainActor [weak self] in
@@ -159,6 +170,8 @@ class BrainstormManager: ObservableObject {
         qaStreamingBuffer += token
         let now = Date()
         if now.timeIntervalSince(lastQAStreamFlush) >= streamFlushInterval {
+            qaStreamFlushTask?.cancel()
+            qaStreamFlushTask = nil
             flushQAStreamingBuffer()
         } else if qaStreamFlushTask == nil {
             qaStreamFlushTask = Task { @MainActor [weak self] in
@@ -204,7 +217,7 @@ class BrainstormManager: ObservableObject {
         entry.error = nil
         entry.content = ""
         entry.isStreaming = true
-        try? context.save()
+        safeSave(context)
 
         isRunning = true
         currentEntry = entry
@@ -266,7 +279,7 @@ class BrainstormManager: ObservableObject {
         )
         session.entries.append(entry)
         session.updatedAt = Date()
-        try? context.save()
+        safeSave(context)
 
         awaitingUserInput = false
         checkpointMessage = ""
@@ -296,7 +309,7 @@ class BrainstormManager: ObservableObject {
         }
 
         session.updatedAt = Date()
-        try? context.save()
+        safeSave(context)
 
         if session.phase != .complete {
             run(session: session, context: context)
@@ -313,7 +326,7 @@ class BrainstormManager: ObservableObject {
 
         session.currentRound += 1
         session.updatedAt = Date()
-        try? context.save()
+        safeSave(context)
 
         run(session: session, context: context)
     }
@@ -347,7 +360,7 @@ class BrainstormManager: ObservableObject {
             isStreaming: true
         )
         session.entries.append(entry)
-        try? context.save()
+        safeSave(context)
         currentEntry = entry
 
         await generate(
@@ -362,7 +375,7 @@ class BrainstormManager: ObservableObject {
         if !entry.content.isEmpty {
             session.problemStatement = entry.content
             session.updatedAt = Date()
-            try? context.save()
+            safeSave(context)
         }
 
         // Checkpoint: user approves the problem framing
@@ -411,7 +424,7 @@ class BrainstormManager: ObservableObject {
                 isStreaming: true
             )
             session.entries.append(entry)
-            try? context.save()
+            safeSave(context)
             currentEntry = entry
 
             await generate(
@@ -478,7 +491,7 @@ class BrainstormManager: ObservableObject {
                 isStreaming: true
             )
             session.entries.append(entry)
-            try? context.save()
+            safeSave(context)
             currentEntry = entry
 
             await generate(
@@ -530,7 +543,7 @@ class BrainstormManager: ObservableObject {
                 isStreaming: true
             )
             session.entries.append(entry)
-            try? context.save()
+            safeSave(context)
             currentEntry = entry
 
             await generate(
@@ -583,12 +596,12 @@ class BrainstormManager: ObservableObject {
             entry.tokenCount = result.tokenCount
             entry.inputTokenCount = result.inputTokenCount
             entry.durationMs = result.durationMs
-            try? context.save()
+            safeSave(context)
         } catch {
             if !Task.isCancelled {
                 entry.isStreaming = false
                 entry.error = error.localizedDescription
-                try? context.save()
+                safeSave(context)
             }
         }
 
@@ -884,7 +897,7 @@ class BrainstormManager: ObservableObject {
         )
         newSession.participants = session.participants
         context.insert(newSession)
-        try? context.save()
+        safeSave(context)
         selectedSessionId = newSession.id
         // Kick off immediately
         run(session: newSession, context: context)
@@ -905,7 +918,7 @@ class BrainstormManager: ObservableObject {
         newSession.participants = session.participants
         // Stay in setup so the user can tweak before launching
         context.insert(newSession)
-        try? context.save()
+        safeSave(context)
         selectedSessionId = newSession.id
         return newSession
     }
@@ -988,7 +1001,9 @@ class BrainstormManager: ObservableObject {
         }
         session.qaModelId = qaModelId
         session.updatedAt = Date()
-        try? qaContext?.save()
+        if let ctx = qaContext {
+            safeSave(ctx, label: "Q&A persist")
+        }
     }
 
     /// Send a Q&A message about the brainstorm session
