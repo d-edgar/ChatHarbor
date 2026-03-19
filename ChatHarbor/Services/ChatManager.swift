@@ -605,13 +605,22 @@ class ChatManager: ObservableObject {
     // MARK: - Appearance
 
     func applyAppearance() {
+        // Guard: NSApp may not be available during early StateObject init
+        // on some macOS versions. Defer until the app is ready.
+        guard let app = NSApp else {
+            DispatchQueue.main.async { [weak self] in
+                self?.applyAppearance()
+            }
+            return
+        }
+
         switch appearanceMode {
         case .auto:
-            NSApp.appearance = nil
+            app.appearance = nil
         case .light:
-            NSApp.appearance = NSAppearance(named: .aqua)
+            app.appearance = NSAppearance(named: .aqua)
         case .dark:
-            NSApp.appearance = NSAppearance(named: .darkAqua)
+            app.appearance = NSAppearance(named: .darkAqua)
         }
     }
 
