@@ -106,6 +106,7 @@ final class OllamaService: ObservableObject {
 
         var fullContent = ""
         var totalTokens = 0
+        var inputTokens = 0
         var durationNs: Int64 = 0
 
         for try await line in bytes.lines {
@@ -122,6 +123,7 @@ final class OllamaService: ObservableObject {
 
             if let done = json["done"] as? Bool, done {
                 totalTokens = json["eval_count"] as? Int ?? 0
+                inputTokens = json["prompt_eval_count"] as? Int ?? 0
                 durationNs = json["total_duration"] as? Int64 ?? 0
             }
         }
@@ -129,6 +131,7 @@ final class OllamaService: ObservableObject {
         return ChatCompletionResult(
             content: fullContent,
             tokenCount: totalTokens,
+            inputTokenCount: inputTokens,
             durationMs: Double(durationNs) / 1_000_000.0
         )
     }
@@ -218,6 +221,7 @@ final class OllamaService: ObservableObject {
 struct ChatCompletionResult {
     let content: String
     let tokenCount: Int
+    let inputTokenCount: Int
     let durationMs: Double
 }
 
@@ -287,7 +291,7 @@ extension OllamaService: LLMProvider {
         return ChatResult(
             content: result.content,
             tokenCount: result.tokenCount,
-            inputTokenCount: 0,
+            inputTokenCount: result.inputTokenCount,
             durationMs: result.durationMs,
             model: model,
             providerId: "ollama"

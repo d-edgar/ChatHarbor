@@ -17,10 +17,12 @@ class ProviderManager: ObservableObject {
     let openAI: OpenAIProvider
     let anthropic: AnthropicProvider
     let apple: AppleIntelligenceProvider
+    let gemini: GeminiProvider
+    let custom: CustomEndpointProvider
 
     /// All registered providers
     var allProviders: [any LLMProvider] {
-        [apple, ollama, openAI, anthropic]
+        [apple, ollama, openAI, anthropic, gemini, custom]
     }
 
     /// All connected providers
@@ -37,6 +39,8 @@ class ProviderManager: ObservableObject {
         models.append(contentsOf: ollama.models)
         models.append(contentsOf: openAI.models)
         models.append(contentsOf: anthropic.models)
+        models.append(contentsOf: gemini.models)
+        models.append(contentsOf: custom.models)
         return models
     }
 
@@ -47,6 +51,8 @@ class ProviderManager: ObservableObject {
         self.openAI = OpenAIProvider()
         self.anthropic = AnthropicProvider()
         self.apple = AppleIntelligenceProvider()
+        self.gemini = GeminiProvider()
+        self.custom = CustomEndpointProvider()
     }
 
     // MARK: - Connect All
@@ -59,6 +65,8 @@ class ProviderManager: ObservableObject {
             group.addTask { await self.ollama.connect() }
             group.addTask { await self.openAI.connect() }
             group.addTask { await self.anthropic.connect() }
+            group.addTask { await self.gemini.connect() }
+            group.addTask { await self.custom.connect() }
         }
         // Notify observers that models may have changed
         objectWillChange.send()
@@ -71,6 +79,8 @@ class ProviderManager: ObservableObject {
         case "ollama": await ollama.connect()
         case "openai": await openAI.connect()
         case "anthropic": await anthropic.connect()
+        case "google": await gemini.connect()
+        case "custom": await custom.connect()
         default: break
         }
         objectWillChange.send()
@@ -198,6 +208,8 @@ class ProviderManager: ObservableObject {
         case "ollama":    return ["temperature", "maxTokens", "topP", "frequencyPenalty", "presencePenalty"]
         case "openai":    return ["temperature", "maxTokens", "topP", "frequencyPenalty", "presencePenalty"]
         case "anthropic": return ["temperature", "maxTokens", "topP"]
+        case "google":    return ["temperature", "maxTokens", "topP"]
+        case "custom":    return ["temperature", "maxTokens", "topP", "frequencyPenalty", "presencePenalty"]
         default:          return ["temperature", "maxTokens"]
         }
     }
@@ -221,13 +233,27 @@ class ProviderManager: ObservableObject {
         "claude-3-5-sonnet-20241022":   (input: 3.00, output: 15.00),
         "claude-3-5-haiku-20241022":    (input: 0.80, output: 4.00),
         "claude-3-opus-20240229":       (input: 15.00, output: 75.00),
-        // OpenAI
+        // OpenAI — GPT-4.1 family
+        "gpt-4.1":                      (input: 2.00, output: 8.00),
+        "gpt-4.1-mini":                 (input: 0.40, output: 1.60),
+        "gpt-4.1-nano":                 (input: 0.10, output: 0.40),
+        // OpenAI — GPT-4o family
         "gpt-4o":                       (input: 2.50, output: 10.00),
         "gpt-4o-mini":                  (input: 0.15, output: 0.60),
+        "chatgpt-4o-latest":            (input: 2.50, output: 10.00),
+        // OpenAI — GPT-4 legacy
         "gpt-4-turbo":                  (input: 10.00, output: 30.00),
+        // OpenAI — Reasoning models
         "o1":                           (input: 15.00, output: 60.00),
         "o1-mini":                      (input: 3.00, output: 12.00),
+        "o3":                           (input: 10.00, output: 40.00),
         "o3-mini":                      (input: 1.10, output: 4.40),
+        "o4-mini":                      (input: 1.10, output: 4.40),
+        // Google Gemini
+        "gemini-2.5-pro":               (input: 1.25, output: 10.00),
+        "gemini-2.5-flash":             (input: 0.15, output: 0.60),
+        "gemini-2.0-flash":             (input: 0.10, output: 0.40),
+        "gemini-2.0-flash-lite":        (input: 0.075, output: 0.30),
     ]
 
     /// Calculate cost for a message given model and token counts

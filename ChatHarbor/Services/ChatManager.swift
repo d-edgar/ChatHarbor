@@ -16,9 +16,12 @@ class ChatManager: ObservableObject {
 
     @Published var selectedConversationId: UUID? {
         didSet {
-            // Selecting a conversation deselects any brainstorm
+            // Selecting a conversation deselects any brainstorm or ship
             if selectedConversationId != nil && selectedBrainstormId != nil {
                 selectedBrainstormId = nil
+            }
+            if selectedConversationId != nil && selectedShipId != nil {
+                selectedShipId = nil
             }
         }
     }
@@ -40,12 +43,27 @@ class ChatManager: ObservableObject {
     @Published var showingBrainstormView: Bool = false
     @Published var selectedBrainstormId: UUID? {
         didSet {
-            // Selecting a brainstorm deselects any conversation
+            // Selecting a brainstorm deselects any conversation or ship
             if selectedBrainstormId != nil && selectedConversationId != nil {
                 selectedConversationId = nil
             }
+            if selectedBrainstormId != nil && selectedShipId != nil {
+                selectedShipId = nil
+            }
         }
     }
+
+    // Harbor mode
+    @Published var selectedShipId: UUID? {
+        didSet {
+            if selectedShipId != nil {
+                selectedConversationId = nil
+                selectedBrainstormId = nil
+            }
+        }
+    }
+    /// Which conversation within a Ship is active (nil = show ship overview/new chat)
+    @Published var selectedShipConversationId: UUID?
     lazy var brainstormManager: BrainstormManager = BrainstormManager(providers: providers)
 
     // Prompt templates

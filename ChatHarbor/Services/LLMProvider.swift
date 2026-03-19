@@ -59,6 +59,7 @@ struct ProviderModel: Identifiable, Hashable {
         case "openai": return "OpenAI"
         case "anthropic": return "Anthropic"
         case "google": return "Google"
+        case "custom": return "Custom"
         default: return providerId.capitalized
         }
     }

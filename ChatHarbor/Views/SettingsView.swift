@@ -78,6 +78,14 @@ struct ModelsProvidersSettingsView: View {
     @State private var anthropicConnecting = false
     @State private var anthropicError: String?
     @State private var anthropicSuccess = false
+    @State private var geminiConnecting = false
+    @State private var geminiError: String?
+    @State private var geminiSuccess = false
+    // Custom endpoint state
+    @State private var newEndpointName: String = ""
+    @State private var newEndpointURL: String = ""
+    @State private var newEndpointKey: String = ""
+    @State private var connectingEndpointId: UUID?
 
     private var accent: Color {
         chatManager.currentTheme.accentColor(for: colorScheme)
@@ -548,6 +556,277 @@ struct ModelsProvidersSettingsView: View {
                             }
                         }
                     }
+                }
+
+                // MARK: - Google Gemini
+                ProviderSetupSection(
+                    icon: "diamond",
+                    name: "Google Gemini",
+                    subtitle: "Gemini 2.5 Pro, Flash — aistudio.google.com",
+                    isConnected: chatManager.providers.gemini.isConnected,
+                    modelCount: chatManager.providers.gemini.models.count,
+                    providerId: "google",
+                    accent: accent
+                ) {
+                    // API Key
+                    HStack(spacing: 6) {
+                        Text("API Key")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 50, alignment: .trailing)
+                        SecureField("AI...", text: Binding(
+                            get: { chatManager.providers.gemini.apiKey },
+                            set: { chatManager.providers.gemini.apiKey = $0; geminiError = nil; geminiSuccess = false }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11, design: .monospaced))
+
+                        if geminiConnecting {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 60)
+                        } else {
+                            Button("Connect") {
+                                geminiConnecting = true
+                                geminiError = nil
+                                geminiSuccess = false
+                                Task {
+                                    await chatManager.providers.gemini.connect()
+                                    geminiConnecting = false
+                                    if chatManager.providers.gemini.isConnected {
+                                        geminiSuccess = true
+                                    } else {
+                                        geminiError = chatManager.providers.gemini.connectionError ?? "Could not verify key"
+                                    }
+                                }
+                            }
+                            .controlSize(.small)
+                            .disabled(chatManager.providers.gemini.apiKey.isEmpty)
+                        }
+
+                        // Clear key button
+                        if !chatManager.providers.gemini.apiKey.isEmpty {
+                            Button {
+                                chatManager.providers.gemini.apiKey = ""
+                                geminiSuccess = false
+                                geminiError = nil
+                                Task { await chatManager.providers.gemini.connect() }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear API key")
+                        }
+                    }
+
+                    // Status feedback
+                    if chatManager.providers.gemini.isConnected {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                            Text("Connected — \(chatManager.providers.gemini.models.count) models available")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                        }
+                    } else if let error = chatManager.providers.gemini.connectionError {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                            Text(error)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                                .lineLimit(3)
+                        }
+                    }
+
+                    // Quick links
+                    providerLinks(
+                        console: ("AI Studio", "https://aistudio.google.com"),
+                        pricing: ("Pricing", "https://ai.google.dev/pricing"),
+                        docs: ("Docs", "https://ai.google.dev/gemini-api/docs"),
+                        keys: ("API Keys", "https://aistudio.google.com/apikey")
+                    )
+
+                    // Models list
+                    if !chatManager.providers.gemini.models.isEmpty {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("AVAILABLE")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(chatManager.providers.gemini.models.count) models")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            ForEach(chatManager.providers.gemini.models) { model in
+                                SettingsModelRow(
+                                    name: model.displayName,
+                                    detail: model.contextWindow.map { "\($0 / 1000)K context" } ?? "",
+                                    qualifiedId: model.id,
+                                    isLocal: false,
+                                    isSelected: model.id == chatManager.selectedModelId,
+                                    onSelect: { chatManager.selectModel(model.id) },
+                                    onDelete: nil,
+                                    accent: accent
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // MARK: - Custom Endpoints
+                ProviderSetupSection(
+                    icon: "server.rack",
+                    name: "Custom Endpoints",
+                    subtitle: "OpenAI compatible servers — LM Studio, LocalAI, vLLM, etc.",
+                    isConnected: chatManager.providers.custom.isConnected,
+                    modelCount: chatManager.providers.custom.models.count,
+                    providerId: "custom",
+                    accent: accent
+                ) {
+                    // Add new endpoint form
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ADD ENDPOINT")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 6) {
+                            TextField("Name", text: $newEndpointName)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11))
+                                .frame(width: 100)
+
+                            TextField("http://localhost:1234/v1", text: $newEndpointURL)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11, design: .monospaced))
+
+                            SecureField("API Key (optional)", text: $newEndpointKey)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11, design: .monospaced))
+                                .frame(width: 120)
+
+                            Button("Add") {
+                                guard !newEndpointName.isEmpty, !newEndpointURL.isEmpty else { return }
+                                let ep = chatManager.providers.custom.addEndpoint(
+                                    name: newEndpointName,
+                                    baseURL: newEndpointURL,
+                                    apiKey: newEndpointKey
+                                )
+                                newEndpointName = ""
+                                newEndpointURL = ""
+                                newEndpointKey = ""
+                                Task { await ep.connect() }
+                            }
+                            .controlSize(.small)
+                            .disabled(newEndpointName.isEmpty || newEndpointURL.isEmpty)
+                        }
+                    }
+
+                    // Existing endpoints
+                    if !chatManager.providers.custom.endpoints.isEmpty {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(chatManager.providers.custom.endpoints) { endpoint in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 8) {
+                                        // Status dot
+                                        Circle()
+                                            .fill(endpoint.isConnected ? .green : .orange)
+                                            .frame(width: 7, height: 7)
+
+                                        Text(endpoint.name)
+                                            .font(.system(size: 12, weight: .semibold))
+
+                                        Text(endpoint.baseURL)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+
+                                        Spacer()
+
+                                        // Connect button
+                                        if connectingEndpointId == endpoint.id {
+                                            ProgressView()
+                                                .scaleEffect(0.4)
+                                                .frame(width: 40)
+                                        } else {
+                                            Button(endpoint.isConnected ? "Refresh" : "Connect") {
+                                                connectingEndpointId = endpoint.id
+                                                Task {
+                                                    await endpoint.connect()
+                                                    connectingEndpointId = nil
+                                                }
+                                            }
+                                            .controlSize(.mini)
+                                        }
+
+                                        // Remove button
+                                        Button {
+                                            chatManager.providers.custom.removeEndpoint(id: endpoint.id)
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(.red.opacity(0.7))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Remove endpoint")
+                                    }
+
+                                    // Status / error
+                                    if endpoint.isConnected {
+                                        Text("\(endpoint.models.count) models available")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.green)
+                                    } else if let error = endpoint.connectionError {
+                                        Text(error)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.orange)
+                                    }
+
+                                    // Models from this endpoint
+                                    if !endpoint.models.isEmpty {
+                                        HStack(spacing: 4) {
+                                            ForEach(endpoint.models.prefix(5)) { model in
+                                                Text(model.modelId)
+                                                    .font(.system(size: 9, design: .monospaced))
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(.quaternary.opacity(0.3), in: Capsule())
+                                            }
+                                            if endpoint.models.count > 5 {
+                                                Text("+\(endpoint.models.count - 5) more")
+                                                    .font(.system(size: 9))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+
+                                if endpoint.id != chatManager.providers.custom.endpoints.last?.id {
+                                    Divider().opacity(0.5)
+                                }
+                            }
+                        }
+                    }
+
+                    // Help text
+                    HStack(spacing: 4) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 9))
+                        Text("Works with LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and any server with an OpenAI compatible /v1/chat/completions endpoint.")
+                            .font(.system(size: 10))
+                    }
+                    .foregroundStyle(.secondary)
                 }
 
                 // Summary
@@ -1451,11 +1730,11 @@ struct AboutSettingsView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("Version 2.0.0")
+                Text("Version 2.2.0")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("One native macOS app for all your AI.\nChat with Apple Intelligence, Ollama, OpenAI, and Anthropic\nside by side. Compare responses, fork conversations\nacross providers, and keep everything in one place.")
+                Text("One native macOS app for all your AI.\nChat with Apple Intelligence, Ollama, OpenAI, Anthropic,\nGoogle Gemini, and custom endpoints side by side.\nCompare responses, fork conversations across providers,\nand keep everything in one place.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -1488,11 +1767,25 @@ struct AboutSettingsView: View {
                             url: "https://platform.openai.com/docs",
                             icon: "brain"
                         )
+                    }
+                    HStack(spacing: 16) {
                         AboutProviderLink(
                             name: "Anthropic",
                             detail: "Claude API",
                             url: "https://docs.anthropic.com",
                             icon: "sparkle"
+                        )
+                        AboutProviderLink(
+                            name: "Gemini",
+                            detail: "Google AI",
+                            url: "https://ai.google.dev",
+                            icon: "diamond"
+                        )
+                        AboutProviderLink(
+                            name: "Custom",
+                            detail: "Any endpoint",
+                            url: "https://github.com/d-edgar/ChatHarbor#custom-endpoints",
+                            icon: "server.rack"
                         )
                     }
                 }

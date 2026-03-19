@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatHarbor — One Native App for All Your AI</title>
-    <meta name="description" content="A native macOS app that brings Apple Intelligence, Ollama, OpenAI, and Anthropic together in one window. Compare models, fork conversations, full parameter transparency.">
+    <meta name="description" content="A native macOS app that brings Apple Intelligence, Ollama, OpenAI, Anthropic, Google Gemini, and custom endpoints together in one window. Compare models, fork conversations, full parameter transparency.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -202,6 +202,8 @@
         .dot-ollama { background: #f97316; color: #f97316; }
         .dot-openai { background: #a78bfa; color: #a78bfa; }
         .dot-anthropic { background: #fb923c; color: #fb923c; }
+        .dot-gemini { background: #4285f4; color: #4285f4; }
+        .dot-custom { background: #94a3b8; color: #94a3b8; }
 
         /* ── Description ─────────────────────────────── */
         main { padding: 8px 0 24px; }
@@ -434,10 +436,12 @@
             <div class="provider-badge"><span class="dot dot-ollama"></span> Ollama</div>
             <div class="provider-badge"><span class="dot dot-openai"></span> OpenAI</div>
             <div class="provider-badge"><span class="dot dot-anthropic"></span> Anthropic</div>
+            <div class="provider-badge"><span class="dot dot-gemini"></span> Google Gemini</div>
+            <div class="provider-badge"><span class="dot dot-custom"></span> Custom Endpoints</div>
         </div>
 
         <p class="description reveal reveal-d2">
-            Chat with Apple Intelligence, Ollama, OpenAI, and Anthropic side by side in one native macOS window.
+            Chat with Apple Intelligence, Ollama, OpenAI, Anthropic, Google Gemini, and any OpenAI compatible endpoint side by side in one native macOS window.
             Compare responses across models, fork conversations, and keep full control over every parameter sent to the API.
         </p>
 
@@ -445,7 +449,7 @@
             <div class="feature reveal reveal-d1">
                 <div class="feature-icon">&#9878;&#65039;</div>
                 <h3>Multi-Provider</h3>
-                <p>Four providers, one app. Run local models with Ollama and Apple Intelligence, or connect to OpenAI and Anthropic via API. Switch between them freely.</p>
+                <p>Six providers, one app. Run local models with Ollama and Apple Intelligence, connect to OpenAI, Anthropic, and Google Gemini via API, or add any OpenAI compatible endpoint like LM Studio, LocalAI, or Open WebUI. Switch between them freely.</p>
             </div>
             <div class="feature reveal reveal-d2">
                 <div class="feature-icon">&#128202;</div>
@@ -481,6 +485,15 @@
                 <p>Run structured brainstorm sessions with multiple AI models playing different roles. Six Hats, SCAMPER, Starbursting, and more. Each model brings a distinct perspective, with automatic phase progression from ideation through synthesis.</p>
             </div>
             <span class="brainstorm-tag">New in v2</span>
+        </div>
+
+        <div class="brainstorm-banner reveal">
+            <div class="brainstorm-icon">&#9973;</div>
+            <div class="brainstorm-text">
+                <h3>Ships &amp; Harbor</h3>
+                <p>Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base, and conversation history. Load URLs, documents, and reference text as Cargo. Ships appear in the sidebar and work everywhere &mdash; chat, brainstorm, compare. Like custom GPTs, but for every provider.</p>
+            </div>
+            <span class="brainstorm-tag">New in v2.2</span>
         </div>
 
         <div class="highlight reveal">

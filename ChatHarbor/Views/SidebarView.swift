@@ -12,12 +12,16 @@ struct SidebarView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
+    @Query(sort: \Ship.updatedAt, order: .reverse) private var ships: [Ship]
     @Binding var isExpanded: Bool
     @Binding var sidebarWidth: CGFloat
     @State private var showingAboutPopover = false
     @State private var searchText = ""
     @State private var collapsedForkParents: Set<UUID> = []
     @State private var brainstormsCollapsed: Bool = false
+    @State private var harborCollapsed: Bool = false
+    @State private var showingShipBuilder: Bool = false
+    @State private var editingShip: Ship?
 
     private var filteredConversations: [Conversation] {
         if searchText.isEmpty { return conversations }
@@ -369,6 +373,111 @@ struct SidebarView: View {
                         }
                     }
                 }
+
+                // MARK: - Harbor (Ships)
+                if isExpanded {
+                    Divider()
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 4)
+
+                    HStack {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                harborCollapsed.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: harborCollapsed ? "chevron.right" : "chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 14, height: 14)
+
+                                Image(systemName: "sailboat")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+
+                                Text("HARBOR")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        // Build new ship button
+                        Button {
+                            let newShip = Ship()
+                            modelContext.insert(newShip)
+                            editingShip = newShip
+                            showingShipBuilder = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 18, height: 18)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Build a new Ship")
+
+                        Text("\(ships.count)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+
+                    if !harborCollapsed {
+                        if ships.isEmpty {
+                            Button {
+                                let newShip = Ship()
+                                modelContext.insert(newShip)
+                                editingShip = newShip
+                                showingShipBuilder = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 12))
+                                    Text("Build your first Ship")
+                                        .font(.system(size: 11))
+                                }
+                                .foregroundStyle(.teal.opacity(0.8))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            ForEach(ships) { ship in
+                                ShipSidebarRow(
+                                    ship: ship,
+                                    isSelected: chatManager.selectedShipId == ship.id
+                                ) {
+                                    chatManager.selectedShipId = ship.id
+                                }
+                                .contextMenu {
+                                    Button {
+                                        editingShip = ship
+                                        showingShipBuilder = true
+                                    } label: {
+                                        Label("Edit Ship", systemImage: "pencil")
+                                    }
+
+                                    Divider()
+
+                                    Button("Delete Ship", role: .destructive) {
+                                        if chatManager.selectedShipId == ship.id {
+                                            chatManager.selectedShipId = nil
+                                        }
+                                        modelContext.delete(ship)
+                                        try? modelContext.save()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             .onAppear {
                 // Default all fork groups to collapsed
@@ -428,7 +537,7 @@ struct SidebarView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("v2.0.0")
+                            Text("v2.2.0")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }
@@ -456,6 +565,28 @@ struct SidebarView: View {
         }
         .frame(width: isExpanded ? sidebarWidth : 52)
         .background(chatManager.currentTheme.sidebarColor(for: colorScheme))
+        .sheet(isPresented: $showingShipBuilder) {
+            if let ship = editingShip {
+                ShipBuilderView(
+                    ship: ship,
+                    isNew: ship.name == "New Ship" && ship.modelId.isEmpty,
+                    onSave: {
+                        try? modelContext.save()
+                        showingShipBuilder = false
+                        chatManager.selectedShipId = ship.id
+                    },
+                    onCancel: {
+                        // If it was a new unsaved ship, delete it
+                        if ship.name == "New Ship" && ship.modelId.isEmpty {
+                            modelContext.delete(ship)
+                        }
+                        showingShipBuilder = false
+                    }
+                )
+                .environmentObject(chatManager)
+                .frame(minWidth: 600, minHeight: 500)
+            }
+        }
     }
 
     // MARK: - Conversation Row Builder
@@ -944,7 +1075,7 @@ struct AboutPopoverView: View {
             Text("ChatHarbor")
                 .font(.headline)
 
-            Text("Version 2.0.0")
+            Text("Version 2.2.0")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -971,5 +1102,65 @@ struct AboutPopoverView: View {
         }
         .padding(16)
         .frame(width: 260)
+    }
+}
+
+// MARK: - Ship Sidebar Row
+
+struct ShipSidebarRow: View {
+    let ship: Ship
+    let isSelected: Bool
+    let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var shipColor: Color {
+        Color(hex: ship.colorHex) ?? .blue
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: ship.icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(shipColor, in: RoundedRectangle(cornerRadius: 5))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ship.name)
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    if !ship.tagline.isEmpty {
+                        Text(ship.tagline)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                let convCount = ship.conversations.count
+                if convCount > 0 {
+                    Text("\(convCount)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                isSelected
+                    ? shipColor.opacity(colorScheme == .dark ? 0.15 : 0.1)
+                    : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 6)
     }
 }

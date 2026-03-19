@@ -10,6 +10,7 @@ struct ContentView: View {
     @Environment(\.openSettings) private var openSettingsFromContent
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
+    @Query(sort: \Ship.updatedAt, order: .reverse) private var ships: [Ship]
     @State private var sidebarExpanded: Bool = true
     @State private var sidebarWidth: CGFloat = 260
 
@@ -23,6 +24,12 @@ struct ContentView: View {
     private var selectedBrainstorm: BrainstormSession? {
         guard let id = chatManager.selectedBrainstormId else { return nil }
         return brainstormSessions.first(where: { $0.id == id })
+    }
+
+    /// The currently selected Ship
+    private var selectedShip: Ship? {
+        guard let id = chatManager.selectedShipId else { return nil }
+        return ships.first(where: { $0.id == id })
     }
 
     var body: some View {
@@ -43,6 +50,10 @@ struct ContentView: View {
                     BrainstormView(session: brainstorm)
                         .id(brainstorm.id)
                         .environmentObject(brainstormManager)
+                        .environmentObject(chatManager)
+                } else if let ship = selectedShip {
+                    ShipChatView(ship: ship)
+                        .id(ship.id)
                         .environmentObject(chatManager)
                 } else if let conversation = selectedConversation {
                     ChatView(conversation: conversation)
@@ -278,6 +289,60 @@ struct WelcomeView: View {
                             } else {
                                 retryProvider("Anthropic") {
                                     await chatManager.providers.anthropic.connect()
+                                }
+                            }
+                        },
+                        accent: accent
+                    )
+
+                    // Google Gemini
+                    ProviderCard(
+                        icon: "diamond",
+                        name: "Google Gemini",
+                        subtitle: "Gemini 2.5 Pro, Flash",
+                        isConnected: chatManager.providers.gemini.isConnected,
+                        modelCount: chatManager.providers.gemini.models.count,
+                        statusText: chatManager.providers.gemini.isConnected
+                            ? "\(chatManager.providers.gemini.models.count) models available"
+                            : chatManager.providers.gemini.apiKey.isEmpty
+                                ? "Add your API key in Settings → Models"
+                                : chatManager.providers.gemini.connectionError ?? "Could not connect",
+                        isLoading: retryingProvider == "Gemini",
+                        actionLabel: chatManager.providers.gemini.isConnected
+                            ? nil
+                            : chatManager.providers.gemini.apiKey.isEmpty ? "Set Up" : "Retry",
+                        action: {
+                            if chatManager.providers.gemini.apiKey.isEmpty {
+                                openModelsSettings()
+                            } else {
+                                retryProvider("Gemini") {
+                                    await chatManager.providers.gemini.connect()
+                                }
+                            }
+                        },
+                        accent: accent
+                    )
+
+                    // Custom Endpoints
+                    ProviderCard(
+                        icon: "server.rack",
+                        name: "Custom Endpoints",
+                        subtitle: "OpenAI compatible servers",
+                        isConnected: chatManager.providers.custom.isConnected,
+                        modelCount: chatManager.providers.custom.models.count,
+                        statusText: chatManager.providers.custom.isConnected
+                            ? "\(chatManager.providers.custom.models.count) models from \(chatManager.providers.custom.endpoints.filter(\.isConnected).count) endpoints"
+                            : chatManager.providers.custom.endpoints.isEmpty
+                                ? "Add endpoints in Settings → Models"
+                                : "No endpoints connected",
+                        isLoading: retryingProvider == "Custom",
+                        actionLabel: chatManager.providers.custom.endpoints.isEmpty ? "Set Up" : (chatManager.providers.custom.isConnected ? nil : "Retry"),
+                        action: {
+                            if chatManager.providers.custom.endpoints.isEmpty {
+                                openModelsSettings()
+                            } else {
+                                retryProvider("Custom") {
+                                    await chatManager.providers.custom.connect()
                                 }
                             }
                         },

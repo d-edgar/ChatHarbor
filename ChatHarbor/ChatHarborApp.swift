@@ -18,7 +18,7 @@ struct ChatHarborApp: App {
                 .environmentObject(brainstormManager)
                 .frame(minWidth: 800, minHeight: 600)
         }
-        .modelContainer(for: [Conversation.self, Message.self, BrainstormSession.self, BrainstormEntry.self])
+        .modelContainer(for: [Conversation.self, Message.self, BrainstormSession.self, BrainstormEntry.self, Ship.self, ShipConversation.self, ShipMessage.self])
         .windowStyle(.titleBar)
         .defaultSize(width: 1200, height: 800)
         .commands {

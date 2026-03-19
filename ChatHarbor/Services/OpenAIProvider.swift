@@ -104,7 +104,13 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
                     .compactMap { $0["id"] as? String }
                     .filter { id in
                         // Only show chat-capable models
-                        id.contains("gpt") || id.contains("o1") || id.contains("o3") || id.contains("o4")
+                        id.contains("gpt") || id.contains("o1") || id.contains("o3") || id.contains("o4") || id.contains("chatgpt")
+                    }
+                    .filter { id in
+                        // Exclude non-chat variants (embeddings, audio, realtime, search indices)
+                        !id.contains("embed") && !id.contains("audio") && !id.contains("realtime")
+                            && !id.contains("tts") && !id.contains("whisper") && !id.contains("dall")
+                            && !id.contains("search") && !id.contains("instruct")
                     }
                     .sorted()
 
@@ -231,25 +237,41 @@ final class OpenAIProvider: ObservableObject, LLMProvider {
 
     private static func friendlyName(for modelId: String) -> String {
         let map: [String: String] = [
+            // GPT-4.1 family
+            "gpt-4.1": "GPT-4.1",
+            "gpt-4.1-mini": "GPT-4.1 Mini",
+            "gpt-4.1-nano": "GPT-4.1 Nano",
+            // GPT-4o family
             "gpt-4o": "GPT-4o",
             "gpt-4o-mini": "GPT-4o Mini",
+            "chatgpt-4o-latest": "ChatGPT-4o Latest",
+            // GPT-4 family
             "gpt-4-turbo": "GPT-4 Turbo",
             "gpt-4": "GPT-4",
+            // Legacy
             "gpt-3.5-turbo": "GPT-3.5 Turbo",
+            // Reasoning models
             "o1": "o1",
             "o1-mini": "o1 Mini",
             "o1-preview": "o1 Preview",
+            "o3": "o3",
             "o3-mini": "o3 Mini",
+            "o4-mini": "o4 Mini",
         ]
         return map[modelId] ?? modelId
     }
 
     private static func contextWindow(for modelId: String) -> Int {
-        if modelId.contains("gpt-4o") { return 128_000 }
+        // GPT-4.1 family — 1M context
+        if modelId.contains("gpt-4.1") { return 1_048_576 }
+        // GPT-4o family
+        if modelId.contains("gpt-4o") || modelId.contains("chatgpt-4o") { return 128_000 }
         if modelId.contains("gpt-4-turbo") { return 128_000 }
         if modelId.contains("gpt-4") { return 8_192 }
         if modelId.contains("gpt-3.5") { return 16_385 }
-        if modelId.contains("o1") || modelId.contains("o3") { return 128_000 }
+        // Reasoning models
+        if modelId.contains("o3") || modelId.contains("o4") { return 200_000 }
+        if modelId.contains("o1") { return 128_000 }
         return 4_096
     }
 }
