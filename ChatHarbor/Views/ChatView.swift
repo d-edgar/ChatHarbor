@@ -14,6 +14,7 @@ struct ChatView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var inputText: String = ""
     @State private var showConversationSettings: Bool = false
+    @State private var popoverDismissToken: Int = 0
     @FocusState private var inputFocused: Bool
 
     private var accent: Color {
@@ -141,7 +142,7 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(conversation.sortedMessages) { message in
-                            MessageRow(message: message)
+                            MessageRow(message: message, popoverDismissToken: popoverDismissToken)
                                 .id(message.id)
                                 .contextMenu {
                                     // Copy
@@ -254,6 +255,10 @@ struct ChatView: View {
                     }
                     .padding(.vertical, 8)
                 }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { _ in popoverDismissToken += 1 }
+                )
                 .onChange(of: chatManager.streamingContent) { _, _ in
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo("bottom", anchor: .bottom)
@@ -396,6 +401,7 @@ struct ChatView: View {
 
 struct MessageRow: View {
     let message: Message
+    var popoverDismissToken: Int = 0
     @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
     @State private var showUsagePopover = false
@@ -538,8 +544,9 @@ struct MessageRow: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
         .onDisappear {
-            // Kill popover when bubble scrolls off-screen to prevent
-            // layout loop in LazyVStack
+            showUsagePopover = false
+        }
+        .onChange(of: popoverDismissToken) { _, _ in
             showUsagePopover = false
         }
     }

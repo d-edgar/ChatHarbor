@@ -18,6 +18,8 @@ struct BrainstormView: View {
     @State private var userInput: String = ""
     @State private var showingExport: Bool = false
     @State private var showingQAModelPicker: Bool = false
+    /// Incremented on scroll to dismiss any open popovers in child cards
+    @State private var popoverDismissToken: Int = 0
     @FocusState private var inputFocused: Bool
     @Namespace private var bottomAnchor
 
@@ -247,6 +249,7 @@ struct BrainstormView: View {
                             accent: accent,
                             statParts: buildStatParts(for: entry),
                             providers: chatManager.providers,
+                            popoverDismissToken: popoverDismissToken,
                             onRetry: entry.error != nil ? { alternateModelId in
                                 retryEntry(entry, withModel: alternateModelId)
                             } : nil
@@ -276,6 +279,10 @@ struct BrainstormView: View {
                 }
                 .padding(20)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in popoverDismissToken += 1 }
+            )
             .onAppear {
                 // Scroll to bottom when timeline appears (initial load or returning from Q&A)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -770,6 +777,10 @@ struct BrainstormView: View {
                 }
                 .padding(20)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in popoverDismissToken += 1 }
+            )
             .onChange(of: brainstormManager.qaMessages.count) { _, _ in
                 withAnimation {
                     proxy.scrollTo("qa-bottom", anchor: .bottom)
@@ -786,7 +797,8 @@ struct BrainstormView: View {
             message: message,
             accent: accent,
             qaModelId: brainstormManager.qaModelId,
-            providerInfo: brainstormManager.qaModelId.map { chatManager.providers.providerInfo(for: $0) }
+            providerInfo: brainstormManager.qaModelId.map { chatManager.providers.providerInfo(for: $0) },
+            popoverDismissToken: popoverDismissToken
         )
     }
 
@@ -934,6 +946,8 @@ struct BrainstormEntryCard: View {
     let statParts: [String]
     /// Provider manager for the usage popover (lightweight, not observed)
     let providers: ProviderManager
+    /// Parent increments this on scroll to dismiss our popover
+    var popoverDismissToken: Int = 0
     /// Retry with an optional different model ID (nil = same model)
     var onRetry: ((String?) -> Void)?
     @Environment(\.colorScheme) private var colorScheme
@@ -1112,8 +1126,10 @@ struct BrainstormEntryCard: View {
                 )
         )
         .onDisappear {
-            // Kill popover when card scrolls off-screen to prevent
-            // layout loop / memory leak in LazyVStack
+            showUsagePopover = false
+        }
+        .onChange(of: popoverDismissToken) { _, _ in
+            // Parent signals scroll — kill popover immediately
             showUsagePopover = false
         }
         .contextMenu {
@@ -1313,6 +1329,7 @@ struct QAMessageCardView: View {
     let accent: Color
     let qaModelId: String?
     let providerInfo: (providerName: String, modelName: String, icon: String)?
+    var popoverDismissToken: Int = 0
     @EnvironmentObject var chatManager: ChatManager
     @Environment(\.colorScheme) private var colorScheme
     @State private var copied: Bool = false
@@ -1430,6 +1447,9 @@ struct QAMessageCardView: View {
                 )
         )
         .onDisappear {
+            showUsagePopover = false
+        }
+        .onChange(of: popoverDismissToken) { _, _ in
             showUsagePopover = false
         }
         .contextMenu {
