@@ -247,6 +247,8 @@ struct CompareSlot: Identifiable {
     let modelName: String
     var content: String = ""
     var isStreaming: Bool = true
+    var inputTokenCount: Int?
+    var estimatedCost: Double?
     var tokenCount: Int?
     var durationMs: Double?
     var error: String?

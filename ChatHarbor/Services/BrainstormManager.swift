@@ -558,7 +558,7 @@ class BrainstormManager: ObservableObject {
         // Checkpoint: session complete
         await pauseForUser(
             session: session,
-            message: "Synthesis complete! Review the final output. You can export this session or mark it as complete."
+            message: "Decision brief complete. Review the options and disagreements, record your decision below, or export the session."
         )
     }
 
@@ -723,6 +723,16 @@ class BrainstormManager: ObservableObject {
                 let roleName = entry.role.displayName
                 md += "### \(roleName)\n\(entry.content)\n\n"
             }
+        }
+
+        if let decision = session.decisionNotes, !decision.isEmpty {
+            md += "## Your Decision and Reasoning\n\n\(decision)\n\n"
+        }
+        if let outcome = session.outcomeNotes, !outcome.isEmpty {
+            md += "## Outcome and Lessons\n\n\(outcome)\n\n"
+        }
+        if let reviewedAt = session.decisionReviewedAt {
+            md += "*Decision notes updated: \(reviewedAt.formatted(date: .long, time: .shortened))*\n\n"
         }
 
         md += "---\n\n*Generated with ChatHarbor Brainstorm*\n"

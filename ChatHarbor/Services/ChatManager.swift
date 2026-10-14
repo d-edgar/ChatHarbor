@@ -464,6 +464,9 @@ class ChatManager: ObservableObject {
                     }
 
                     compareSlots[index].isStreaming = false
+                    compareSlots[index].inputTokenCount = result.inputTokenCount
+                    compareSlots[index].estimatedCost = providers.costForMessage(
+                        modelId: result.model, inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
                     compareSlots[index].tokenCount = result.tokenCount
                     compareSlots[index].durationMs = result.durationMs
                 } catch {
@@ -515,6 +518,9 @@ class ChatManager: ObservableObject {
             onSlotComplete: { [weak self] index, result in
                 guard let self = self, index < self.compareSlots.count else { return }
                 self.compareSlots[index].isStreaming = false
+                self.compareSlots[index].inputTokenCount = result.inputTokenCount
+                self.compareSlots[index].estimatedCost = self.providers.costForMessage(
+                    modelId: result.model, inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
                 self.compareSlots[index].tokenCount = result.tokenCount
                 self.compareSlots[index].durationMs = result.durationMs
 
