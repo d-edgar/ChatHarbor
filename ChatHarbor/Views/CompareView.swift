@@ -338,8 +338,17 @@ struct CompareColumn: View {
             // Stats
             if !slot.isStreaming, slot.error == nil {
                 HStack(spacing: 6) {
+                    if let cost = slot.estimatedCost {
+                        Text(String(format: "~$%.5f", cost))
+                            .help("Estimated USD cost using ChatHarbor's pricing table; provider billing may differ.")
+                    } else {
+                        Text("Cost unavailable")
+                    }
+                    if let inputTokens = slot.inputTokenCount {
+                        Text("\(inputTokens) in ·")
+                    }
                     if let tokens = slot.tokenCount {
-                        Text("\(tokens) tok")
+                        Text("\(tokens) out")
                     }
                     if let tps = slot.tokensPerSecond {
                         Text("·")

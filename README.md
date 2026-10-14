@@ -16,7 +16,7 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 
 - **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use on-device Apple Intelligence for free.
 - **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports five built-in methods plus fully custom frameworks. See [Brainstorm Mode](#brainstorm-mode) below.
-- **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, speed, and cost at a glance.
+- **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, input/output usage, speed, and estimated USD cost. Cost estimates use the built-in pricing table; models without a matching rate show “Cost unavailable.”
 - **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
 - **Token & cost transparency**: Every response shows token count, estimated cost, and generation time. Click for a full usage breakdown per message and per conversation.
 - **Ships & Harbor**: Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base (URLs, files, text), and conversation history. Like custom GPTs, but for every provider. See [Ships & Harbor](#ships--harbor) below.
@@ -49,7 +49,8 @@ Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Inste
 2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so participants genuinely argue from different angles. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
 3. **Run the session.** The session advances through phases (e.g., Ideation → Critique → Refinement → Synthesis). At each checkpoint, you review what the participants have generated and decide whether to continue, redirect, or inject your own ideas.
 4. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
-5. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
+5. **Decide and revisit.** New synthesis responses produce a decision brief covering options, evidence, assumptions, disagreements, a recommendation, and a concrete experiment. At synthesis or completion, record your decision and reasoning in the follow-up card, click **Save notes**, and return later to record outcomes and lessons. Saved notes are included in exports and follow-up Q&A. Existing synthesis responses remain unchanged.
+6. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
 
 ### Built-in Methods
 

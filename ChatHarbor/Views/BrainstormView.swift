@@ -267,6 +267,10 @@ struct BrainstormView: View {
                         checkpointBanner
                     }
 
+                    if session.phase == .synthesis || session.phase == .complete || session.isComplete {
+                        DecisionReviewCard(session: session)
+                    }
+
                     // Prominent Q&A call-to-action after session completes
                     if (session.isComplete || session.phase == .complete) && !brainstormManager.isQAMode {
                         qaCallToAction
@@ -1853,6 +1857,84 @@ private struct QAModelPickerSheet: View {
             if let first = allModels.first {
                 selectedModelId = first.id
             }
+        }
+    }
+}
+
+// MARK: - Decision Review
+
+private struct DecisionReviewCard: View {
+    let session: BrainstormSession
+    @Environment(\.modelContext) private var modelContext
+    @State private var decision = ""
+    @State private var outcome = ""
+    @State private var saveError: String?
+
+    private var hasChanges: Bool {
+        decision != (session.decisionNotes ?? "") || outcome != (session.outcomeNotes ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Your decision and follow-up", systemImage: "checkmark.bubble")
+                .font(.headline)
+            Text("Record what you chose and why. Return later to capture what happened.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text("Decision and reasoning").font(.subheadline.bold())
+            TextField("What will you do, and which tradeoffs did you accept?", text: $decision, axis: .vertical)
+                .lineLimit(3...8)
+                .textFieldStyle(.roundedBorder)
+            Text("Outcome and lessons").font(.subheadline.bold())
+            TextField("What happened? What would you change next time?", text: $outcome, axis: .vertical)
+                .lineLimit(3...8)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Button("Save notes", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!hasChanges)
+                if hasChanges {
+                    Text("Unsaved changes").foregroundStyle(.secondary)
+                } else if let reviewedAt = session.decisionReviewedAt {
+                    Text("Saved \(reviewedAt.formatted(date: .abbreviated, time: .shortened))")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption)
+            if let saveError {
+                Text(saveError).font(.caption).foregroundStyle(.red)
+            }
+        }
+        .padding(16)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        .onAppear(perform: load)
+        .onChange(of: session.id) { _, _ in load() }
+    }
+
+    private func load() {
+        decision = session.decisionNotes ?? ""
+        outcome = session.outcomeNotes ?? ""
+        saveError = nil
+    }
+
+    private func save() {
+        let oldDecision = session.decisionNotes
+        let oldOutcome = session.outcomeNotes
+        let oldReviewedAt = session.decisionReviewedAt
+        let oldUpdatedAt = session.updatedAt
+        session.decisionNotes = decision
+        session.outcomeNotes = outcome
+        session.decisionReviewedAt = Date()
+        session.updatedAt = Date()
+        do {
+            try modelContext.save()
+            saveError = nil
+        } catch {
+            session.decisionNotes = oldDecision
+            session.outcomeNotes = oldOutcome
+            session.decisionReviewedAt = oldReviewedAt
+            session.updatedAt = oldUpdatedAt
+            saveError = "Could not save notes: \(error.localizedDescription)"
         }
     }
 }

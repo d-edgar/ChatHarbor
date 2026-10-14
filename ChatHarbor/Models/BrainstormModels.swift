@@ -17,6 +17,11 @@ final class BrainstormSession {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
+    /// User-authored decision and later outcome; optional for existing stores.
+    var decisionNotes: String?
+    var outcomeNotes: String?
+    var decisionReviewedAt: Date?
+
     /// Which brainstorming method this session uses
     var methodRaw: String = "osborn"
 
@@ -334,7 +339,7 @@ enum BrainstormPhase: String, Codable, CaseIterable {
         case .framing: return "Problem Framing"
         case .ideation: return "Idea Generation"
         case .evaluation: return "Evaluation"
-        case .synthesis: return "Synthesis"
+        case .synthesis: return "Decision Brief"
         case .complete: return "Complete"
         }
     }
@@ -373,7 +378,7 @@ enum BrainstormPhase: String, Codable, CaseIterable {
         case .evaluation:
             return "Models critique, combine, and refine the strongest ideas"
         case .synthesis:
-            return "Final summary with actionable next steps"
+            return "Options, evidence, disagreements, and a concrete next experiment"
         case .complete:
             return "Brainstorm complete"
         }
@@ -569,14 +574,29 @@ enum BrainstormRole: String, Codable, CaseIterable, Identifiable {
 
     /// System prompt for the synthesis phase
     var synthesisPrompt: String {
-        switch self {
-        case .facilitator:
-            return "You are the Facilitator wrapping up the brainstorm. Summarize: What was the problem? What were the top ideas? What did evaluation reveal? Provide a clear recommendation or decision framework. End with 3-5 concrete next steps."
-        case .scribe:
-            return "You are the Scribe. Produce a clean, well-organized summary of the entire brainstorm session: 1. Problem Statement 2. All Ideas Generated (grouped by theme) 3. Evaluation Highlights (strengths, risks, feasibility) 4. Final Recommendations 5. Action Items. Use clear headings and bullet points. This document should stand on its own."
-        default:
-            return ""
-        }
+        guard self == .facilitator || self == .scribe else { return "" }
+        return """
+        You are the \(displayName), preparing a decision brief from this brainstorm.
+        Produce a concise, standalone Markdown document with these headings:
+        ## Decision to make
+        Restate the problem and the user's constraints.
+        ## Options and tradeoffs
+        Compare the strongest options, including doing nothing when relevant. Explain benefits and costs.
+        ## Evidence and assumptions
+        Separate evidence supplied in the session from unverified claims and assumptions.
+        Attribute supporting contributions by role; do not invent sources, facts, or citations.
+        ## Agreements and unresolved disagreements
+        Preserve minority objections and conflicting perspectives. Agreement between models is not proof.
+        Identify what evidence or experiment would resolve each important disagreement.
+        ## Recommendation
+        Give a conditional recommendation and explain what would change it. The user makes the decision;
+        do not claim they have chosen or approved an option unless they explicitly said so.
+        ## Next experiment
+        Propose a small, concrete test with an observable success criterion. Do not invent commitments.
+        ## Questions for review
+        List what the user should revisit after trying the recommendation.
+        If the session lacks evidence for a section, say what is missing rather than filling it in.
+        """
     }
 }
 
