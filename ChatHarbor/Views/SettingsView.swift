@@ -83,6 +83,7 @@ struct ModelsProvidersSettingsView: View {
     @State private var geminiSuccess = false
     // Custom endpoint state
     @State private var endpointError: String?
+    @State private var newEndpointIsLMStudio = false
     @State private var newEndpointName: String = ""
     @State private var newEndpointURL: String = ""
     @State private var newEndpointKey: String = ""
@@ -325,11 +326,13 @@ struct ModelsProvidersSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Button("LM Studio") {
+                                newEndpointIsLMStudio = true
                                 newEndpointName = "LM Studio"
                                 newEndpointURL = "http://localhost:1234/v1"
                                 newEndpointKey = ""
                             }
                             Button("Other compatible server") {
+                                newEndpointIsLMStudio = false
                                 newEndpointName = ""
                                 newEndpointURL = ""
                                 newEndpointKey = ""
@@ -367,8 +370,10 @@ struct ModelsProvidersSettingsView: View {
                                     let ep = try chatManager.providers.custom.addEndpoint(
                                         name: newEndpointName,
                                         baseURL: newEndpointURL,
-                                        apiKey: newEndpointKey
+                                        apiKey: newEndpointKey,
+                                        isLMStudio: newEndpointIsLMStudio
                                     )
+                                    newEndpointIsLMStudio = false
                                     newEndpointName = ""
                                     newEndpointURL = ""
                                     newEndpointKey = ""

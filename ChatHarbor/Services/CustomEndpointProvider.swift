@@ -50,14 +50,15 @@ final class CustomEndpointProvider: ObservableObject, LLMProvider {
 
     // MARK: - Endpoint Management
 
-    func addEndpoint(name: String, baseURL: String, apiKey: String = "") throws -> CustomEndpoint {
+    func addEndpoint(name: String, baseURL: String, apiKey: String = "", isLMStudio: Bool = false) throws -> CustomEndpoint {
         try checkMigration()
         let endpoint = CustomEndpoint(
             name: name,
             baseURL: normalizeURL(baseURL),
-            apiKey: apiKey
+            apiKey: apiKey, isLMStudio: isLMStudio
         )
         try storeKey(apiKey, id: endpoint.id)
+        endpoint.onConnectionChange = { [weak self] in self?.objectWillChange.send() }
         endpoints.append(endpoint)
         saveEndpoints()
         return endpoint
@@ -134,7 +135,8 @@ final class CustomEndpointProvider: ObservableObject, LLMProvider {
                 id: ep.id,
                 name: ep.name,
                 baseURL: ep.baseURL,
-                apiKey: nil
+                apiKey: nil,
+                isLMStudio: ep.isLMStudio
             )
         }
         if let data = try? JSONEncoder().encode(configs) {
@@ -154,8 +156,11 @@ final class CustomEndpointProvider: ObservableObject, LLMProvider {
                     persistenceError = "Could not move endpoint credentials to Keychain. Unlock Keychain and restart ChatHarbor. Existing settings have been retained."
                 }
             }
-            return CustomEndpoint(id: config.id, name: config.name, baseURL: config.baseURL,
-                                  apiKey: readKey(key) ?? config.apiKey ?? "")
+            let endpoint = CustomEndpoint(id: config.id, name: config.name, baseURL: config.baseURL,
+                                  apiKey: readKey(key) ?? config.apiKey ?? "",
+                                  isLMStudio: config.isLMStudio ?? (config.name == "LM Studio"))
+            endpoint.onConnectionChange = { [weak self] in self?.objectWillChange.send() }
+            return endpoint
         }
         if persistenceError == nil { saveEndpoints() }
     }
@@ -192,6 +197,7 @@ private struct EndpointConfig: Codable {
     let name: String
     let baseURL: String
     var apiKey: String?
+    var isLMStudio: Bool?
 }
 
 // MARK: - Custom Endpoint
@@ -201,6 +207,8 @@ private struct EndpointConfig: Codable {
 @MainActor
 final class CustomEndpoint: Identifiable {
     let id: UUID
+    let isLMStudio: Bool
+    var onConnectionChange: (() -> Void)?
     var name: String
     var baseURL: String
     var apiKey: String
@@ -208,7 +216,8 @@ final class CustomEndpoint: Identifiable {
     var models: [ProviderModel] = []
     var connectionError: String?
 
-    init(id: UUID = UUID(), name: String, baseURL: String, apiKey: String = "") {
+    init(id: UUID = UUID(), name: String, baseURL: String, apiKey: String = "", isLMStudio: Bool = false) {
+        self.isLMStudio = isLMStudio
         self.id = id
         self.name = name
         self.baseURL = baseURL
@@ -218,6 +227,7 @@ final class CustomEndpoint: Identifiable {
     // MARK: - Connect (discover models)
 
     func connect() async {
+        defer { onConnectionChange?() }
         let urlString = "\(baseURL)/models"
         guard let url = URL(string: urlString) else {
             connectionError = "Invalid URL: \(urlString)"

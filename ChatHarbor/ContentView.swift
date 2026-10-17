@@ -323,38 +323,47 @@ struct WelcomeView: View {
                         accent: accent
                     )
 
-                    // Custom Endpoints
-                    ProviderCard(
-                        icon: "server.rack",
-                        name: "Custom Endpoints",
-                        subtitle: "OpenAI compatible servers",
-                        isConnected: chatManager.providers.custom.isConnected,
-                        modelCount: chatManager.providers.custom.models.count,
-                        statusText: chatManager.providers.custom.isConnected
-                            ? "\(chatManager.providers.custom.models.count) models from \(chatManager.providers.custom.endpoints.filter(\.isConnected).count) endpoints"
-                            : chatManager.providers.custom.endpoints.isEmpty
-                                ? "Add endpoints in Settings → Models"
-                                : "No endpoints connected",
-                        isLoading: retryingProvider == "Custom",
-                        actionLabel: chatManager.providers.custom.endpoints.isEmpty ? "Set Up" : (chatManager.providers.custom.isConnected ? nil : "Retry"),
-                        action: {
-                            if chatManager.providers.custom.endpoints.isEmpty {
-                                openModelsSettings()
-                            } else {
-                                retryProvider("Custom") {
-                                    await chatManager.providers.custom.connect()
+                    // Keep LM Studio visible even before an endpoint is configured.
+                    ForEach([true, false], id: \.self) { isLMStudio in
+                        let endpoints = chatManager.providers.custom.endpoints.filter { $0.isLMStudio == isLMStudio }
+                        let connected = endpoints.contains { $0.isConnected }
+                        let modelCount = endpoints.filter { $0.isConnected }.reduce(0) { $0 + $1.models.count }
+                        let name = isLMStudio ? "LM Studio" : "Other Servers"
+                        ProviderCard(
+                            icon: isLMStudio ? "desktopcomputer" : "server.rack",
+                            name: name,
+                            subtitle: isLMStudio ? "Local models through LM Studio" : "OpenAI compatible servers",
+                            isConnected: connected,
+                            modelCount: modelCount,
+                            statusText: connected
+                                ? "Connected · \(modelCount) models available"
+                                : endpoints.isEmpty
+                                    ? "Not connected — set up in Settings → Models"
+                                    : endpoints.first?.connectionError ?? "Not connected — start your server, then Retry",
+                            isLoading: retryingProvider == name,
+                            actionLabel: endpoints.isEmpty ? "Set Up" : (connected ? nil : "Retry"),
+                            action: {
+                                if endpoints.isEmpty {
+                                    openModelsSettings()
+                                } else {
+                                    retryProvider(name) {
+                                        for endpoint in endpoints { await endpoint.connect() }
+                                    }
                                 }
-                            }
-                        },
-                        accent: accent
-                    )
+                            },
+                            accent: accent
+                        )
+                    }
                 }
                 .frame(maxWidth: .infinity)
 
                 // Summary bar
                 HStack(spacing: 16) {
-                    let connected = chatManager.providers.connectedProviders.count
-                    let total = chatManager.providers.allProviders.count
+                    let custom = chatManager.providers.custom
+                    let connected = chatManager.providers.connectedProviders.filter { $0.providerId != "custom" }.count
+                        + (custom.endpoints.contains { $0.isLMStudio && $0.isConnected } ? 1 : 0)
+                        + (custom.endpoints.contains { !$0.isLMStudio && $0.isConnected } ? 1 : 0)
+                    let total = chatManager.providers.allProviders.count + 1
                     let modelCount = chatManager.providers.allModels.count
 
                     Label("\(connected)/\(total) providers connected", systemImage: "antenna.radiowaves.left.and.right")

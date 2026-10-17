@@ -51,6 +51,14 @@ struct CoreRegression {
         try provider.removeEndpoint(id: added.id)
         precondition(secrets[CustomEndpointProvider.keychainKey(added.id)] == nil)
 
+        let studio = try provider.addEndpoint(name: "My local models", baseURL: "http://localhost:1234", isLMStudio: true)
+        let reloaded = CustomEndpointProvider(defaults: defaults, readKey: { secrets[$0] },
+            saveKey: { value, key in secrets[key] = value; return true }, deleteKey: { _ in true })
+        precondition(reloaded.endpoints.first { $0.id == studio.id }?.isLMStudio == true,
+                     "LM Studio identity must survive renaming and reload")
+        precondition(reloaded.endpoints.first { $0.id == firstID }?.isLMStudio == false,
+                     "A localhost port alone must not identify LM Studio")
+
         let markup = "<script>alert(1)</script>\n<img src='https://example.invalid/track'>\n# A & B"
         let html = BrainstormReport.html(markup, title: "</title><script>bad()</script>")
         precondition(!html.contains("<script>") && !html.contains("<img"))

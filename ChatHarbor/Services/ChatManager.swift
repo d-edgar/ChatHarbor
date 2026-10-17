@@ -233,6 +233,9 @@ class ChatManager: ObservableObject {
         ollama.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &nestedCancellables)
+        providers.custom.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &nestedCancellables)
         providers.openAI.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &nestedCancellables)
