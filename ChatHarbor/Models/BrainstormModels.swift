@@ -10,6 +10,7 @@ import SwiftData
 
 @Model
 final class BrainstormSession {
+    var harborID: UUID?
     var id: UUID = UUID()
     var title: String = "New Brainstorm"
     var topic: String = ""

@@ -53,6 +53,11 @@ struct BrainstormRegression {
         providers.custom.endpoints = savedEndpoints
         print("PASS: connection groups count LM Studio and other servers once each")
         let manager = BrainstormManager(providers: providers)
+        let harborID = UUID()
+        let scopedSession = manager.createSession(topic: "Harbor scope", participants: [], harborID: harborID, in: context)
+        precondition(scopedSession.harborID == harborID)
+        let copiedSession = manager.cloneSessionForSetup(scopedSession, in: context)
+        precondition(copiedSession.harborID == harborID)
         let session = BrainstormSession(topic: "Pick a prototype", method: .roundRobin)
         context.insert(session)
         session.participants = [

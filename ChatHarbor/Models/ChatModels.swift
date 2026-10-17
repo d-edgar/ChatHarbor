@@ -5,6 +5,7 @@ import SwiftData
 
 @Model
 final class Conversation {
+    var harborID: UUID?
     var id: UUID = UUID()
     var title: String = "New Conversation"
     var createdAt: Date = Date()
@@ -43,6 +44,21 @@ final class Conversation {
         self.forkedFromId = forkedFromId
         self.forkedAtMessageId = forkedAtMessageId
         self.messages = []
+    }
+
+    /// Move a chat with all its forks so no branch is stranded in another harbor.
+    func forkFamily(in conversations: [Conversation]) -> [Conversation] {
+        var ids: Set<UUID> = [id]
+        var changed = true
+        while changed {
+            let previous = ids
+            for conversation in conversations {
+                if ids.contains(conversation.id), let parent = conversation.forkedFromId { ids.insert(parent) }
+                if let parent = conversation.forkedFromId, ids.contains(parent) { ids.insert(conversation.id) }
+            }
+            changed = previous != ids
+        }
+        return conversations.filter { ids.contains($0.id) }
     }
 
     /// Build ChatParameters from this conversation's overrides
@@ -262,5 +278,23 @@ struct CompareSlot: Identifiable {
             return String(modelName.dropLast(7))
         }
         return modelName
+    }
+}
+
+// Existing records without a harbor belong to Personal; no destructive backfill is needed.
+@Model
+final class Harbor {
+    static let defaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    var id: UUID = UUID()
+    var name: String = "Personal"
+    var createdAt: Date = Date()
+
+    init(name: String, id: UUID = UUID()) {
+        self.id = id
+        self.name = name
+    }
+
+    static func contains(_ harborID: UUID?, in selectedID: UUID) -> Bool {
+        (harborID ?? defaultID) == selectedID
     }
 }

@@ -11,6 +11,7 @@ import SwiftData
 
 @Model
 final class Ship {
+    var harborID: UUID?
     var id: UUID = UUID()
     var name: String = "New Ship"
     var icon: String = "sailboat"           // SF Symbol name

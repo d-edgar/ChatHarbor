@@ -60,6 +60,7 @@ class BrainstormManager: ObservableObject {
         topic: String,
         participants: [BrainstormParticipant],
         maxRounds: Int = 3,
+        harborID: UUID? = nil,
         in context: ModelContext
     ) -> BrainstormSession {
         let session = BrainstormSession(
@@ -67,6 +68,7 @@ class BrainstormManager: ObservableObject {
             topic: topic,
             maxRounds: maxRounds
         )
+        session.harborID = harborID
         session.participants = participants
         context.insert(session)
         safeSave(context)
@@ -879,6 +881,7 @@ class BrainstormManager: ObservableObject {
             method: session.method,
             maxRounds: session.maxRounds
         )
+        newSession.harborID = session.harborID
         newSession.participants = session.participants
         context.insert(newSession)
         safeSave(context)
@@ -898,6 +901,7 @@ class BrainstormManager: ObservableObject {
             method: session.method,
             maxRounds: session.maxRounds
         )
+        newSession.harborID = session.harborID
         newSession.participants = session.participants
         // Stay in setup so the user can tweak before launching
         context.insert(newSession)

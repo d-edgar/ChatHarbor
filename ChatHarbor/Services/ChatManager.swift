@@ -12,6 +12,23 @@ import SwiftData
 @MainActor
 class ChatManager: ObservableObject {
 
+    @Published var selectedHarborID: UUID = UserDefaults.standard.string(forKey: "selectedHarborID")
+        .flatMap(UUID.init(uuidString:)) ?? Harbor.defaultID
+
+    func selectHarbor(_ id: UUID) {
+        guard id != selectedHarborID else { return }
+        stopGenerating()
+        stopCompare()
+        compareSlots = []
+        comparePrompt = ""
+        selectedConversationId = nil
+        selectedBrainstormId = nil
+        selectedShipId = nil
+        selectedShipConversationId = nil
+        selectedHarborID = id
+        UserDefaults.standard.set(id.uuidString, forKey: "selectedHarborID")
+    }
+
     // MARK: - Published State
 
     @Published var selectedConversationId: UUID? {
@@ -29,6 +46,7 @@ class ChatManager: ObservableObject {
     @Published var isGenerating: Bool = false
     @Published var streamingContent: String = ""
     @Published var isLaunching: Bool = true
+    @Published var showingGettingStarted = false
     @Published var showingModelManager: Bool = false
     @Published var settingsTab: String = "general"
     @Published var showingPromptLibrary: Bool = false
@@ -279,6 +297,7 @@ class ChatManager: ObservableObject {
             modelId: selectedModelId,
             systemPrompt: systemPrompt
         )
+        conversation.harborID = selectedHarborID
         context.insert(conversation)
         try? context.save()
         selectedConversationId = conversation.id
@@ -309,6 +328,7 @@ class ChatManager: ObservableObject {
             forkedFromId: conversation.id,
             forkedAtMessageId: message.id
         )
+        fork.harborID = conversation.harborID
         // Copy per-conversation parameter overrides
         fork.temperature = conversation.temperature
         fork.maxTokens = conversation.maxTokens

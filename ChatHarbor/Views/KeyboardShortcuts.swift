@@ -5,6 +5,11 @@ struct ChatHarborCommands: Commands {
     @ObservedObject var chatManager: ChatManager
 
     var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Getting Started…") { chatManager.showingGettingStarted = true }
+                .disabled(chatManager.showingCompareView || chatManager.showingPromptLibrary)
+        }
+
         CommandGroup(after: .newItem) {
             Button("New Chat") {
                 // Post notification — the ContentView will handle it

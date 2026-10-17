@@ -6,6 +6,14 @@
 
 A native macOS app for comparing AI models and working through ideas. Chat with cloud or local models, shortlist ideas, review disagreements, and turn a brainstorm into a decision brief. Built with SwiftUI and SwiftData.
 
+## Recent development
+
+See [the changelog](CHANGELOG.md) for the recent fixes and their release status. Separate harbors and the Getting Started tour are available in source and are not included in a published download yet.
+
+### Getting started
+
+The new four-step first-launch tour covers model connections, harbors, Ships, and brainstorming. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. Reopen it from **Help → Getting Started**. **Connect a Model** opens Models & Providers. The empty Ships section also explains what a Ship is.
+
 ## Why ChatHarbor?
 
 ChatHarbor puts conversations, model comparisons, and structured brainstorming in one Mac app. Bring your own API keys or connect to a local model server.
@@ -14,11 +22,11 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 
 ## What Makes ChatHarbor Different
 
-- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the v2.2.3 release is built with Xcode 16.4 and does not include that provider.
+- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the v2.2.3 release workflow uses Xcode 16.4 and does not include that provider.
 - **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports four built-in methods plus a custom role setup. See [Brainstorm Mode](#brainstorm-mode) below.
 - **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, input/output usage, speed, and estimated USD cost. Cost estimates use the built-in pricing table; models without a matching rate show “Cost unavailable.”
 - **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
-- **Token & cost transparency**: Every response shows token count, estimated cost, and generation time. Click for a full usage breakdown per message and per conversation.
+- **Token & cost transparency**: Inspect input/output usage and generation time across chat, Ships, comparisons, brainstorming, and follow-up Q&A. Missing counts remain unknown, estimated counts are labeled, and cache/reasoning counts are treated as subsets. Cost is shown only when a supported rate is available.
 - **Ships & Harbor**: Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base (URLs, files, text), and conversation history. Like custom GPTs, but for every provider. See [Ships & Harbor](#ships--harbor) below.
 - **Prompt template library**: 8 built-in personas plus custom templates. Start conversations with purpose across any provider.
 - **Markdown export**: Export any conversation as a clean `.md` file with model attribution and performance stats.
@@ -42,6 +50,12 @@ ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat
 ## Brainstorm Mode
 
 Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Instead of a back-and-forth chat, you set up a session with a topic, choose a brainstorming method, assign AI participants to specific roles, and let them collaborate through a series of guided phases. Each participant contributes from their assigned perspective, and you can intervene at checkpoints to steer the conversation.
+
+### Separate harbors for different parts of life
+
+Use the harbor menu in the sidebar to create or switch between Personal, Work, or any other area. Each harbor has its own chats, ships, and brainstorms. Existing content appears in Personal, and the app remembers your selected harbor.
+
+Right-click an item and choose **Move to Harbor** to reorganize it. Chats move with their forks; ships move with their conversation history. You can rename a harbor from the sidebar menu. Model connections, API keys, and app settings remain shared—harbors organize content within the same local database, rather than providing separate accounts or security boundaries.
 
 ### Brainstorm entirely on your Mac
 
@@ -78,7 +92,7 @@ Participants take turns, so they do not need to generate simultaneously. Downloa
 
 ### Session Features
 
-Each brainstorm entry shows the participant's role, the model used, the phase and round number, and a clickable stats pill with token count, generation speed, duration, and estimated cost. Clicking the pill opens a detailed usage popover with per-million-token pricing and a link to your provider's billing dashboard. Session-level stats in the header aggregate totals across all entries.
+Each brainstorm entry shows the participant's role, the model used, the phase and round number, and a clickable stats pill with token count, generation speed, duration, and estimated cost. Clicking the pill opens a detailed usage popover with per-million-token pricing and a link to your provider's billing dashboard. Session-level stats include brainstorm entries and follow-up Q&A. Unknown usage is not silently treated as zero.
 
 Completed sessions display a prominent Q&A card at the bottom of the timeline. If you've already had a Q&A conversation, it shows the model and message count and lets you resume directly. You can also start a new Q&A with a different model at any time.
 
@@ -90,7 +104,7 @@ Ships are custom AI workspaces that go beyond prompt templates. Each Ship is a f
 
 ### Building a Ship
 
-Open the Harbor section in the sidebar and click "Build Ship." The Ship Builder has five configuration tabs:
+Choose a harbor, then use the **Ships** section in the sidebar and click **Build your first Ship** or **+**. The Ship Builder has five configuration tabs:
 
 **Identity** — name, icon (30+ SF Symbols), accent color, and tagline. This is how the Ship appears in the sidebar and model picker.
 

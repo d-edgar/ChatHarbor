@@ -10,9 +10,20 @@ struct SidebarView: View {
     @EnvironmentObject var brainstormManager: BrainstormManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
-    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
-    @Query(sort: \Ship.updatedAt, order: .reverse) private var ships: [Ship]
+    @Query(sort: \Conversation.updatedAt, order: .reverse) private var allConversations: [Conversation]
+    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var allBrainstormSessions: [BrainstormSession]
+    @Query(sort: \Ship.updatedAt, order: .reverse) private var allShips: [Ship]
+    private var conversations: [Conversation] { allConversations.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    private var brainstormSessions: [BrainstormSession] { allBrainstormSessions.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    private var ships: [Ship] { allShips.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    @Query(sort: \Harbor.createdAt) private var harbors: [Harbor]
+    @State private var showingHarborName = false
+    @State private var renamingHarbor = false
+    @State private var harborName = ""
+    @State private var harborError: String?
+
+    private var activeHarbor: Harbor? { harbors.first { $0.id == chatManager.selectedHarborID } }
+
     @Binding var isExpanded: Bool
     @Binding var sidebarWidth: CGFloat
     @State private var showingAboutPopover = false
@@ -118,6 +129,37 @@ struct SidebarView: View {
 
             Divider()
 
+            Menu {
+                ForEach(harbors) { harbor in
+                    Button {
+                        chatManager.selectHarbor(harbor.id)
+                        searchText = ""
+                    } label: {
+                        if harbor.id == chatManager.selectedHarborID {
+                            Label(harbor.name, systemImage: "checkmark")
+                        } else {
+                            Text(harbor.name)
+                        }
+                    }
+                }
+                Divider()
+                Button("New Harbor…") {
+                    renamingHarbor = false
+                    harborName = ""
+                    showingHarborName = true
+                }
+                Button("Rename Harbor…") {
+                    renamingHarbor = true
+                    harborName = activeHarbor?.name ?? "Personal"
+                    showingHarborName = true
+                }
+            } label: {
+                Label(isExpanded ? (activeHarbor?.name ?? "Personal") : "", systemImage: "building.2.crop.circle")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .help("Switch harbor")
+            .padding(10)
+
             // MARK: - New Chat / Brainstorm Buttons
             if isExpanded {
                 HStack(spacing: 8) {
@@ -152,6 +194,7 @@ struct SidebarView: View {
                         let session = brainstormManager.createSession(
                             topic: "",
                             participants: [],
+                            harborID: chatManager.selectedHarborID,
                             in: modelContext
                         )
                         chatManager.selectedBrainstormId = session.id
@@ -200,6 +243,7 @@ struct SidebarView: View {
                         let session = brainstormManager.createSession(
                             topic: "",
                             participants: [],
+                            harborID: chatManager.selectedHarborID,
                             in: modelContext
                         )
                         chatManager.selectedBrainstormId = session.id
@@ -255,6 +299,7 @@ struct SidebarView: View {
                                         chatManager.selectedConversationId = fork.id
                                     }
                                     .contextMenu {
+                                        harborMoveMenu { moveConversationFamily(fork, to: $0) }
                                         Button {
                                             chatManager.selectedConversationId = conversation.id
                                         } label: {
@@ -331,6 +376,11 @@ struct SidebarView: View {
                                 chatManager.selectedBrainstormId = session.id
                             }
                             .contextMenu {
+                                harborMoveMenu { id in
+                                    let previous = session.harborID
+                                    session.harborID = id
+                                    saveMove(undo: { session.harborID = previous })
+                                }
                                 if session.hasQAConversation {
                                     Button {
                                         chatManager.selectedConversationId = nil
@@ -396,7 +446,7 @@ struct SidebarView: View {
                                     .font(.system(size: 10))
                                     .foregroundStyle(.secondary)
 
-                                Text("HARBOR")
+                                Text("SHIPS")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
@@ -408,6 +458,7 @@ struct SidebarView: View {
                         // Build new ship button
                         Button {
                             let newShip = Ship()
+                            newShip.harborID = chatManager.selectedHarborID
                             modelContext.insert(newShip)
                             editingShip = newShip
                             showingShipBuilder = true
@@ -432,6 +483,7 @@ struct SidebarView: View {
                         if ships.isEmpty {
                             Button {
                                 let newShip = Ship()
+                                newShip.harborID = chatManager.selectedHarborID
                                 modelContext.insert(newShip)
                                 editingShip = newShip
                                 showingShipBuilder = true
@@ -448,6 +500,12 @@ struct SidebarView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            Text("A reusable assistant with its own instructions, model, and reference material—like a Writing Coach.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 8)
                         } else {
                             ForEach(ships) { ship in
                                 ShipSidebarRow(
@@ -457,6 +515,11 @@ struct SidebarView: View {
                                     chatManager.selectedShipId = ship.id
                                 }
                                 .contextMenu {
+                                    harborMoveMenu { id in
+                                        let previous = ship.harborID
+                                        ship.harborID = id
+                                        saveMove(undo: { ship.harborID = previous })
+                                    }
                                     Button {
                                         editingShip = ship
                                         showingShipBuilder = true
@@ -565,6 +628,29 @@ struct SidebarView: View {
         }
         .frame(width: isExpanded ? sidebarWidth : 52)
         .background(chatManager.currentTheme.sidebarColor(for: colorScheme))
+        .task {
+            do {
+                let saved = try modelContext.fetch(FetchDescriptor<Harbor>())
+                if !saved.contains(where: { $0.id == Harbor.defaultID }) {
+                    modelContext.insert(Harbor(name: "Personal", id: Harbor.defaultID))
+                    try modelContext.save()
+                }
+                if chatManager.selectedHarborID != Harbor.defaultID && !saved.contains(where: { $0.id == chatManager.selectedHarborID }) {
+                    chatManager.selectHarbor(Harbor.defaultID)
+                }
+            } catch { harborError = error.localizedDescription }
+        }
+        .alert(renamingHarbor ? "Rename Harbor" : "New Harbor", isPresented: $showingHarborName) {
+            TextField("Name, e.g. Personal or Work", text: $harborName)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { saveHarborName() }
+                .disabled(harborName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .alert("Could not save harbor", isPresented: Binding(
+            get: { harborError != nil }, set: { if !$0 { harborError = nil } }
+        )) {
+            Button("OK") { harborError = nil }
+        } message: { Text(harborError ?? "") }
         .sheet(isPresented: $showingShipBuilder) {
             if let ship = editingShip {
                 ShipBuilderView(
@@ -586,6 +672,62 @@ struct SidebarView: View {
                 .environmentObject(chatManager)
                 .frame(minWidth: 600, minHeight: 500)
             }
+        }
+    }
+
+    private func saveHarborName() {
+        let name = harborName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if harbors.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame && (!renamingHarbor || $0.id != chatManager.selectedHarborID) }) {
+            harborError = "A harbor with that name already exists."
+            return
+        }
+        if renamingHarbor, let harbor = activeHarbor {
+            let previous = harbor.name
+            harbor.name = name
+            do { try modelContext.save() }
+            catch { harbor.name = previous; harborError = error.localizedDescription }
+        } else {
+            let harbor = Harbor(name: name)
+            modelContext.insert(harbor)
+            do {
+                try modelContext.save()
+                chatManager.selectHarbor(harbor.id)
+                searchText = ""
+            } catch {
+                modelContext.delete(harbor)
+                harborError = error.localizedDescription
+            }
+        }
+    }
+
+    private func harborMoveMenu(action: @escaping (UUID) -> Void) -> some View {
+        Menu("Move to Harbor") {
+            ForEach(harbors.filter { $0.id != chatManager.selectedHarborID }) { harbor in
+                Button(harbor.name) { action(harbor.id) }
+            }
+        }
+        .disabled(harbors.count < 2 || chatManager.isGenerating || brainstormManager.isRunning || brainstormManager.isQAStreaming)
+    }
+
+    private func saveMove(undo: () -> Void) {
+        do {
+            try modelContext.save()
+            chatManager.selectedConversationId = nil
+            chatManager.selectedBrainstormId = nil
+            chatManager.selectedShipId = nil
+        } catch {
+            undo()
+            harborError = error.localizedDescription
+        }
+    }
+
+    private func moveConversationFamily(_ conversation: Conversation, to id: UUID) {
+        let family = conversation.forkFamily(in: conversations)
+        let previous = family.map { $0.harborID }
+        family.forEach { $0.harborID = id }
+        saveMove {
+            for (conversation, oldID) in zip(family, previous) { conversation.harborID = oldID }
         }
     }
 
@@ -616,6 +758,7 @@ struct SidebarView: View {
             chatManager.selectedConversationId = conversation.id
         }
         .contextMenu {
+            harborMoveMenu { moveConversationFamily(conversation, to: $0) }
             if hasForks {
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {

@@ -8,9 +8,14 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openSettings) private var openSettingsFromContent
-    @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
-    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var brainstormSessions: [BrainstormSession]
-    @Query(sort: \Ship.updatedAt, order: .reverse) private var ships: [Ship]
+    @Query(sort: \Conversation.updatedAt, order: .reverse) private var allConversations: [Conversation]
+    @Query(sort: \BrainstormSession.updatedAt, order: .reverse) private var allBrainstormSessions: [BrainstormSession]
+    @Query(sort: \Ship.updatedAt, order: .reverse) private var allShips: [Ship]
+    private var conversations: [Conversation] { allConversations.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    private var brainstormSessions: [BrainstormSession] { allBrainstormSessions.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    private var ships: [Ship] { allShips.filter { Harbor.contains($0.harborID, in: chatManager.selectedHarborID) } }
+    @AppStorage("hasDismissedGettingStarted") private var hasDismissedGettingStarted = false
+    @State private var openModelsAfterTour = false
     @State private var sidebarExpanded: Bool = true
     @State private var sidebarWidth: CGFloat = 260
 
@@ -73,6 +78,24 @@ struct ContentView: View {
                 openSettingsFromContent()
             }
         }
+        .onChange(of: chatManager.isLaunching, initial: true) { _, launching in
+            if !launching && !hasDismissedGettingStarted {
+                chatManager.showingGettingStarted = true
+            }
+        }
+        .sheet(isPresented: $chatManager.showingGettingStarted, onDismiss: {
+            hasDismissedGettingStarted = true
+            if openModelsAfterTour {
+                openModelsAfterTour = false
+                chatManager.settingsTab = "models"
+                openSettingsFromContent()
+            }
+        }) {
+            GettingStartedView { connectModel in
+                openModelsAfterTour = connectModel
+                chatManager.showingGettingStarted = false
+            }
+        }
         .sheet(isPresented: $chatManager.showingCompareView) {
             CompareView()
                 .environmentObject(chatManager)
@@ -83,6 +106,62 @@ struct ContentView: View {
                 .environmentObject(chatManager)
                 .frame(minWidth: 600, minHeight: 500)
         }
+    }
+}
+
+// MARK: - Getting Started
+
+private struct GettingStartedView: View {
+    let finish: (Bool) -> Void
+    @State private var step = 0
+
+    private let pages: [(title: String, icon: String, text: String)] = [
+        ("Connect your AI", "desktopcomputer",
+         "Use Ollama or LM Studio to run downloaded models on your Mac, or connect a cloud provider with your API key. Set up your connection in Models & Providers, then choose a model to chat."),
+        ("Organize with Harbors", "building.2.crop.circle",
+         "Keep Personal, Work, and other areas separate. Each harbor holds its own chats, ships, and brainstorms. Use the sidebar harbor menu to switch or create one. Right-click an item to move it. Model connections stay shared."),
+        ("Build a Ship", "sailboat",
+         "A Ship is a reusable assistant with its own instructions, model, and reference material. Build a Writing Coach or Work Research assistant, then keep its conversations together. Choose Build your first Ship in the sidebar."),
+        ("Chat or Brainstorm", "brain.head.profile",
+         "Chat with one model, or assign models to roles in a brainstorm. Explore ideas, shortlist the strongest options, and review disagreements. Every role can use a local model—even the same model in different roles. Compare Models lets you compare replies side by side.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Getting Started").font(.headline)
+                Spacer()
+                Text("Step \(step + 1) of \(pages.count)").foregroundStyle(.secondary)
+            }
+            Label(pages[step].title, systemImage: pages[step].icon)
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+            Text(pages[step].text)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
+            if step == 0 {
+                Button("Open Models & Providers") { finish(true) }
+            }
+            Text("You can reopen this tour from Help → Getting Started.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider()
+            HStack {
+                Button("Skip") { finish(false) }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Back") { step -= 1 }
+                    .disabled(step == 0)
+                if step < pages.count - 1 {
+                    Button("Next") { step += 1 }
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Connect a Model") { finish(true) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(28)
+        .frame(width: 500)
     }
 }
 
