@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatHarbor — One Native App for All Your AI</title>
-    <meta name="description" content="A native macOS app that brings Apple Intelligence, Ollama, OpenAI, Anthropic, Google Gemini, and custom endpoints together in one window. Compare models, fork conversations, full parameter transparency.">
+    <title>ChatHarbor — Compare AI models. Work through ideas.</title>
+    <meta name="description" content="A native macOS app for comparing AI models and structured brainstorming. Shortlist ideas, review disagreements, and save a decision brief.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -422,7 +422,7 @@
             </svg>
         </div>
         <h1>ChatHarbor</h1>
-        <p class="tagline">One native app for all your AI.</p>
+        <p class="tagline">Compare AI models. Work through ideas.</p>
         <a href="https://github.com/d-edgar/ChatHarbor/releases/latest" class="download-btn" aria-label="Download ChatHarbor">
             <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06Z"/></svg>
             Download for macOS
@@ -432,7 +432,7 @@
 
     <main>
         <div class="providers reveal reveal-d1">
-            <div class="provider-badge"><span class="dot dot-apple"></span> Apple Intelligence</div>
+            <div class="provider-badge"><span class="dot dot-apple"></span> Apple Intelligence (source builds)</div>
             <div class="provider-badge"><span class="dot dot-ollama"></span> Ollama</div>
             <div class="provider-badge"><span class="dot dot-openai"></span> OpenAI</div>
             <div class="provider-badge"><span class="dot dot-anthropic"></span> Anthropic</div>
@@ -441,20 +441,19 @@
         </div>
 
         <p class="description reveal reveal-d2">
-            Chat with Apple Intelligence, Ollama, OpenAI, Anthropic, Google Gemini, and any OpenAI compatible endpoint side by side in one native macOS window.
-            Compare responses across models, fork conversations, and keep full control over every parameter sent to the API.
+            Chat with cloud or local models in one native Mac app. Compare answers side by side, shortlist ideas, review disagreements, and turn a brainstorm into a decision brief.
         </p>
 
         <div class="features">
             <div class="feature reveal reveal-d1">
                 <div class="feature-icon">&#9878;&#65039;</div>
                 <h3>Multi-Provider</h3>
-                <p>Six providers, one app. Run local models with Ollama and Apple Intelligence, connect to OpenAI, Anthropic, and Google Gemini via API, or add any OpenAI compatible endpoint like LM Studio, LocalAI, or Open WebUI. Switch between them freely.</p>
+                <p>Connect to OpenAI, Anthropic, Google Gemini, Ollama, or a custom OpenAI-compatible server. Bring your own API keys or run models locally. Cloud providers may charge for API usage.</p>
             </div>
             <div class="feature reveal reveal-d2">
                 <div class="feature-icon">&#128202;</div>
                 <h3>Compare Models</h3>
-                <p>Send the same prompt to 2&ndash;4 models simultaneously and see responses side by side. Cross-provider, real-time streaming, with token and speed metrics.</p>
+                <p>Send the same prompt to 2&ndash;4 models simultaneously and see responses side by side. Compare token usage, speed, and estimated USD cost. Unknown rates are shown as “Cost unavailable.”</p>
             </div>
             <div class="feature reveal reveal-d3">
                 <div class="feature-icon">&#128268;</div>
@@ -464,7 +463,7 @@
             <div class="feature reveal reveal-d4">
                 <div class="feature-icon">&#128065;</div>
                 <h3>Full Transparency</h3>
-                <p>See exactly what's being sent to the API. System prompts, temperature, max tokens, top_p &mdash; every parameter is visible, adjustable, and copyable. No hidden magic.</p>
+                <p>Inspect prompts and generation settings, including temperature and token limits. Supported settings vary by provider. Usage figures and prices are estimates, not billing totals.</p>
             </div>
             <div class="feature reveal reveal-d5">
                 <div class="feature-icon">&#128218;</div>
@@ -482,18 +481,18 @@
             <div class="brainstorm-icon">&#129504;</div>
             <div class="brainstorm-text">
                 <h3>Multi-Model Brainstorming</h3>
-                <p>Run structured brainstorm sessions with multiple AI models playing different roles. Six Hats, SCAMPER, Starbursting, and more. Each model brings a distinct perspective, with automatic phase progression from ideation through synthesis.</p>
+                <p>Choose Osborn, Six Thinking Hats, Reverse Brainstorm, Round Robin, or a custom role setup. Shortlist ideas, review disagreements and assumptions, then save a decision brief with a proposed experiment. Record your decision and outcomes, ask follow-up questions, or export to Markdown and PDF.</p>
             </div>
-            <span class="brainstorm-tag">New in v2</span>
+            <span class="brainstorm-tag">Shortlist &amp; decide</span>
         </div>
 
         <div class="brainstorm-banner reveal">
             <div class="brainstorm-icon">&#9973;</div>
             <div class="brainstorm-text">
                 <h3>Ships &amp; Harbor</h3>
-                <p>Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base, and conversation history. Load URLs, documents, and reference text as Cargo. Ships appear in the sidebar and work everywhere &mdash; chat, brainstorm, compare. Like custom GPTs, but for every provider.</p>
+                <p>Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base, and conversation history. Load URLs, documents, and reference text as Cargo. Open a Ship from the sidebar to start conversations using its saved configuration.</p>
             </div>
-            <span class="brainstorm-tag">New in v2.2</span>
+            <span class="brainstorm-tag">Reusable workspaces</span>
         </div>
 
         <div class="highlight reveal">
@@ -501,8 +500,13 @@
             <h3>Private by Default</h3>
             <p>
                 All conversations are stored locally on your Mac using SwiftData. API keys are secured in your macOS Keychain.
-                Local models with Ollama and Apple Intelligence work completely offline &mdash; no data leaves your machine.
+                Prompts and included context go to the provider or endpoint you select. Ollama running on your Mac can process chats locally; remote servers and cloud providers receive the content you send them.
             </p>
+        </div>
+        <div class="highlight">
+            <h3>Requirements</h3>
+            <p>macOS 14 or later. Connect a model server or add a provider API key. Released downloads are signed and notarized; no Xcode is needed to install them.</p>
+            <p>Apple Intelligence is available in source builds made with Xcode 26+, on compatible Apple Silicon Macs with macOS 26+ and Apple Intelligence enabled. The v2.2.3 download uses Xcode 16.4 and does not include this provider.</p>
         </div>
     </main>
 

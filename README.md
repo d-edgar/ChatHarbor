@@ -4,18 +4,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-brightgreen)](https://github.com/d-edgar/ChatHarbor/releases/latest)
 
-One native macOS app for all your AI. Chat with Claude, GPT, local models, and Apple Intelligence — or pit them against each other side by side. Brainstorm with structured creative frameworks. Built with SwiftUI and SwiftData. No Electron, no browser tabs, no switching apps.
+A native macOS app for comparing AI models and working through ideas. Chat with cloud or local models, shortlist ideas, review disagreements, and turn a brainstorm into a decision brief. Built with SwiftUI and SwiftData.
 
 ## Why ChatHarbor?
 
-You can't use Claude next to GPT. Every provider locks you into their own UI. If you want to compare answers, you're copying prompts between browser tabs. ChatHarbor fixes that.
+ChatHarbor puts conversations, model comparisons, and structured brainstorming in one Mac app. Bring your own API keys or connect to a local model server.
 
 It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropic, Google Gemini, and Apple Intelligence through a single interface. Same conversation UI, same streaming, same keyboard shortcuts — regardless of which AI you're talking to.
 
 ## What Makes ChatHarbor Different
 
-- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use on-device Apple Intelligence for free.
-- **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports five built-in methods plus fully custom frameworks. See [Brainstorm Mode](#brainstorm-mode) below.
+- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the v2.2.3 release is built with Xcode 16.4 and does not include that provider.
+- **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports four built-in methods plus a custom role setup. See [Brainstorm Mode](#brainstorm-mode) below.
 - **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, input/output usage, speed, and estimated USD cost. Cost estimates use the built-in pricing table; models without a matching rate show “Cost unavailable.”
 - **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
 - **Token & cost transparency**: Every response shows token count, estimated cost, and generation time. Click for a full usage breakdown per message and per conversation.
@@ -33,7 +33,7 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 | **Anthropic** | Cloud | Claude Opus/Sonnet/Haiku | Add API key in Settings |
 | **Google Gemini** | Cloud | Gemini 2.5 Pro/Flash, 2.0 Flash | Add API key in Settings |
 | **Custom Endpoints** | Any | Any OpenAI-compatible server | Add URL in Settings |
-| **Apple Intelligence** | On-device | macOS 26+ built-in models | No setup — just works |
+| **Apple Intelligence** | On-device | Foundation Models (source builds with Xcode 26+) | Compatible Apple Silicon Mac, macOS 26+, Apple Intelligence enabled |
 
 ### Custom Endpoints
 
@@ -45,8 +45,8 @@ Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Inste
 
 ### How It Works
 
-1. **Pick a method.** Choose from five built-in frameworks or create your own. Each method defines a set of phases the session progresses through automatically.
-2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so participants genuinely argue from different angles. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
+1. **Pick a method.** Choose from four built-in methods or configure your own participant roles with Custom. Each method defines a set of phases the session progresses through automatically.
+2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so you can compare responses from different perspectives. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
 3. **Run and shortlist.** Review contributions at each checkpoint and add direction. Use **Your shortlist** to write or paste the ideas you want evaluated, one per line. Leave it blank to evaluate all ideas. Round Robin participants see earlier contributions in the same round.
 4. **Review disagreements.** Before the decision brief, each enabled participant except the Scribe identifies a consequential disagreement or unresolved assumption and proposes a small test. Review this pass before continuing. The shortlist and disagreements are included in the final brief, exports, and follow-up Q&A.
 5. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
@@ -61,7 +61,7 @@ Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Inste
 | **Six Thinking Hats** | Framing → Hat Perspectives → Disagreements → Decision Brief | Structured parallel thinking from multiple perspectives |
 | **Reverse Brainstorm** | Framing → Anti-ideation → Evaluation → Disagreements → Decision Brief | Finding solutions by first brainstorming ways to cause the problem |
 | **Round Robin** | Framing → Sequential Rounds → Disagreements → Decision Brief | Ensuring every participant contributes equally |
-| **Custom** | You define the phases | Whatever structure fits your problem |
+| **Custom** | Framing → Ideation → Evaluation → Disagreements → Decision Brief | Choose your own participant roles |
 
 ### Session Features
 
@@ -121,7 +121,7 @@ Click a Ship in the sidebar to enter its workspace. Every conversation inherits 
   - An [OpenAI](https://platform.openai.com/api-keys) API key for GPT models
   - An [Anthropic](https://console.anthropic.com/settings/keys) API key for Claude models
   - A [Google AI Studio](https://aistudio.google.com/apikey) API key for Gemini models
-  - macOS 26+ for Apple Intelligence (no API key needed)
+  - A source build with Xcode 26+ on a compatible Apple Silicon Mac running macOS 26+ for Apple Intelligence (enable it in System Settings and ChatHarbor Settings)
 
 ## Installation
 
@@ -188,7 +188,7 @@ ChatHarbor/
 
 ## How It Works
 
-ChatHarbor uses a unified `LLMProvider` protocol that all five providers conform to. Each provider handles its own API format (Ollama's `/api/chat`, OpenAI's `/v1/chat/completions`, Anthropic's `/v1/messages`, Google's Gemini `generativelanguage` API, Apple Intelligence's on-device framework) but they all stream through the same interface. This means the compare view, conversation forking, brainstorming, and export work identically across providers. Conversations are persisted locally using SwiftData. API keys are stored securely in the macOS Keychain.
+ChatHarbor uses a unified `LLMProvider` protocol that the providers conform to. Each provider handles its own API format (Ollama's `/api/chat`, OpenAI's `/v1/chat/completions`, Anthropic's `/v1/messages`, Google's Gemini `generativelanguage` API, Apple Intelligence's on-device framework) but they all stream through the same interface. This means the compare view, conversation forking, brainstorming, and export work identically across providers. Conversations are persisted locally using SwiftData. API keys are stored securely in the macOS Keychain.
 
 ## Contributing
 

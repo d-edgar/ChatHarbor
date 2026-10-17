@@ -190,7 +190,7 @@
         <header>
             <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
             <h1>Privacy Policy</h1>
-            <p class="effective">Effective date: March 15, 2026</p>
+            <p class="effective">Effective date: October 17, 2026</p>
         </header>
 
         <main>
@@ -204,7 +204,7 @@
             <p>
                 ChatHarbor is a native macOS application that lets you chat with AI models from multiple
                 providers &mdash; Apple Intelligence (on-device), Ollama (local), OpenAI (cloud), and
-                Anthropic (cloud). The App sends your messages directly to the provider you select and
+                Anthropic and Google Gemini (cloud), and custom OpenAI-compatible endpoints. The App sends your messages directly to the provider you select and
                 displays the response. ChatHarbor itself does not operate as an intermediary or relay.
             </p>
 
@@ -228,21 +228,23 @@
             <ul>
                 <li><strong>Conversations and messages</strong> are persisted using SwiftData in your Application Support directory.</li>
                 <li><strong>Preferences</strong> (selected theme, default model, appearance mode, prompt templates) are stored in macOS UserDefaults.</li>
-                <li><strong>API keys</strong> for OpenAI and Anthropic are stored locally in UserDefaults on your device. Keychain migration is planned for a future release.</li>
+                <li><strong>API keys</strong> are stored in macOS Keychain. Older custom-endpoint credentials are removed from UserDefaults after a successful migration to Keychain. If migration fails, the App retains the original credentials and displays an error so they are not lost.</li>
             </ul>
             <p>
-                This data never leaves your device and is not accessible to anyone other than you.
+                Stored conversation history remains on your Mac. When you send a request, messages and relevant context (including Ship reference material or brainstorm entries) are sent to the selected provider. Exports are saved where you choose.
             </p>
 
             <h2>Cloud API Providers</h2>
             <p>
-                When you use OpenAI or Anthropic models, your messages are sent directly from your Mac to
+                When you use OpenAI, Anthropic, Google Gemini, or a remote custom endpoint, your messages and included context are sent directly from your Mac to
                 the provider's API servers. These communications are governed by the respective provider's
                 privacy policy and terms of service:
             </p>
             <ul>
                 <li><a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI Privacy Policy</a></li>
                 <li><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic Privacy Policy</a></li>
+                <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
+                <li>Custom endpoints follow the policies of the server operator you choose.</li>
             </ul>
             <p>
                 ChatHarbor has no control over and assumes no responsibility for the data practices of
@@ -251,9 +253,11 @@
 
             <h2>Local &amp; On-Device Models</h2>
             <p>
-                When you use Apple Intelligence or Ollama models, all processing happens entirely on your
-                Mac. No data is sent to any external server. These providers work completely offline.
+                Ollama running on your Mac processes model requests locally once the model is downloaded. A remote Ollama server receives the prompts you send it. Apple Intelligence, when available in a compatible source build, processes model requests on device. Fetching URL reference material or downloading models still requires a network connection.
             </p>
+
+            <h2>Website Analytics</h2>
+            <p>This website uses GoatCounter for visitor statistics. This is separate from the App, which does not include that website analytics script. See <a href="https://www.goatcounter.com/privacy">GoatCounter’s privacy policy</a>.</p>
 
             <h2>Children's Privacy</h2>
             <p>
