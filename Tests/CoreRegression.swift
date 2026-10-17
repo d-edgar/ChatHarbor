@@ -59,6 +59,32 @@ struct CoreRegression {
         precondition(UsageFormatting.cost(nil) == "Cost unavailable")
         precondition(UsageFormatting.cost(0).contains("$0"))
         precondition(UsageFormatting.cost(0.00123).contains("0.00123"))
+        let openAI = TokenUsage.openAI([
+            "prompt_tokens": 100, "completion_tokens": 40,
+            "prompt_tokens_details": ["cached_tokens": 60],
+            "completion_tokens_details": ["reasoning_tokens": 25]
+        ])
+        precondition(openAI.total == 140 && openAI.reasoning == 25 && openAI.cachedInput == 60)
+        let claude = TokenUsage.anthropic(["input_tokens": 10, "output_tokens": 20,
+            "cache_read_input_tokens": 100, "cache_creation_input_tokens": 30])
+        precondition(claude.input == 140 && claude.total == 160)
+        let gemini = TokenUsage.gemini(["promptTokenCount": 100, "candidatesTokenCount": 20,
+            "thoughtsTokenCount": 40, "cachedContentTokenCount": 80])
+        precondition(gemini.output == 60 && gemini.total == 160 && gemini.cachedInput == 80)
+        let zero = TokenUsage.openAI(["prompt_tokens": 0, "completion_tokens": 0])
+        precondition(zero.total == 0 && zero.label(zero.output) == "0")
+        let missing = TokenUsage.openAI([:])
+        precondition(missing.total == nil && missing.summary == "— in · — out")
+        precondition(TokenUsage.count(-1) == nil && TokenUsage.count(true) == nil && TokenUsage.count(1.5) == nil)
+        precondition(TokenUsage.sum([Int.max, 1]) == nil)
+        precondition(TokenUsage.combined([openAI, missing]).total == nil, "Missing usage must not become free tokens")
+        let estimate = TokenUsage(input: 10, output: 4, isEstimated: true)
+        precondition(estimate.summary == "~10 in · ~4 out")
+        precondition(TokenUsage.combined([zero, estimate]).isEstimated)
+        precondition(TokenUsage.restore(estimate.encoded, input: nil, output: nil) == estimate)
+        precondition(TokenUsage.restore(nil, input: 0, output: 4).input == nil)
+        precondition(TokenUsage.restore(nil, input: 3, output: 4).isEstimated)
+        print("PASS: usage parsing, cache/thinking totals, missing/zero/estimated counts, and safe aggregation")
         print("PASS: credential migration, endpoint routing, credential lifecycle, HTML escaping, and cost labels")
     }
 }

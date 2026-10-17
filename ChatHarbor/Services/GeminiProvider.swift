@@ -232,8 +232,7 @@ final class GeminiProvider: LLMProvider {
 
         // Parse SSE stream
         var fullContent = ""
-        var inputTokens = 0
-        var outputTokens = 0
+        var tokenUsage = TokenUsage()
 
         for try await line in bytes.lines {
             // Gemini SSE: "data: {...}" lines
@@ -259,12 +258,7 @@ final class GeminiProvider: LLMProvider {
 
             // Extract usage metadata
             if let usageMetadata = json["usageMetadata"] as? [String: Any] {
-                if let promptTokens = usageMetadata["promptTokenCount"] as? Int {
-                    inputTokens = promptTokens
-                }
-                if let candidateTokens = usageMetadata["candidatesTokenCount"] as? Int {
-                    outputTokens = candidateTokens
-                }
+                tokenUsage = TokenUsage.gemini(usageMetadata)
             }
         }
 
@@ -272,8 +266,7 @@ final class GeminiProvider: LLMProvider {
 
         return ChatResult(
             content: fullContent,
-            tokenCount: outputTokens,
-            inputTokenCount: inputTokens,
+            usage: tokenUsage,
             durationMs: elapsed,
             model: model,
             providerId: providerId

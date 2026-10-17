@@ -325,6 +325,7 @@ class ChatManager: ObservableObject {
             )
             copy.tokenCount = msg.tokenCount
             copy.inputTokenCount = msg.inputTokenCount
+            copy.usageData = msg.usageData
             copy.durationMs = msg.durationMs
             fork.messages.append(copy)
 
@@ -410,16 +411,17 @@ class ChatManager: ObservableObject {
                 assistantMessage.isStreaming = false
                 assistantMessage.tokenCount = result.tokenCount
                 assistantMessage.inputTokenCount = result.inputTokenCount
+                assistantMessage.usageData = result.usage.encoded
                 assistantMessage.durationMs = result.durationMs
                 assistantMessage.modelUsed = modelToUse
                 conversation.updatedAt = Date()
                 try? context.save()
             } catch {
+                assistantMessage.isStreaming = false
                 if !Task.isCancelled {
                     assistantMessage.content = "Error: \(error.localizedDescription)"
-                    assistantMessage.isStreaming = false
-                    try? context.save()
                 }
+                try? context.save()
             }
 
             isGenerating = false
@@ -476,8 +478,9 @@ class ChatManager: ObservableObject {
                 guard let self = self, self.compareRunID == requestID, index < self.compareSlots.count else { return }
                 self.compareSlots[index].isStreaming = false
                 self.compareSlots[index].inputTokenCount = result.inputTokenCount
+                self.compareSlots[index].usageData = result.usage.encoded
                 self.compareSlots[index].estimatedCost = self.providers.costForMessage(
-                    modelId: qualifiedModelIds[index], inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
+                    modelId: qualifiedModelIds[index], usage: result.usage)
                 self.compareSlots[index].tokenCount = result.tokenCount
                 self.compareSlots[index].durationMs = result.durationMs
 
@@ -539,9 +542,9 @@ class ChatManager: ObservableObject {
                 let modelLabel = model.isEmpty ? "Assistant" : model
                 md += "### \(modelLabel)\n\n\(message.content)\n\n"
 
-                if let tokens = message.tokenCount, let duration = message.durationMs {
-                    let tps = duration > 0 ? String(format: "%.1f tok/s", Double(tokens) / (duration / 1000.0)) : ""
-                    md += "*\(tokens) tokens · \(Self.formatDuration(duration))\(tps.isEmpty ? "" : " · \(tps)")*\n\n"
+                md += "*\(message.usage.summary) · \(message.usage.details)*\n\n"
+                if let duration = message.durationMs {
+                    md += "*\(Self.formatDuration(duration)) · \(message.usage.speed(durationMs: duration)) tokens*\n\n"
                 }
             }
         }

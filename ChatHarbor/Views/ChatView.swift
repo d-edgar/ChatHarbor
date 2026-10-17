@@ -421,14 +421,8 @@ struct MessageRow: View {
 
     /// Estimated cost for this message
     private var messageCost: Double? {
-        guard let outputTokens = message.tokenCount else { return nil }
-        let inputTokens = message.inputTokenCount ?? 0
         let modelId = message.modelUsed ?? message.conversation?.modelId ?? chatManager.selectedModelId
-        return chatManager.providers.costForMessage(
-            modelId: modelId,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens
-        )
+        return chatManager.providers.costForMessage(modelId: modelId, usage: message.usage)
     }
 
     var body: some View {
@@ -482,8 +476,7 @@ struct MessageRow: View {
                 }
 
                 // Clickable token/cost pill — show whenever any metadata exists
-                if !isUser, !message.isStreaming,
-                   (message.tokenCount != nil || message.durationMs != nil) {
+                if !isUser, !message.isStreaming {
                     Button {
                         showUsagePopover = true
                     } label: {
@@ -491,21 +484,11 @@ struct MessageRow: View {
                             Image(systemName: "chart.bar.fill")
                                 .font(.system(size: 8))
 
-                            if let tokens = message.tokenCount, tokens > 0 {
-                                Text("\(tokens) tokens")
-                            } else if let duration = message.durationMs, duration > 0 {
-                                // No token count — lead with duration instead
-                                Text(formatDuration(duration))
-                            }
-
-                            if let tokens = message.tokenCount, tokens > 0,
-                               let cost = messageCost {
-                                Text("·")
-                                Text(UsageFormatting.cost(cost))
-                            }
-
-                            if let tokens = message.tokenCount, tokens > 0,
-                               let duration = message.durationMs, duration > 0 {
+                            Text(message.usage.summary)
+                                .help(message.usage.details)
+                            Text("·")
+                            Text(UsageFormatting.cost(messageCost))
+                            if let duration = message.durationMs, duration > 0 {
                                 Text("·")
                                 Text(formatDuration(duration))
                             }
@@ -582,44 +565,18 @@ struct UsagePopoverView: View {
         chatManager.providers.pricingInfo(for: qualifiedModelId)
     }
 
-    // This message stats
-    private var outputTokens: Int { message.tokenCount ?? 0 }
-    private var inputTokens: Int { message.inputTokenCount ?? 0 }
+    private var usage: TokenUsage { message.usage }
     private var messageCost: Double? {
-        chatManager.providers.costForMessage(
-            modelId: qualifiedModelId,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens
-        )
-    }
-    private var tokensPerSecond: Double? {
-        guard let dur = message.durationMs, outputTokens > 0, dur > 0 else { return nil }
-        return Double(outputTokens) / (dur / 1000.0)
+        chatManager.providers.costForMessage(modelId: qualifiedModelId, usage: usage)
     }
 
-    // Conversation totals
-    private var conversationStats: (inputTokens: Int, outputTokens: Int, cost: Double?, messageCount: Int) {
-        guard let conv = conversation else { return (0, 0, 0, 0) }
-        var totalIn = 0
-        var totalOut = 0
-        var totalCost: Double? = 0
-        var msgCount = 0
-
-        for msg in conv.sortedMessages where msg.role == .assistant {
-            let outTok = msg.tokenCount ?? 0
-            let inTok = msg.inputTokenCount ?? 0
-            totalOut += outTok
-            totalIn += inTok
-            msgCount += 1
-
-            let mid = msg.modelUsed ?? conv.modelId
-            if let cost = chatManager.providers.costForMessage(modelId: mid, inputTokens: inTok, outputTokens: outTok) {
-                if let subtotal = totalCost { totalCost = subtotal + cost }
-            } else {
-                totalCost = nil
-            }
+    private var conversationStats: (usage: TokenUsage, cost: Double?, messageCount: Int) {
+        let messages = conversation?.sortedMessages.filter { $0.role == .assistant && !$0.isStreaming } ?? []
+        let costs = messages.map {
+            chatManager.providers.costForMessage(modelId: $0.modelUsed ?? conversation?.modelId ?? "", usage: $0.usage)
         }
-        return (totalIn, totalOut, totalCost, msgCount)
+        return (TokenUsage.combined(messages.map(\.usage)),
+                costs.contains(where: { $0 == nil }) ? nil : costs.compactMap { $0 }.reduce(0, +), messages.count)
     }
 
     var body: some View {
@@ -644,6 +601,7 @@ struct UsagePopoverView: View {
 
             // This Message section
             VStack(alignment: .leading, spacing: 8) {
+                Text(usage.details).font(.caption2).foregroundStyle(.secondary)
                 Text("THIS MESSAGE")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
@@ -651,17 +609,17 @@ struct UsagePopoverView: View {
                 HStack(spacing: 0) {
                     UsageStatColumn(
                         label: "Input",
-                        value: inputTokens > 0 ? "\(formatTokens(inputTokens))" : "—",
+                        value: usage.label(usage.input),
                         icon: "arrow.up.circle"
                     )
                     UsageStatColumn(
                         label: "Output",
-                        value: "\(formatTokens(outputTokens))",
+                        value: usage.label(usage.output),
                         icon: "arrow.down.circle"
                     )
                     UsageStatColumn(
                         label: "Speed",
-                        value: tokensPerSecond.map { String(format: "%.1f/s", $0) } ?? "—",
+                        value: usage.speed(durationMs: message.durationMs),
                         icon: "bolt"
                     )
                     UsageStatColumn(
@@ -679,24 +637,24 @@ struct UsagePopoverView: View {
             // Conversation Totals section
             VStack(alignment: .leading, spacing: 8) {
                 let stats = conversationStats
-                Text("CONVERSATION (\(stats.messageCount) responses)")
+                Text("SAVED RESPONSES (\(stats.messageCount))")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 0) {
                     UsageStatColumn(
                         label: "Input",
-                        value: stats.inputTokens > 0 ? "\(formatTokens(stats.inputTokens))" : "—",
+                        value: stats.usage.label(stats.usage.input),
                         icon: "arrow.up.circle"
                     )
                     UsageStatColumn(
                         label: "Output",
-                        value: "\(formatTokens(stats.outputTokens))",
+                        value: stats.usage.label(stats.usage.output),
                         icon: "arrow.down.circle"
                     )
                     UsageStatColumn(
                         label: "Total",
-                        value: "\(formatTokens(stats.inputTokens + stats.outputTokens))",
+                        value: stats.usage.label(stats.usage.total),
                         icon: "sum"
                     )
                     UsageStatColumn(
@@ -796,16 +754,6 @@ struct UsagePopoverView: View {
         }
         .frame(width: 320)
     }
-
-    private func formatTokens(_ count: Int) -> String {
-        if count >= 1_000_000 {
-            return String(format: "%.1fM", Double(count) / 1_000_000.0)
-        } else if count >= 10_000 {
-            return String(format: "%.1fK", Double(count) / 1000.0)
-        }
-        return "\(count)"
-    }
-
 }
 
 // MARK: - Usage Stat Column

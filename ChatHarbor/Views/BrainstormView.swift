@@ -617,25 +617,25 @@ struct BrainstormView: View {
 
     /// Summary stats for the session
     private var sessionStats: some View {
-        let entries = session.sortedEntries.filter { !$0.isUserInput && $0.error == nil }
-        let totalTokens = entries.compactMap(\.tokenCount).reduce(0, +)
-        let totalInputTokens = entries.compactMap(\.inputTokenCount).reduce(0, +)
-        let totalDuration = entries.compactMap(\.durationMs).reduce(0, +)
-        let entryCount = entries.count
+        let entries = session.sortedEntries.filter { !$0.isUserInput && !$0.isStreaming }
+        let qa = session.qaMessages.filter { !$0.isUser }
+        let usage = TokenUsage.combined(entries.map(\.usage) + qa.map(\.usage))
+        let totalDuration = entries.compactMap(\.durationMs).reduce(0, +) + qa.compactMap(\.durationMs).reduce(0, +)
+        let entryCount = entries.count + qa.count
         let costs = entries.map { entry -> Double? in
             guard let modelId = entry.qualifiedModelId else { return nil }
-            return chatManager.providers.costForMessage(
-                modelId: modelId,
-                inputTokens: entry.inputTokenCount ?? 0,
-                outputTokens: entry.tokenCount ?? 0
-            )
+            return chatManager.providers.costForMessage(modelId: modelId, usage: entry.usage)
+        } + qa.map { message -> Double? in
+            guard let modelId = message.qualifiedModelId else { return nil }
+            return chatManager.providers.costForMessage(modelId: modelId, usage: message.usage)
         }
         let totalCost = costs.contains(where: { $0 == nil }) ? nil : costs.compactMap { $0 }.reduce(0, +)
 
         return HStack(spacing: 12) {
             if entryCount > 0 {
-                Label("\(entryCount) responses", systemImage: "text.bubble")
-                Label("\(totalTokens + totalInputTokens) tokens", systemImage: "number")
+                Label("\(entryCount) saved responses", systemImage: "text.bubble")
+                Label("\(usage.label(usage.total)) tokens", systemImage: "number")
+                    .help(usage.details + " · Totals cover saved responses, including Q&A; not a billing ledger of retries.")
                 if totalDuration > 0 {
                     Label(ChatManager.formatDuration(totalDuration), systemImage: "clock")
                 }
@@ -659,25 +659,13 @@ struct BrainstormView: View {
 
     /// Pre-compute stat parts for a brainstorm entry (avoids recalculating in child views)
     private func buildStatParts(for entry: BrainstormEntry) -> [String] {
-        var parts: [String] = []
-        if let tokens = entry.tokenCount, tokens > 0 {
-            parts.append("\(tokens) tok")
-        }
-        if let tokens = entry.tokenCount, let ms = entry.durationMs,
-           tokens > 0, ms > 0 {
-            parts.append(String(format: "%.1f tok/s", Double(tokens) / (ms / 1000.0)))
-        }
+        var parts = [entry.usage.summary]
         if let ms = entry.durationMs, ms > 0 {
+            parts.append(entry.usage.speed(durationMs: ms))
             parts.append(ChatManager.formatDuration(ms))
         }
-        if let modelId = entry.qualifiedModelId,
-           let cost = chatManager.providers.costForMessage(
-               modelId: modelId,
-               inputTokens: entry.inputTokenCount ?? 0,
-               outputTokens: entry.tokenCount ?? 0
-           ), cost > 0 {
-            parts.append(UsageFormatting.cost(cost))
-        }
+        let cost = entry.qualifiedModelId.flatMap { chatManager.providers.costForMessage(modelId: $0, usage: entry.usage) }
+        parts.append(UsageFormatting.cost(cost))
         return parts
     }
 
@@ -710,6 +698,9 @@ struct BrainstormView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Q&A Mode")
                                 .font(.system(size: 13, weight: .semibold))
+                            Text("Uses condensed context; your report keeps the full transcript.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
 
                             if let modelId = brainstormManager.qaModelId {
                                 let info = chatManager.providers.providerInfo(for: modelId)
@@ -1071,8 +1062,7 @@ struct BrainstormEntryCard: View {
             }
 
             // Stats pill — clickable, opens usage popover
-            if !entry.isStreaming, entry.error == nil, !entry.isUserInput,
-               (entry.tokenCount != nil || entry.durationMs != nil) {
+            if !entry.isStreaming, !entry.isUserInput {
                 Button {
                     showUsagePopover = true
                 } label: {
@@ -1187,19 +1177,10 @@ struct BrainstormUsagePopoverView: View {
     private var pricing: (input: Double, output: Double)? {
         providers.pricingInfo(for: qualifiedModelId)
     }
-    private var outputTokens: Int { entry.tokenCount ?? 0 }
-    private var inputTokens: Int { entry.inputTokenCount ?? 0 }
+    private var usage: TokenUsage { entry.usage }
     private var messageCost: Double? {
         guard !qualifiedModelId.isEmpty else { return nil }
-        return providers.costForMessage(
-            modelId: qualifiedModelId,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens
-        )
-    }
-    private var tokensPerSecond: Double? {
-        guard let dur = entry.durationMs, outputTokens > 0, dur > 0 else { return nil }
-        return Double(outputTokens) / (dur / 1000.0)
+        return providers.costForMessage(modelId: qualifiedModelId, usage: usage)
     }
 
     var body: some View {
@@ -1224,6 +1205,7 @@ struct BrainstormUsagePopoverView: View {
 
             // Stats
             VStack(alignment: .leading, spacing: 8) {
+                Text(usage.details).font(.caption2).foregroundStyle(.secondary)
                 Text("THIS ENTRY")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
@@ -1231,17 +1213,17 @@ struct BrainstormUsagePopoverView: View {
                 HStack(spacing: 0) {
                     UsageStatColumn(
                         label: "Input",
-                        value: inputTokens > 0 ? "\(formatTokens(inputTokens))" : "—",
+                        value: usage.label(usage.input),
                         icon: "arrow.up.circle"
                     )
                     UsageStatColumn(
                         label: "Output",
-                        value: outputTokens > 0 ? "\(formatTokens(outputTokens))" : "—",
+                        value: usage.label(usage.output),
                         icon: "arrow.down.circle"
                     )
                     UsageStatColumn(
                         label: "Speed",
-                        value: tokensPerSecond.map { String(format: "%.1f/s", $0) } ?? "—",
+                        value: usage.speed(durationMs: entry.durationMs),
                         icon: "bolt"
                     )
                     UsageStatColumn(
@@ -1306,17 +1288,6 @@ struct BrainstormUsagePopoverView: View {
         }
         .frame(width: 320)
     }
-
-    private func formatTokens(_ count: Int) -> String {
-        if count >= 1_000_000 {
-            return String(format: "%.1fM", Double(count) / 1_000_000.0)
-        } else if count >= 10_000 {
-            return String(format: "%.1fK", Double(count) / 1000.0)
-        } else {
-            return "\(count)"
-        }
-    }
-
 }
 
 // MARK: - Q&A Message Card
@@ -1382,29 +1353,21 @@ struct QAMessageCardView: View {
             }
 
             // Stats pill for assistant messages
-            if message.role == .assistant, let tokens = message.tokenCount {
+            if message.role == .assistant {
                 Button {
                     showUsagePopover = true
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "chart.bar.fill")
                             .font(.system(size: 8))
-                        Text("\(tokens) tok")
+                        Text(message.usage.summary).help(message.usage.details)
                         if let ms = message.durationMs, ms > 0 {
-                            Text("·")
-                            Text(String(format: "%.1f tok/s", Double(tokens) / (ms / 1000.0)))
                             Text("·")
                             Text(ChatManager.formatDuration(ms))
                         }
-                        if let modelId = message.qualifiedModelId ?? qaModelId,
-                           let inputTokens = message.inputTokenCount,
-                           let cost = chatManager.providers.costForMessage(
-                               modelId: modelId,
-                               inputTokens: inputTokens,
-                               outputTokens: tokens
-                           ), cost > 0 {
+                        if let modelId = message.qualifiedModelId ?? qaModelId {
                             Text("·")
-                            Text(UsageFormatting.cost(cost))
+                            Text(UsageFormatting.cost(chatManager.providers.costForMessage(modelId: modelId, usage: message.usage)))
                         }
                         Image(systemName: "chevron.right")
                             .font(.system(size: 7, weight: .bold))
@@ -1425,7 +1388,7 @@ struct QAMessageCardView: View {
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showUsagePopover, arrowEdge: .bottom) {
-                    qaUsagePopover(tokens: tokens)
+                    qaUsagePopover()
                 }
             }
         }
@@ -1492,15 +1455,12 @@ struct QAMessageCardView: View {
     }
 
     @ViewBuilder
-    private func qaUsagePopover(tokens: Int) -> some View {
+    private func qaUsagePopover() -> some View {
         let modelId = message.qualifiedModelId ?? qaModelId ?? ""
         let info = chatManager.providers.providerInfo(for: modelId)
-        let cost = message.inputTokenCount.flatMap { chatManager.providers.costForMessage(modelId: modelId, inputTokens: $0, outputTokens: tokens) }
+        let usage = message.usage
+        let cost = chatManager.providers.costForMessage(modelId: modelId, usage: usage)
         let pricing = chatManager.providers.pricingInfo(for: modelId)
-        let tokPerSec: Double? = {
-            guard let ms = message.durationMs, tokens > 0, ms > 0 else { return nil }
-            return Double(tokens) / (ms / 1000.0)
-        }()
 
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
@@ -1521,15 +1481,17 @@ struct QAMessageCardView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
+                Text(usage.details).font(.caption2).foregroundStyle(.secondary)
                 Text("THIS RESPONSE")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 0) {
-                    UsageStatColumn(label: "Output", value: "\(tokens)", icon: "arrow.down.circle")
+                    UsageStatColumn(label: "Input", value: usage.label(usage.input), icon: "arrow.up.circle")
+                    UsageStatColumn(label: "Output", value: usage.label(usage.output), icon: "arrow.down.circle")
                     UsageStatColumn(
                         label: "Speed",
-                        value: tokPerSec.map { String(format: "%.1f/s", $0) } ?? "—",
+                        value: usage.speed(durationMs: message.durationMs),
                         icon: "bolt"
                     )
                     UsageStatColumn(

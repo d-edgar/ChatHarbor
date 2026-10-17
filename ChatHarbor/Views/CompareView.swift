@@ -336,20 +336,12 @@ struct CompareColumn: View {
             }
 
             // Stats
-            if !slot.isStreaming, slot.error == nil {
+            if !slot.isStreaming {
                 HStack(spacing: 6) {
                     Text(UsageFormatting.cost(slot.estimatedCost))
                         .help("Estimated USD cost using ChatHarbor's pricing table; provider billing may differ.")
-                    if let inputTokens = slot.inputTokenCount {
-                        Text("\(inputTokens) in ·")
-                    }
-                    if let tokens = slot.tokenCount {
-                        Text("\(tokens) out")
-                    }
-                    if let tps = slot.tokensPerSecond {
-                        Text("·")
-                        Text(String(format: "%.1f tok/s", tps))
-                    }
+                    Text(slot.usage.summary).help(slot.usage.details)
+                    Text(slot.usage.speed(durationMs: slot.durationMs))
                     if let ms = slot.durationMs {
                         Text("·")
                         Text(ChatManager.formatDuration(ms))

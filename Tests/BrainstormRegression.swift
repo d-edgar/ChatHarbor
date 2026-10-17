@@ -17,7 +17,7 @@ private final class RecordingProviders: ProviderManager {
         }
         // Deliberately deliver after cancellation to exercise the manager's ownership guard.
         onToken(reply)
-        return ChatResult(content: reply, tokenCount: 2, inputTokenCount: 3, durationMs: 10,
+        return ChatResult(content: reply, usage: TokenUsage(input: 3, output: 2), durationMs: 10,
                           model: qualifiedModelId, providerId: "test")
     }
 }
@@ -86,6 +86,41 @@ struct BrainstormRegression {
         precondition(report.contains("User Shortlist") && report.contains("Disagreements and Tests"))
         precondition(report.contains("Try the prototype") && report.contains("It worked"))
 
+        // Context compaction preserves originals, user direction, shortlist, and dissent.
+        let longIdea = String(repeating: "older idea ", count: 200) + "MIDDLE-SENTINEL" + String(repeating: " supporting detail", count: 200)
+        let oldEntry = BrainstormEntry(phase: .ideation, round: 1, role: .contributor, content: longIdea)
+        session.entries.append(oldEntry)
+        session.currentRound = 4
+        session.phase = .ideation
+        session.participants = [BrainstormParticipant(role: .contributor, qualifiedModelId: "test:one")]
+        manager.run(session: session, context: context)
+        try await until { !manager.isRunning }
+        let compactPrompt = providers.requests.last!.last!.content
+        precondition(!compactPrompt.contains("MIDDLE-SENTINEL") && compactPrompt.contains("Middle omitted"))
+        precondition(oldEntry.content == longIdea && manager.exportToMarkdown(session).contains("MIDDLE-SENTINEL"))
+        session.entries.append(BrainstormEntry(phase: .evaluation, round: 0, role: .contributor,
+            content: "Must work offline", isUserInput: true))
+        session.entries.append(BrainstormEntry(phase: .disagreement, round: 0, role: .contributor,
+            content: "Dissent: test the battery cost"))
+        session.qaMessages = (0..<8).map { index in
+            StoredQAMessage(isUser: index % 2 == 0,
+                content: index == 1 ? longIdea : "qa-\(index)")
+        }
+        manager.enterQAMode(session: session, modelId: "test:one", context: context)
+        manager.sendQAMessage("What should we build?", session: session)
+        try await until { !manager.isQAStreaming }
+        let qaRequest = providers.requests.last!
+        let qaContext = qaRequest.first!.content
+        precondition(qaContext.contains("Session Synthesis") && !qaContext.contains("MIDDLE-SENTINEL"))
+        precondition(qaContext.contains("Budget must be $500") && qaContext.contains("Must work offline"))
+        precondition(qaContext.contains("Build the small prototype") && qaContext.contains("Dissent: test the battery cost"))
+        precondition(qaContext.contains("Try the prototype") && qaContext.contains("It worked"))
+        precondition(qaRequest[2].content.contains("Middle omitted") && session.qaMessages[1].content == longIdea)
+        precondition(qaRequest.last?.content == "What should we build?")
+        precondition(session.qaMessages.last?.usage.total == 5)
+        manager.exitQAMode()
+        session.qaMessages = []
+
         let other = BrainstormSession(topic: "Another session")
         context.insert(other)
         manager.enterQAMode(session: session, modelId: "test:one", context: context)
@@ -102,7 +137,8 @@ struct BrainstormRegression {
         providers.suspended = nil
         try await Task.sleep(for: .milliseconds(20))
         precondition(manager.qaMessages.map(\.content) == bMessages, "Cancelled A must not write into B")
-        precondition(session.qaMessages.count == 1 && session.qaMessages[0].content == "Question for A")
+        precondition(session.qaMessages.count == 2 && session.qaMessages[0].content == "Question for A")
+        precondition(session.qaMessages.last?.usage.total == nil, "Interrupted usage stays unavailable")
         precondition(other.qaMessages.count == 2)
         precondition(other.qaMessages.last?.inputTokenCount == 3)
 
@@ -129,9 +165,12 @@ struct BrainstormRegression {
         try await Task.sleep(for: .milliseconds(20))
         precondition(!receivedCancelledCompare)
 
-        precondition(providers.costForMessage(modelId: "custom:gpt-4o", inputTokens: 10, outputTokens: 10) == nil)
-        precondition(providers.costForMessage(modelId: "openai:unknown", inputTokens: 10, outputTokens: 10) == nil)
-        precondition(providers.costForMessage(modelId: "ollama:model", inputTokens: 10, outputTokens: 10) == 0)
+        precondition(providers.costForMessage(modelId: "custom:gpt-4o", usage: TokenUsage(input: 10, output: 10)) == nil)
+        precondition(providers.costForMessage(modelId: "openai:unknown", usage: TokenUsage(input: 10, output: 10)) == nil)
+        precondition(providers.costForMessage(modelId: "ollama:model", usage: TokenUsage(input: 10, output: 10)) == 0)
+        precondition(providers.costForMessage(modelId: "openai:gpt-4o", usage: TokenUsage()) == nil)
+        precondition(providers.costForMessage(modelId: "openai:gpt-4o", usage: TokenUsage(input: 10, output: 10, cachedInput: 5)) == nil)
+        precondition(providers.costForMessage(modelId: "openai:gpt-4o", usage: TokenUsage(input: 0, output: 0)) == 0)
         for method in BrainstormMethod.allCases {
             let phases = method.phases
             precondition(phases.firstIndex(of: .disagreement)! < phases.firstIndex(of: .synthesis)!)

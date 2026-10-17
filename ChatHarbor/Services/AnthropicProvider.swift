@@ -262,8 +262,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
         }
 
         var fullContent = ""
-        var inputTokens = 0
-        var outputTokens = 0
+        var tokenUsage = TokenUsage()
 
         for try await line in bytes.lines {
             // Anthropic SSE: "event: content_block_delta" then "data: {...}"
@@ -282,7 +281,8 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
                 // Initial usage contains input token count
                 if let message = json["message"] as? [String: Any],
                    let usage = message["usage"] as? [String: Any] {
-                    inputTokens = usage["input_tokens"] as? Int ?? 0
+                    tokenUsage = TokenUsage.anthropic(usage)
+                    tokenUsage.output = nil // message_start is provisional; wait for message_delta.
                 }
 
             case "content_block_delta":
@@ -295,7 +295,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
             case "message_delta":
                 // Final usage stats
                 if let usage = json["usage"] as? [String: Any] {
-                    outputTokens = usage["output_tokens"] as? Int ?? 0
+                    tokenUsage.output = TokenUsage.count(usage["output_tokens"])
                 }
 
             case "error":
@@ -311,8 +311,7 @@ final class AnthropicProvider: ObservableObject, LLMProvider {
 
         return ChatResult(
             content: fullContent,
-            tokenCount: outputTokens,
-            inputTokenCount: inputTokens,
+            usage: tokenUsage,
             durationMs: elapsed,
             model: model,
             providerId: providerId

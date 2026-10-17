@@ -160,6 +160,11 @@ class BrainstormManager: ObservableObject {
         currentTask?.cancel()
         currentTask = nil
         isRunning = false
+        if isQAStreaming {
+            qaMessages.append(BrainstormQAMessage(role: .assistant,
+                content: qaStreamingBuffer + "\n[Response interrupted; usage unavailable.]", qualifiedModelId: qaModelId))
+            persistQAMessages()
+        }
         isQAStreaming = false
         resetStreamingBuffer()
         if let entry = currentEntry {
@@ -641,6 +646,7 @@ class BrainstormManager: ObservableObject {
             entry.isStreaming = false
             entry.tokenCount = result.tokenCount
             entry.inputTokenCount = result.inputTokenCount
+            entry.usageData = result.usage.encoded
             entry.durationMs = result.durationMs
             safeSave(context)
         } catch {
@@ -682,9 +688,15 @@ class BrainstormManager: ObservableObject {
     }
 
 
+    // shortcut: excerpts retain the beginning/end, not every detail; add retrieval if long sessions need exact recall.
+    static func contextExcerpt(_ text: String) -> String {
+        guard text.count > 1600 else { return text }
+        return String(text.prefix(800)) + "\n[Middle omitted from model context; full text remains in the report.]\n" + String(text.suffix(800))
+    }
+
     /// Build a summary of all ideas generated so far in ideation
-    private func buildIdeationContext(session: BrainstormSession) -> String {
-        let ideationEntries = session.entries(for: .ideation)
+    private func buildIdeationContext(session: BrainstormSession, compact: Bool = true) -> String {
+        let ideationEntries = session.entries(for: .ideation).filter { !compact || (!$0.isStreaming && $0.error == nil) }
         if ideationEntries.isEmpty { return "(No ideas yet)" }
 
         var context = ""
@@ -694,7 +706,8 @@ class BrainstormManager: ObservableObject {
             if entry.isUserInput {
                 context += "### User Input (Round \(round))\n\(entry.content)\n\n"
             } else {
-                context += "### \(roleName) — Round \(round)\n\(entry.content)\n\n"
+                let content = compact && round < session.currentRound - 1 ? Self.contextExcerpt(entry.content) : entry.content
+                context += "### \(roleName) — Round \(round)\n\(content)\n\n"
             }
         }
         return context
@@ -732,11 +745,11 @@ class BrainstormManager: ObservableObject {
     }
 
     /// Build full session transcript for synthesis
-    private func buildFullSessionContext(session: BrainstormSession) -> String {
+    private func buildFullSessionContext(session: BrainstormSession, compact: Bool = true) -> String {
         var context = "## Problem Statement\n\(session.problemStatement.isEmpty ? session.topic : session.problemStatement)\n\n"
 
         // Framing
-        let framingEntries = session.entries(for: .framing)
+        let framingEntries = session.entries(for: .framing).filter { !compact || (!$0.isStreaming && $0.error == nil) }
         if !framingEntries.isEmpty {
             context += "## Problem Framing\n"
             for entry in framingEntries {
@@ -744,17 +757,36 @@ class BrainstormManager: ObservableObject {
             }
         }
 
-        // Ideation
-        context += "## Ideation\n"
-        context += buildIdeationContext(session: session)
+        let synthesis = session.entries(for: .synthesis).filter { !$0.isStreaming && $0.error == nil && !$0.content.isEmpty }
+        let useSynthesis = compact && isQAMode && !synthesis.isEmpty
+        if useSynthesis {
+            context += "## Session Synthesis\n"
+            for entry in synthesis {
+                context += "### \(entry.role.displayName)\n\(entry.content)\n\n"
+            }
+            context += "Earlier ideation and evaluation are represented by the synthesis; consult the full report for omitted details.\n\n"
+            if let synthesizedAt = synthesis.map(\.createdAt).max() {
+                for entry in session.sortedEntries where !entry.isUserInput && !entry.isStreaming && entry.error == nil
+                    && [.ideation, .evaluation].contains(entry.phase) && entry.createdAt > synthesizedAt {
+                    let content = entry.round < session.currentRound - 1 ? Self.contextExcerpt(entry.content) : entry.content
+                    context += "### Added after synthesis — \(entry.role.displayName)\n\(content)\n\n"
+                }
+            }
+            for entry in session.sortedEntries where entry.isUserInput && [.ideation, .evaluation].contains(entry.phase) {
+                context += "### User Direction\n\(entry.content)\n\n"
+            }
+        } else {
+            context += "## Ideation\n"
+            context += buildIdeationContext(session: session, compact: compact)
+        }
 
         if let shortlist = session.shortlist, !shortlist.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             context += "## User Shortlist\nFocus evaluation and recommendations on these ideas:\n\(shortlist)\n\n"
         }
 
         // Evaluation
-        let evalEntries = session.entries(for: .evaluation)
-        if !evalEntries.isEmpty {
+        let evalEntries = session.entries(for: .evaluation).filter { !compact || (!$0.isStreaming && $0.error == nil) }
+        if !evalEntries.isEmpty && !useSynthesis {
             context += "## Evaluation\n"
             for entry in evalEntries {
                 let roleName = entry.role.displayName
@@ -762,7 +794,7 @@ class BrainstormManager: ObservableObject {
             }
         }
 
-        let disagreements = session.entries(for: .disagreement)
+        let disagreements = session.entries(for: .disagreement).filter { !compact || (!$0.isStreaming && $0.error == nil) }
         if !disagreements.isEmpty {
             context += "## Disagreements and Tests\n"
             for entry in disagreements {
@@ -787,7 +819,7 @@ class BrainstormManager: ObservableObject {
         }
         md += "\n"
 
-        md += buildFullSessionContext(session: session)
+        md += buildFullSessionContext(session: session, compact: false)
 
         // Synthesis
         let synthEntries = session.entries(for: .synthesis)
@@ -809,6 +841,21 @@ class BrainstormManager: ObservableObject {
             md += "*Decision notes updated: \(reviewedAt.formatted(date: .long, time: .shortened))*\n\n"
         }
 
+        let qa = session.qaMessages
+        if !qa.isEmpty {
+            md += "## Follow-up Q&A\n\n"
+            for message in qa {
+                md += "### \(message.isUser ? "You" : "Assistant")\n\n\(message.content)\n\n"
+            }
+        }
+        md += "## Usage — Saved Responses\n\n"
+        for entry in session.sortedEntries where !entry.isUserInput && !entry.isStreaming {
+            md += "- \(entry.phase.rawValue), \(entry.role.displayName): \(entry.usage.summary) · \(entry.usage.details)\n"
+        }
+        for message in qa where !message.isUser {
+            md += "- Q&A: \(message.usage.summary) · \(message.usage.details)\n"
+        }
+        md += "\nUsage covers saved responses, not a billing ledger of retries. Unreported usage is unavailable.\n\n"
         md += "---\n\n*Generated with ChatHarbor Brainstorm*\n"
         return md
     }
@@ -890,6 +937,7 @@ class BrainstormManager: ObservableObject {
                 content: stored.content,
                 tokenCount: stored.tokenCount,
                 inputTokenCount: stored.inputTokenCount,
+                usageData: stored.usage.encoded,
                 qualifiedModelId: stored.qualifiedModelId,
                 durationMs: stored.durationMs
             )
@@ -922,6 +970,7 @@ class BrainstormManager: ObservableObject {
                 qualifiedModelId: msg.qualifiedModelId,
                 tokenCount: msg.tokenCount,
                 inputTokenCount: msg.inputTokenCount,
+                usageData: msg.usage.encoded,
                 durationMs: msg.durationMs
             )
         }
@@ -942,16 +991,17 @@ class BrainstormManager: ObservableObject {
         qaMessages.append(BrainstormQAMessage(role: .user, content: text))
         persistQAMessages()
 
-        // Build the full context: system prompt + session transcript + conversation history
-        let transcript = exportToMarkdown(session)
+        var transcript = buildFullSessionContext(session: session)
+        if let decision = session.decisionNotes { transcript += "\n## User Decision\n\(decision)" }
+        if let outcome = session.outcomeNotes { transcript += "\n## Outcome\n\(outcome)" }
         let systemPrompt = """
         You are a helpful assistant analyzing a brainstorm session that was conducted in ChatHarbor. \
-        Below is the full transcript of the session. The user will ask questions about the ideas, \
+        Below is condensed context from the session. The user will ask questions about the ideas, \
         the participants' contributions, patterns in the discussion, or request further development \
         of specific ideas. Answer based on the session content. Be specific — reference which role \
-        or model said what when relevant.
+        or model said what when relevant. If details are omitted, say so rather than inventing them.
 
-        ## Full Session Transcript
+        ## Session Context
 
         \(transcript)
         """
@@ -961,10 +1011,11 @@ class BrainstormManager: ObservableObject {
         ]
 
         // Add conversation history
-        for msg in qaMessages {
+        for (index, msg) in qaMessages.enumerated() {
+            let olderAnswer = msg.role == .assistant && index < qaMessages.count - 6
             messages.append(ChatMessage(
                 role: msg.role == .user ? .user : .assistant,
-                content: msg.content
+                content: olderAnswer ? Self.contextExcerpt(msg.content) : msg.content
             ))
         }
 
@@ -990,6 +1041,7 @@ class BrainstormManager: ObservableObject {
                     content: response,
                     tokenCount: result.tokenCount,
                     inputTokenCount: result.inputTokenCount,
+                    usageData: result.usage.encoded,
                     qualifiedModelId: modelId,
                     durationMs: result.durationMs
                 ))
@@ -1020,6 +1072,8 @@ struct BrainstormQAMessage: Identifiable {
     let content: String
     var tokenCount: Int?
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var qualifiedModelId: String?
     var durationMs: Double?
 

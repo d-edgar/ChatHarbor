@@ -178,12 +178,12 @@ final class AppleIntelligenceProvider: ObservableObject, LLMProvider {
         // Estimate token count from content (≈4 chars per token for English).
         // The Foundation Models framework doesn't expose a public token
         // counting API on SystemLanguageModel in the current SDK.
-        let estimatedTokens = max(1, fullContent.count / 4)
+        let estimatedTokens = (fullContent.count + 3) / 4
 
         return ChatResult(
             content: fullContent,
-            tokenCount: estimatedTokens,
-            inputTokenCount: 0,
+            usage: TokenUsage(input: (effectiveInstructions.count + prompt.count + 3) / 4,
+                              output: estimatedTokens, isEstimated: true),
             durationMs: elapsed,
             model: "apple-intelligence",
             providerId: providerId

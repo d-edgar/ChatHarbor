@@ -323,6 +323,11 @@ struct ShipChatView: View {
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
                         )
+                    Text(message.usage.summary + " · " + UsageFormatting.cost(chatManager.providers.costForMessage(
+                        modelId: message.modelUsed ?? "", usage: message.usage)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .help(message.usage.details)
                 }
             }
             .frame(maxWidth: 520, alignment: isUser ? .trailing : .leading)
@@ -490,6 +495,7 @@ struct ShipChatView: View {
                 )
                 assistantMessage.tokenCount = result.tokenCount
                 assistantMessage.inputTokenCount = result.inputTokenCount
+                assistantMessage.usageData = result.usage.encoded
                 assistantMessage.durationMs = result.durationMs
                 conversation.messages.append(assistantMessage)
                 conversation.updatedAt = Date()

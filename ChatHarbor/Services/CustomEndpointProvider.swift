@@ -341,8 +341,7 @@ final class CustomEndpoint: Identifiable {
 
         // Parse SSE stream (OpenAI format)
         var fullContent = ""
-        var totalTokens = 0
-        var totalInputTokens = 0
+        var tokenUsage = TokenUsage()
 
         for try await line in bytes.lines {
             guard line.hasPrefix("data: ") else { continue }
@@ -364,8 +363,7 @@ final class CustomEndpoint: Identifiable {
 
             // Extract usage from final chunk
             if let usage = json["usage"] as? [String: Any] {
-                totalTokens = usage["completion_tokens"] as? Int ?? 0
-                totalInputTokens = usage["prompt_tokens"] as? Int ?? 0
+                tokenUsage = TokenUsage.openAI(usage)
             }
         }
 
@@ -373,8 +371,7 @@ final class CustomEndpoint: Identifiable {
 
         return ChatResult(
             content: fullContent,
-            tokenCount: totalTokens,
-            inputTokenCount: totalInputTokens,
+            usage: tokenUsage,
             durationMs: elapsed,
             model: model,
             providerId: "custom"

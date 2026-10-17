@@ -165,6 +165,8 @@ final class BrainstormEntry {
     /// Token metrics
     var tokenCount: Int?
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var durationMs: Double?
     var error: String?
 
@@ -650,6 +652,8 @@ struct StoredQAMessage: Identifiable, Codable {
     var qualifiedModelId: String?
     var tokenCount: Int?
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var durationMs: Double?
     var createdAt: Date = Date()
 }

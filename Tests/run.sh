@@ -12,7 +12,7 @@ xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cach
   ChatHarbor/Services/BrainstormReport.swift Tests/PDFSmoke.swift -o "$test_build_dir/pdf"
 "$test_build_dir/pdf"
 xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cache-path "$test_build_dir/cache" \
-  ChatHarbor/Models/BrainstormModels.swift Tests/DecisionNotesSmoke.swift -o "$test_build_dir/persistence"
+  ChatHarbor/Services/LLMProvider.swift ChatHarbor/Models/{BrainstormModels,ChatModels,ShipModels}.swift Tests/DecisionNotesSmoke.swift -o "$test_build_dir/persistence"
 "$test_build_dir/persistence"
 xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cache-path "$test_build_dir/cache" \
   ChatHarbor/Models/*.swift ChatHarbor/Services/*.swift Tests/BrainstormRegression.swift -o "$test_build_dir/brainstorm"

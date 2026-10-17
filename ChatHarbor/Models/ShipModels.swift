@@ -238,6 +238,8 @@ final class ShipMessage {
     /// Token and performance tracking
     var tokenCount: Int?
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var durationMs: Double?
     var modelUsed: String?
 

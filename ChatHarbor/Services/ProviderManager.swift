@@ -257,9 +257,12 @@ class ProviderManager: ObservableObject {
     ]
 
     /// Calculate cost for a message given model and token counts
-    func costForMessage(modelId: String, inputTokens: Int, outputTokens: Int) -> Double? {
+    func costForMessage(modelId: String, usage: TokenUsage) -> Double? {
+        guard let inputTokens = usage.input, let outputTokens = usage.output else { return nil }
         if modelId.hasPrefix("ollama:") || modelId.hasPrefix("apple:") { return 0 }
         if modelId.hasPrefix("custom:") { return nil }
+        // shortcut: cache rates vary by model and retention; show unavailable until those rates are supported.
+        guard (usage.cachedInput ?? 0) == 0, (usage.cacheWriteInput ?? 0) == 0 else { return nil }
         let rawId = rawModelId(from: modelId)
         guard let price = Self.pricing[rawId] else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000.0 * price.input

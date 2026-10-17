@@ -88,6 +88,8 @@ final class Message {
     var isStreaming: Bool = false
     var tokenCount: Int?
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var durationMs: Double?
     /// Which model produced this response (for multi-model compare)
     var modelUsed: String?
@@ -248,6 +250,8 @@ struct CompareSlot: Identifiable {
     var content: String = ""
     var isStreaming: Bool = true
     var inputTokenCount: Int?
+    var usageData: Data?
+    var usage: TokenUsage { TokenUsage.restore(usageData, input: inputTokenCount, output: tokenCount) }
     var estimatedCost: Double?
     var tokenCount: Int?
     var durationMs: Double?
@@ -258,11 +262,5 @@ struct CompareSlot: Identifiable {
             return String(modelName.dropLast(7))
         }
         return modelName
-    }
-
-    var tokensPerSecond: Double? {
-        guard let tokens = tokenCount, let ms = durationMs,
-              tokens > 0, ms > 0 else { return nil }
-        return Double(tokens) / (ms / 1000.0)
     }
 }
