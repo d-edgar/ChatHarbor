@@ -226,13 +226,15 @@ final class CustomEndpoint: Identifiable {
 
     // MARK: - Connect (discover models)
 
-    func connect() async {
-        defer { onConnectionChange?() }
+    func connect(session: URLSession = .shared) async {
+        defer {
+            if !isConnected { models = [] }
+            onConnectionChange?()
+        }
         let urlString = "\(baseURL)/models"
         guard let url = URL(string: urlString) else {
             connectionError = "Invalid URL: \(urlString)"
             isConnected = false
-            models = []
             return
         }
 
@@ -245,7 +247,7 @@ final class CustomEndpoint: Identifiable {
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
 
             guard let http = response as? HTTPURLResponse else {
                 connectionError = "Invalid response"
@@ -285,11 +287,9 @@ final class CustomEndpoint: Identifiable {
         } catch let error as URLError where error.code == .cannotConnectToHost || error.code == .timedOut {
             connectionError = "Cannot reach \(baseURL)"
             isConnected = false
-            models = []
         } catch {
             connectionError = error.localizedDescription
             isConnected = false
-            models = []
         }
     }
 

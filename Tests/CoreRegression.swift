@@ -2,7 +2,7 @@ import Foundation
 
 @main
 struct CoreRegression {
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         let suite = "ChatHarborTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -59,6 +59,23 @@ struct CoreRegression {
         precondition(reloaded.endpoints.first { $0.id == firstID }?.isLMStudio == false,
                      "A localhost port alone must not identify LM Studio")
 
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [EndpointResponseStub.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        for failure in ["unauthorized", "malformed"] {
+            studio.baseURL = "https://endpoint.invalid/success"
+            await studio.connect(session: session)
+            precondition(studio.isConnected && studio.models.count == 1)
+            studio.baseURL = "https://endpoint.invalid/\(failure)"
+            await studio.connect(session: session)
+            precondition(!studio.isConnected && studio.models.isEmpty,
+                         "Failed discovery must clear previously available models")
+            precondition(studio.connectionError != nil)
+            precondition(!provider.models.contains { $0.modelId.hasPrefix(studio.id.uuidString) })
+        }
+        print("PASS: HTTP and malformed-response failures clear stale endpoint models")
+
         let markup = "<script>alert(1)</script>\n<img src='https://example.invalid/track'>\n# A & B"
         let html = BrainstormReport.html(markup, title: "</title><script>bad()</script>")
         precondition(!html.contains("<script>") && !html.contains("<img"))
@@ -95,4 +112,19 @@ struct CoreRegression {
         print("PASS: usage parsing, cache/thinking totals, missing/zero/estimated counts, and safe aggregation")
         print("PASS: credential migration, endpoint routing, credential lifecycle, HTML escaping, and cost labels")
     }
+}
+
+private final class EndpointResponseStub: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let url = request.url!
+        let status = url.path.contains("unauthorized") ? 401 : 200
+        let body = url.path.contains("malformed") ? "invalid json" : #"{"data":[{"id":"test-model"}]}"#
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status,
+            httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }

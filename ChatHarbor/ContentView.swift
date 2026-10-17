@@ -359,11 +359,8 @@ struct WelcomeView: View {
 
                 // Summary bar
                 HStack(spacing: 16) {
-                    let custom = chatManager.providers.custom
-                    let connected = chatManager.providers.connectedProviders.filter { $0.providerId != "custom" }.count
-                        + (custom.endpoints.contains { $0.isLMStudio && $0.isConnected } ? 1 : 0)
-                        + (custom.endpoints.contains { !$0.isLMStudio && $0.isConnected } ? 1 : 0)
-                    let total = chatManager.providers.allProviders.count + 1
+                    let connected = chatManager.providers.connectedGroupCount
+                    let total = chatManager.providers.connectionGroupCount
                     let modelCount = chatManager.providers.allModels.count
 
                     Label("\(connected)/\(total) providers connected", systemImage: "antenna.radiowaves.left.and.right")

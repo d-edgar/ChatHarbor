@@ -866,8 +866,8 @@ struct ModelsProvidersSettingsView: View {
 
                 // Summary
                 HStack(spacing: 16) {
-                    let connected = chatManager.providers.connectedProviders.count
-                    let total = chatManager.providers.allProviders.count
+                    let connected = chatManager.providers.connectedGroupCount
+                    let total = chatManager.providers.connectionGroupCount
                     let modelCount = chatManager.providers.allModels.count
 
                     Label("\(connected)/\(total) providers", systemImage: "antenna.radiowaves.left.and.right")

@@ -30,6 +30,13 @@ class ProviderManager: ObservableObject {
         allProviders.filter { $0.isConnected }
     }
 
+    // LM Studio and other compatible servers have separate status cards.
+    var connectionGroupCount: Int { allProviders.count + 1 }
+    var connectedGroupCount: Int {
+        connectedProviders.filter { $0.providerId != "custom" }.count
+            + Set(custom.endpoints.filter { $0.isConnected }.map { $0.isLMStudio }).count
+    }
+
     // MARK: - Unified Model List (computed — always up-to-date)
 
     /// All available models across all connected providers

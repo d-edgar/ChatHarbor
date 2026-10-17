@@ -37,6 +37,21 @@ struct BrainstormRegression {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)
         let providers = RecordingProviders(ollama: .shared)
+        let savedEndpoints = providers.custom.endpoints
+        let otherConnected = providers.connectedProviders.filter { $0.providerId != "custom" }.count
+        let studio = CustomEndpoint(name: "Studio", baseURL: "http://localhost:1234/v1", isLMStudio: true)
+        let secondStudio = CustomEndpoint(name: "Studio 2", baseURL: "http://localhost:1235/v1", isLMStudio: true)
+        let otherEndpoint = CustomEndpoint(name: "Other", baseURL: "http://localhost:8080/v1")
+        providers.custom.endpoints = [studio, secondStudio, otherEndpoint]
+        precondition(providers.connectionGroupCount == 7)
+        precondition(providers.connectedGroupCount == otherConnected)
+        studio.isConnected = true
+        secondStudio.isConnected = true
+        precondition(providers.connectedGroupCount == otherConnected + 1)
+        otherEndpoint.isConnected = true
+        precondition(providers.connectedGroupCount == otherConnected + 2)
+        providers.custom.endpoints = savedEndpoints
+        print("PASS: connection groups count LM Studio and other servers once each")
         let manager = BrainstormManager(providers: providers)
         let session = BrainstormSession(topic: "Pick a prototype", method: .roundRobin)
         context.insert(session)
