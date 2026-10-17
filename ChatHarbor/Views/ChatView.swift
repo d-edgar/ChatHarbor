@@ -733,10 +733,10 @@ struct UsagePopoverView: View {
             }
 
             // Estimate section
-            if pricing != nil, conversationStats.messageCount > 0 {
+            if pricing != nil, let totalCost = conversationStats.cost, conversationStats.messageCount > 0 {
                 Divider()
                 let stats = conversationStats
-                let avgCostPerMsg = stats.messageCount > 0 ? stats.cost / Double(stats.messageCount) : 0
+                let avgCostPerMsg = totalCost / Double(stats.messageCount)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ESTIMATES")
                         .font(.system(size: 9, weight: .bold))

@@ -131,7 +131,7 @@ Grab the latest `.dmg` from the [Releases](https://github.com/d-edgar/ChatHarbor
 
 ### Build from Source
 
-Requires Xcode 16+.
+Local builds require Xcode 16+; Command Line Tools alone are not enough. GitHub Actions builds on GitHub's Macs using their installed Xcode, so you do not need Xcode locally to use that workflow or install a released `.dmg`.
 
 ```bash
 git clone https://github.com/d-edgar/ChatHarbor.git
