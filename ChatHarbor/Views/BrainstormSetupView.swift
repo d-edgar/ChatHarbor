@@ -122,6 +122,14 @@ struct BrainstormSetupView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Brainstorm entirely on your Mac", systemImage: "desktopcomputer")
+                            .font(.callout.weight(.medium))
+                        Text("Run Ollama or LM Studio on this Mac and assign downloaded local models to every active role. Mix models or reuse one in different roles—no cloud API key needed. Choose a local model for follow-up Q&A too.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     ForEach(participants.indices, id: \.self) { index in
                         RoleAssignmentRow(
                             participant: $participants[index],

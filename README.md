@@ -43,13 +43,26 @@ ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat
 
 Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Instead of a back-and-forth chat, you set up a session with a topic, choose a brainstorming method, assign AI participants to specific roles, and let them collaborate through a series of guided phases. Each participant contributes from their assigned perspective, and you can intervene at checkpoints to steer the conversation.
 
+### Brainstorm entirely on your Mac
+
+No cloud API key is needed when every participant uses a downloaded local model through Ollama or LM Studio running on your Mac:
+
+1. Choose a local engine:
+   - **Ollama:** install and start [Ollama](https://ollama.com), then download local models in **Settings → Models & Providers**.
+   - **LM Studio:** download a model in [LM Studio](https://lmstudio.ai), then start its local server in the Developer tab. In ChatHarbor’s **Settings → Models & Providers → LM Studio & Other Servers**, select **LM Studio** and **Add**. The default address is `http://localhost:1234/v1`; edit it to match your server. Supply a key only if you enabled server authentication.
+2. Start a brainstorm and choose those models for every active role. Use different models for different perspectives, or assign the same model to several roles.
+3. Choose a local model for follow-up Q&A as well.
+
+Participants take turns, so they do not need to generate simultaneously. Downloads need internet access; once the models are installed, local brainstorming can run offline. Model size and switching speed depend on your Mac. Use models served on this Mac; cloud models, remote endpoints, and remote inference routing are not local processing. Manage LM Studio model downloads and updates in LM Studio, then use **Refresh** on its ChatHarbor connection to rediscover available models. Other OpenAI compatible servers can use **Other compatible server** with their base URL and credentials.
+
+
 ### How It Works
 
 1. **Pick a method.** Choose from four built-in methods or configure your own participant roles with Custom. Each method defines a set of phases the session progresses through automatically.
 2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so you can compare responses from different perspectives. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
 3. **Run and shortlist.** Review contributions at each checkpoint and add direction. Use **Your shortlist** to write or paste the ideas you want evaluated, one per line. Leave it blank to evaluate all ideas. Round Robin participants see earlier contributions in the same round.
 4. **Review disagreements.** Before the decision brief, each enabled participant except the Scribe identifies a consequential disagreement or unresolved assumption and proposes a small test. Review this pass before continuing. The shortlist and disagreements are included in the final brief, exports, and follow-up Q&A.
-5. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
+5. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — condensed session context is included, while the full transcript remains available in the report. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
 6. **Decide and revisit.** New synthesis responses produce a decision brief covering options, evidence, assumptions, disagreements, a recommendation, and a concrete experiment. At synthesis or completion, record your decision and reasoning in the follow-up card and return later to record outcomes and lessons. Notes and shortlists save as you type. Save failures remain visible with a retry action. Saved notes are included in exports and follow-up Q&A. Existing synthesis responses remain unchanged.
 7. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
 
