@@ -243,7 +243,7 @@ class ChatManager: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &nestedCancellables)
         // Connect all providers and dismiss splash
-        Task {
+        Task { [self] in
             // Subscribe to brainstorm manager changes (deferred to avoid lazy var issues during init)
             brainstormManager.objectWillChange
                 .sink { [weak self] _ in self?.objectWillChange.send() }
@@ -394,7 +394,7 @@ class ChatManager: ObservableObject {
         isGenerating = true
         streamingContent = ""
 
-        streamTask = Task {
+        streamTask = Task { [self] in
             do {
                 let result = try await providers.chat(
                     qualifiedModelId: modelToUse,

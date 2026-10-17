@@ -29,18 +29,18 @@ final class CustomEndpointProvider: ObservableObject, LLMProvider {
 
     @Published private(set) var persistenceError: String?
     private let defaults: UserDefaults
-    private let readKey: (String) -> String?
-    private let saveKey: (String, String) -> Bool
-    private let deleteKey: (String) -> Bool
+    private let readKey: @MainActor (String) -> String?
+    private let saveKey: @MainActor (String, String) -> Bool
+    private let deleteKey: @MainActor (String) -> Bool
 
     private let persistenceKey = "chatharbor.customEndpoints"
 
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard,
-         readKey: @escaping (String) -> String? = KeychainHelper.load,
-         saveKey: @escaping (String, String) -> Bool = KeychainHelper.save,
-         deleteKey: @escaping (String) -> Bool = KeychainHelper.delete) {
+         readKey: @escaping @MainActor (String) -> String? = KeychainHelper.load,
+         saveKey: @escaping @MainActor (String, String) -> Bool = KeychainHelper.save,
+         deleteKey: @escaping @MainActor (String) -> Bool = KeychainHelper.delete) {
         self.defaults = defaults
         self.readKey = readKey
         self.saveKey = saveKey

@@ -349,7 +349,7 @@ struct WelcomeView: View {
                         accent: accent
                     )
                 }
-                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity)
 
                 // Summary bar
                 HStack(spacing: 16) {
@@ -417,7 +417,8 @@ struct WelcomeView: View {
 
                 Spacer(minLength: 20)
             }
-            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity)
+            .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

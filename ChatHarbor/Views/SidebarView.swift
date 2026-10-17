@@ -537,7 +537,7 @@ struct SidebarView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("v2.2.0")
+                            Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }
@@ -1075,7 +1075,7 @@ struct AboutPopoverView: View {
             Text("ChatHarbor")
                 .font(.headline)
 
-            Text("Version 2.2.0")
+            Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

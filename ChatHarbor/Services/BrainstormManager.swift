@@ -971,7 +971,7 @@ class BrainstormManager: ObservableObject {
         isQAStreaming = true
         resetQAStreamingBuffer()
 
-        currentTask = Task {
+        currentTask = Task { [self] in
             guard runID == requestID, !Task.isCancelled else { return }
             do {
                 let result = try await providers.chat(

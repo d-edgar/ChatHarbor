@@ -1741,7 +1741,7 @@ struct AboutSettingsView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("Version 2.2.0")
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
