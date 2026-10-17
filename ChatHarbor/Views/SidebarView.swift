@@ -26,6 +26,7 @@ struct SidebarView: View {
 
     @Binding var isExpanded: Bool
     @Binding var sidebarWidth: CGFloat
+    @AppStorage("hasCompletedGettingStarted") private var hasCompletedGettingStarted = false
     @State private var showingAboutPopover = false
     @State private var searchText = ""
     @State private var collapsedForkParents: Set<UUID> = []
@@ -557,6 +558,29 @@ struct SidebarView: View {
 
             // MARK: - Footer
             VStack(spacing: 0) {
+                if !hasCompletedGettingStarted {
+                    Button {
+                        chatManager.showingGettingStarted = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "questionmark.circle")
+                                .frame(width: 22, height: 22)
+                            if isExpanded {
+                                Text("Getting Started").font(.caption)
+                                Spacer()
+                            }
+                        }
+                        .foregroundStyle(chatManager.currentTheme.accentColor(for: colorScheme))
+                        .padding(.horizontal, isExpanded ? 14 : 0)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Getting Started")
+                    .help("Open the Getting Started tour")
+                }
+
                 if isExpanded {
                     // Model picker — shows the conversation's model if one is selected
                     ModelPickerRow(

@@ -12,7 +12,7 @@ See [the changelog](CHANGELOG.md) for the recent fixes and their release status.
 
 ### Getting started
 
-The new four-step first-launch tour covers model connections, harbors, Ships, and brainstorming. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. Reopen it from **Help → Getting Started**. **Connect a Model** opens Models & Providers. The empty Ships section also explains what a Ship is.
+The new four-step first-launch tour covers model connections, harbors, Ships, and brainstorming. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the final step. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete. **Connect a Model** opens Models & Providers. The empty Ships section also explains what a Ship is.
 
 ## Why ChatHarbor?
 

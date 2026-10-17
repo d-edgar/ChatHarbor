@@ -113,6 +113,7 @@ struct ContentView: View {
 
 private struct GettingStartedView: View {
     let finish: (Bool) -> Void
+    @AppStorage("hasCompletedGettingStarted") private var hasCompletedGettingStarted = false
     @State private var step = 0
 
     private let pages: [(title: String, icon: String, text: String)] = [
@@ -142,7 +143,7 @@ private struct GettingStartedView: View {
             if step == 0 {
                 Button("Open Models & Providers") { finish(true) }
             }
-            Text("You can reopen this tour from Help → Getting Started.")
+            Text("You can always reopen this tour from Help → Getting Started.")
                 .font(.caption).foregroundStyle(.secondary)
             Divider()
             HStack {
@@ -155,7 +156,10 @@ private struct GettingStartedView: View {
                     Button("Next") { step += 1 }
                         .keyboardShortcut(.defaultAction)
                 } else {
-                    Button("Connect a Model") { finish(true) }
+                    Button("Connect a Model") {
+                        hasCompletedGettingStarted = true
+                        finish(true)
+                    }
                         .keyboardShortcut(.defaultAction)
                 }
             }
