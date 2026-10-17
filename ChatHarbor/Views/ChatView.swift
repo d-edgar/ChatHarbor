@@ -501,7 +501,7 @@ struct MessageRow: View {
                             if let tokens = message.tokenCount, tokens > 0,
                                let cost = messageCost {
                                 Text("·")
-                                Text(formatCost(cost))
+                                Text(UsageFormatting.cost(cost))
                             }
 
                             if let tokens = message.tokenCount, tokens > 0,
@@ -559,15 +559,6 @@ struct MessageRow: View {
         }
     }
 
-    private func formatCost(_ cost: Double) -> String {
-        if cost < 0.001 {
-            return String(format: "$%.4f", cost)
-        } else if cost < 0.01 {
-            return String(format: "$%.3f", cost)
-        } else {
-            return String(format: "$%.2f", cost)
-        }
-    }
 }
 
 // MARK: - Usage Popover
@@ -607,11 +598,11 @@ struct UsagePopoverView: View {
     }
 
     // Conversation totals
-    private var conversationStats: (inputTokens: Int, outputTokens: Int, cost: Double, messageCount: Int) {
+    private var conversationStats: (inputTokens: Int, outputTokens: Int, cost: Double?, messageCount: Int) {
         guard let conv = conversation else { return (0, 0, 0, 0) }
         var totalIn = 0
         var totalOut = 0
-        var totalCost = 0.0
+        var totalCost: Double? = 0
         var msgCount = 0
 
         for msg in conv.sortedMessages where msg.role == .assistant {
@@ -623,7 +614,9 @@ struct UsagePopoverView: View {
 
             let mid = msg.modelUsed ?? conv.modelId
             if let cost = chatManager.providers.costForMessage(modelId: mid, inputTokens: inTok, outputTokens: outTok) {
-                totalCost += cost
+                if let subtotal = totalCost { totalCost = subtotal + cost }
+            } else {
+                totalCost = nil
             }
         }
         return (totalIn, totalOut, totalCost, msgCount)
@@ -673,7 +666,7 @@ struct UsagePopoverView: View {
                     )
                     UsageStatColumn(
                         label: "Cost",
-                        value: messageCost.map { formatCost($0) } ?? "Free",
+                        value: UsageFormatting.cost(messageCost),
                         icon: "dollarsign.circle"
                     )
                 }
@@ -708,7 +701,7 @@ struct UsagePopoverView: View {
                     )
                     UsageStatColumn(
                         label: "Total Cost",
-                        value: stats.cost > 0 ? formatCost(stats.cost) : "Free",
+                        value: UsageFormatting.cost(stats.cost),
                         icon: "dollarsign.circle"
                     )
                 }
@@ -813,15 +806,6 @@ struct UsagePopoverView: View {
         return "\(count)"
     }
 
-    private func formatCost(_ cost: Double) -> String {
-        if cost < 0.001 {
-            return String(format: "$%.4f", cost)
-        } else if cost < 0.01 {
-            return String(format: "$%.3f", cost)
-        } else {
-            return String(format: "$%.2f", cost)
-        }
-    }
 }
 
 // MARK: - Usage Stat Column

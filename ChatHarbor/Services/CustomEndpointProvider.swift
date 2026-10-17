@@ -7,10 +7,10 @@ import Combine
 // This covers LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui,
 // Jan, and any other server exposing an OpenAI-compatible /v1/chat/completions.
 // Each endpoint has its own name, base URL, and optional API key.
-// Endpoint configs are persisted to UserDefaults (not Keychain — URLs aren't secrets).
+// Endpoint metadata lives in UserDefaults; credentials live in Keychain.
 
 @MainActor
-final class CustomEndpointProvider: LLMProvider {
+final class CustomEndpointProvider: ObservableObject, LLMProvider {
 
     // MARK: - LLMProvider
 
@@ -27,34 +27,53 @@ final class CustomEndpointProvider: LLMProvider {
 
     @Published var endpoints: [CustomEndpoint] = []
 
+    @Published private(set) var persistenceError: String?
+    private let defaults: UserDefaults
+    private let readKey: (String) -> String?
+    private let saveKey: (String, String) -> Bool
+    private let deleteKey: (String) -> Bool
+
     private let persistenceKey = "chatharbor.customEndpoints"
 
     // MARK: - Init
 
-    init() {
+    init(defaults: UserDefaults = .standard,
+         readKey: @escaping (String) -> String? = KeychainHelper.load,
+         saveKey: @escaping (String, String) -> Bool = KeychainHelper.save,
+         deleteKey: @escaping (String) -> Bool = KeychainHelper.delete) {
+        self.defaults = defaults
+        self.readKey = readKey
+        self.saveKey = saveKey
+        self.deleteKey = deleteKey
         loadEndpoints()
     }
 
     // MARK: - Endpoint Management
 
-    func addEndpoint(name: String, baseURL: String, apiKey: String = "") -> CustomEndpoint {
+    func addEndpoint(name: String, baseURL: String, apiKey: String = "") throws -> CustomEndpoint {
+        try checkMigration()
         let endpoint = CustomEndpoint(
             name: name,
             baseURL: normalizeURL(baseURL),
             apiKey: apiKey
         )
+        try storeKey(apiKey, id: endpoint.id)
         endpoints.append(endpoint)
         saveEndpoints()
         return endpoint
     }
 
-    func removeEndpoint(id: UUID) {
+    func removeEndpoint(id: UUID) throws {
+        try checkMigration()
+        try storeKey("", id: id)
         endpoints.removeAll { $0.id == id }
         saveEndpoints()
     }
 
-    func updateEndpoint(id: UUID, name: String? = nil, baseURL: String? = nil, apiKey: String? = nil) {
+    func updateEndpoint(id: UUID, name: String? = nil, baseURL: String? = nil, apiKey: String? = nil) throws {
+        try checkMigration()
         guard let index = endpoints.firstIndex(where: { $0.id == id }) else { return }
+        if let apiKey { try storeKey(apiKey, id: id) }
         if let name = name { endpoints[index].name = name }
         if let baseURL = baseURL { endpoints[index].baseURL = normalizeURL(baseURL) }
         if let apiKey = apiKey { endpoints[index].apiKey = apiKey }
@@ -87,19 +106,24 @@ final class CustomEndpointProvider: LLMProvider {
         parameters: ChatParameters,
         onToken: @escaping (String) -> Void
     ) async throws -> ChatResult {
-        // Find which endpoint owns this model
-        guard let endpoint = endpoints.first(where: { ep in
-            ep.models.contains(where: { $0.modelId == model })
-        }) else {
-            throw LLMProviderError.modelNotFound(model)
-        }
+        let (endpoint, rawModel) = try resolve(model: model)
+        return try await endpoint.chat(model: rawModel, messages: messages, parameters: parameters, onToken: onToken)
+    }
 
-        return try await endpoint.chat(
-            model: model,
-            messages: messages,
-            parameters: parameters,
-            onToken: onToken
-        )
+    func resolve(model: String) throws -> (CustomEndpoint, String) {
+        let parts = model.split(separator: ":", maxSplits: 1)
+        if parts.count == 2, let id = UUID(uuidString: String(parts[0])) {
+            guard let endpoint = endpoints.first(where: { $0.id == id }) else {
+                throw LLMProviderError.modelNotFound(model)
+            }
+            return (endpoint, String(parts[1]))
+        }
+        // Old saved selections are safe only when exactly one endpoint offers the model.
+        let matches = endpoints.filter { ep in ep.models.contains { $0.modelId == "\(ep.id.uuidString):\(model)" } }
+        guard matches.count == 1, let endpoint = matches.first else {
+            throw LLMProviderError.networkError("Select this model again in the model picker; its saved endpoint is missing or ambiguous.")
+        }
+        return (endpoint, model)
     }
 
     // MARK: - Persistence
@@ -110,27 +134,43 @@ final class CustomEndpointProvider: LLMProvider {
                 id: ep.id,
                 name: ep.name,
                 baseURL: ep.baseURL,
-                apiKey: ep.apiKey
+                apiKey: nil
             )
         }
         if let data = try? JSONEncoder().encode(configs) {
-            UserDefaults.standard.set(data, forKey: persistenceKey)
+            defaults.set(data, forKey: persistenceKey)
         }
     }
 
     private func loadEndpoints() {
-        guard let data = UserDefaults.standard.data(forKey: persistenceKey),
+        guard let data = defaults.data(forKey: persistenceKey),
               let configs = try? JSONDecoder().decode([EndpointConfig].self, from: data) else {
             return
         }
         endpoints = configs.map { config in
-            CustomEndpoint(
-                id: config.id,
-                name: config.name,
-                baseURL: config.baseURL,
-                apiKey: config.apiKey
-            )
+            let key = Self.keychainKey(config.id)
+            if let legacy = config.apiKey, !legacy.isEmpty, readKey(key) == nil {
+                if !saveKey(legacy, key) {
+                    persistenceError = "Could not move endpoint credentials to Keychain. Unlock Keychain and restart ChatHarbor. Existing settings have been retained."
+                }
+            }
+            return CustomEndpoint(id: config.id, name: config.name, baseURL: config.baseURL,
+                                  apiKey: readKey(key) ?? config.apiKey ?? "")
         }
+        if persistenceError == nil { saveEndpoints() }
+    }
+
+    static func keychainKey(_ id: UUID) -> String { "chatharbor.custom.\(id.uuidString).apiKey" }
+
+    private func checkMigration() throws {
+        if let persistenceError { throw LLMProviderError.networkError(persistenceError) }
+    }
+
+    private func storeKey(_ value: String, id: UUID) throws {
+        let key = Self.keychainKey(id)
+        let success = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? deleteKey(key) : saveKey(value, key)
+        guard success else { throw LLMProviderError.networkError("Could not save endpoint credentials in Keychain. Your endpoint settings were not changed.") }
     }
 
     private func normalizeURL(_ url: String) -> String {
@@ -151,7 +191,7 @@ private struct EndpointConfig: Codable {
     let id: UUID
     let name: String
     let baseURL: String
-    let apiKey: String
+    var apiKey: String?
 }
 
 // MARK: - Custom Endpoint
@@ -219,7 +259,7 @@ final class CustomEndpoint: Identifiable {
                 self.models = modelIds.map { modelId in
                     ProviderModel(
                         providerId: "custom",
-                        modelId: modelId,
+                        modelId: "\(id.uuidString):\(modelId)",
                         displayName: "\(modelId) (\(name))",
                         contextWindow: nil,
                         isLocal: baseURL.contains("localhost") || baseURL.contains("127.0.0.1")
@@ -255,7 +295,9 @@ final class CustomEndpoint: Identifiable {
 
         let startTime = CFAbsoluteTimeGetCurrent()
 
-        let url = URL(string: "\(baseURL)/chat/completions")!
+        guard let url = URL(string: "\(baseURL)/chat/completions") else {
+            throw LLMProviderError.networkError("Invalid endpoint URL")
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

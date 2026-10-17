@@ -18,6 +18,7 @@ final class BrainstormSession {
     var updatedAt: Date = Date()
 
     /// User-authored decision and later outcome; optional for existing stores.
+    var shortlist: String?
     var decisionNotes: String?
     var outcomeNotes: String?
     var decisionReviewedAt: Date?
@@ -299,15 +300,15 @@ enum BrainstormMethod: String, Codable, CaseIterable, Identifiable {
     var phases: [BrainstormPhase] {
         switch self {
         case .osborn:
-            return [.framing, .ideation, .evaluation, .synthesis]
+            return [.framing, .ideation, .evaluation, .disagreement, .synthesis]
         case .sixHats:
-            return [.framing, .ideation, .synthesis]
+            return [.framing, .ideation, .disagreement, .synthesis]
         case .reverse:
-            return [.framing, .ideation, .evaluation, .synthesis]
+            return [.framing, .ideation, .evaluation, .disagreement, .synthesis]
         case .roundRobin:
-            return [.framing, .ideation, .synthesis]
+            return [.framing, .ideation, .disagreement, .synthesis]
         case .custom:
-            return [.framing, .ideation, .evaluation, .synthesis]
+            return [.framing, .ideation, .evaluation, .disagreement, .synthesis]
         }
     }
 }
@@ -327,6 +328,9 @@ enum BrainstormPhase: String, Codable, CaseIterable {
     /// Convergent thinking: critique, combine, refine the best ideas
     case evaluation
 
+    /// Participants identify a consequential disagreement and a test to resolve it.
+    case disagreement
+
     /// Facilitator + scribe produce actionable output
     case synthesis
 
@@ -339,6 +343,7 @@ enum BrainstormPhase: String, Codable, CaseIterable {
         case .framing: return "Problem Framing"
         case .ideation: return "Idea Generation"
         case .evaluation: return "Evaluation"
+        case .disagreement: return "Disagreements"
         case .synthesis: return "Decision Brief"
         case .complete: return "Complete"
         }
@@ -351,6 +356,7 @@ enum BrainstormPhase: String, Codable, CaseIterable {
         case .framing: return "Frame"
         case .ideation: return "Ideate"
         case .evaluation: return "Eval"
+        case .disagreement: return "Debate"
         case .synthesis: return "Synth"
         case .complete: return "Done"
         }
@@ -362,6 +368,7 @@ enum BrainstormPhase: String, Codable, CaseIterable {
         case .framing: return "scope"
         case .ideation: return "lightbulb.max"
         case .evaluation: return "checkmark.seal"
+        case .disagreement: return "bubble.left.and.bubble.right"
         case .synthesis: return "doc.text"
         case .complete: return "flag.checkered"
         }
@@ -377,6 +384,8 @@ enum BrainstormPhase: String, Codable, CaseIterable {
             return "Models generate ideas freely — no criticism, quantity over quality"
         case .evaluation:
             return "Models critique, combine, and refine the strongest ideas"
+        case .disagreement:
+            return "Identify unresolved disagreements and the evidence needed to settle them"
         case .synthesis:
             return "Options, evidence, disagreements, and a concrete next experiment"
         case .complete:
@@ -499,16 +508,16 @@ enum BrainstormRole: String, Codable, CaseIterable, Identifiable {
     /// Which phases this role is active in (Osborn default — methods can override)
     var activePhases: [BrainstormPhase] {
         switch self {
-        case .facilitator: return [.framing, .ideation, .evaluation, .synthesis]
-        case .wildCard: return [.ideation, .evaluation]
-        case .pragmatist: return [.ideation, .evaluation]
-        case .devilsAdvocate: return [.evaluation]
+        case .facilitator: return [.framing, .ideation, .evaluation, .disagreement, .synthesis]
+        case .wildCard: return [.ideation, .evaluation, .disagreement]
+        case .pragmatist: return [.ideation, .evaluation, .disagreement]
+        case .devilsAdvocate: return [.evaluation, .disagreement]
         case .scribe: return [.synthesis]
         case .whitHat, .redHat, .blackHat, .yellowHat, .greenHat:
-            return [.ideation]
-        case .saboteur: return [.ideation]
-        case .inverter: return [.evaluation]
-        case .contributor: return [.ideation]
+            return [.ideation, .disagreement]
+        case .saboteur: return [.ideation, .disagreement]
+        case .inverter: return [.evaluation, .disagreement]
+        case .contributor: return [.ideation, .disagreement]
         }
     }
 
@@ -572,6 +581,18 @@ enum BrainstormRole: String, Codable, CaseIterable, Identifiable {
         return "You are the Facilitator. The user has proposed a brainstorm topic. Your job is to: 1. Restate the topic as a clear, focused problem statement or \"How Might We\" question. 2. Identify 2-3 key dimensions or angles worth exploring. 3. Note any constraints or assumptions you'd want to clarify. Keep it concise — 3-4 short paragraphs max. End by presenting your proposed problem statement clearly."
     }
 
+    var disagreementPrompt: String {
+        """
+        You are the \(displayName), reviewing the brainstorm before a decision is made.
+        Focus on the user's shortlist when provided. Identify one consequential disagreement
+        between the contributions, cite the roles or ideas involved, and explain the assumption
+        behind each position. Propose a small test and observable result that would help settle it.
+        Preserve minority objections. Agreement among models is not evidence of correctness.
+        If no genuine disagreement is supported by the transcript, say so; identify an unresolved
+        assumption instead. Do not invent disagreement, evidence, or sources. Keep it under 250 words.
+        """
+    }
+
     /// System prompt for the synthesis phase
     var synthesisPrompt: String {
         guard self == .facilitator || self == .scribe else { return "" }
@@ -628,6 +649,7 @@ struct StoredQAMessage: Identifiable, Codable {
     var content: String
     var qualifiedModelId: String?
     var tokenCount: Int?
+    var inputTokenCount: Int?
     var durationMs: Double?
     var createdAt: Date = Date()
 }

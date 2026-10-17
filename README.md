@@ -37,7 +37,7 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 
 ### Custom Endpoints
 
-ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint. This includes LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and many others. You can add multiple endpoints, each with its own name and optional API key. Models are auto-discovered from each server's `/v1/models` endpoint. Endpoints running on localhost are automatically tagged as local in the model picker.
+ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint. This includes LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and many others. You can add multiple endpoints, each with its own name and optional API key. Models are auto-discovered from each server's `/v1/models` endpoint. Endpoints running on localhost are automatically tagged as local in the model picker. Credentials are stored in Keychain. Model selections identify the specific endpoint, even when servers offer the same model. Older selections with multiple matching endpoints must be selected again to avoid sending a request to the wrong server.
 
 ## Brainstorm Mode
 
@@ -47,19 +47,20 @@ Brainstorm mode turns ChatHarbor into a structured creative thinking tool. Inste
 
 1. **Pick a method.** Choose from five built-in frameworks or create your own. Each method defines a set of phases the session progresses through automatically.
 2. **Assign participants.** Add one or more AI models and assign each a role (e.g., Facilitator, Devil's Advocate, Optimist). Roles shape the system prompt each model receives, so participants genuinely argue from different angles. You can mix providers — have Claude facilitate while GPT-4o plays devil's advocate and a local Ollama model contributes wild ideas.
-3. **Run the session.** The session advances through phases (e.g., Ideation → Critique → Refinement → Synthesis). At each checkpoint, you review what the participants have generated and decide whether to continue, redirect, or inject your own ideas.
-4. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
-5. **Decide and revisit.** New synthesis responses produce a decision brief covering options, evidence, assumptions, disagreements, a recommendation, and a concrete experiment. At synthesis or completion, record your decision and reasoning in the follow-up card, click **Save notes**, and return later to record outcomes and lessons. Saved notes are included in exports and follow-up Q&A. Existing synthesis responses remain unchanged.
-6. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
+3. **Run and shortlist.** Review contributions at each checkpoint and add direction. Use **Your shortlist** to write or paste the ideas you want evaluated, one per line. Leave it blank to evaluate all ideas. Round Robin participants see earlier contributions in the same round.
+4. **Review disagreements.** Before the decision brief, each enabled participant except the Scribe identifies a consequential disagreement or unresolved assumption and proposes a small test. Review this pass before continuing. The shortlist and disagreements are included in the final brief, exports, and follow-up Q&A.
+5. **Ask follow-up questions.** After the session completes, a Q&A mode lets you chat with any model about the brainstorm's results — the full session context is included so the model can reference specific ideas, critiques, and outcomes. If you've already started a Q&A conversation, clicking the prompt resumes right where you left off.
+6. **Decide and revisit.** New synthesis responses produce a decision brief covering options, evidence, assumptions, disagreements, a recommendation, and a concrete experiment. At synthesis or completion, record your decision and reasoning in the follow-up card and return later to record outcomes and lessons. Notes and shortlists save as you type. Save failures remain visible with a retry action. Saved notes are included in exports and follow-up Q&A. Existing synthesis responses remain unchanged.
+7. **Export.** Export the entire session as Markdown or PDF, complete with participant attributions, phase labels, and token/cost stats.
 
 ### Built-in Methods
 
 | Method | Phases | Best For |
 |--------|--------|----------|
-| **Osborn's Brainstorming** | Ideation → Critique → Refinement → Synthesis | Classic divergent-then-convergent thinking |
-| **Six Thinking Hats** | Facts → Emotions → Risks → Benefits → Creativity → Process | Structured parallel thinking from multiple perspectives |
-| **Reverse Brainstorm** | Anti-ideation → Analysis → Inversion → Synthesis | Finding solutions by first brainstorming ways to cause the problem |
-| **Round Robin** | Multiple sequential rounds → Synthesis | Ensuring every participant contributes equally |
+| **Osborn's Brainstorming** | Framing → Ideation → Evaluation → Disagreements → Decision Brief | Classic divergent-then-convergent thinking |
+| **Six Thinking Hats** | Framing → Hat Perspectives → Disagreements → Decision Brief | Structured parallel thinking from multiple perspectives |
+| **Reverse Brainstorm** | Framing → Anti-ideation → Evaluation → Disagreements → Decision Brief | Finding solutions by first brainstorming ways to cause the problem |
+| **Round Robin** | Framing → Sequential Rounds → Disagreements → Decision Brief | Ensuring every participant contributes equally |
 | **Custom** | You define the phases | Whatever structure fits your problem |
 
 ### Session Features

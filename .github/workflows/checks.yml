@@ -1,0 +1,16 @@
+name: Build and Regression Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build without signing
+        run: xcodebuild -project ChatHarbor.xcodeproj -scheme ChatHarbor -configuration Debug -derivedDataPath "$RUNNER_TEMP/ChatHarbor-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Run regression checks
+        run: bash Tests/run.sh
