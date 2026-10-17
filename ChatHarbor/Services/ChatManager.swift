@@ -43,6 +43,7 @@ class ChatManager: ObservableObject {
     @Published var showingBrainstormView: Bool = false
     @Published var selectedBrainstormId: UUID? {
         didSet {
+            brainstormManager.selectSession(selectedBrainstormId)
             // Selecting a brainstorm deselects any conversation or ship
             if selectedBrainstormId != nil && selectedConversationId != nil {
                 selectedConversationId = nil
@@ -436,56 +437,10 @@ class ChatManager: ObservableObject {
 
     // MARK: - Multi-Model Compare
 
-    /// Send the same prompt to multiple models simultaneously and stream all responses
-    func startCompare(prompt: String, models: [String]) {
-        guard !models.isEmpty else { return }
-
-        isComparing = true
-        comparePrompt = prompt
-        compareSlots = models.map { CompareSlot(modelName: $0) }
-
-        // Cancel any existing compare tasks
-        compareTasks.forEach { $0.cancel() }
-        compareTasks = []
-
-        for (index, modelName) in models.enumerated() {
-            let task = Task {
-                do {
-                    let apiMessages = [ChatMessage(role: .user, content: prompt)]
-
-                    let result = try await providers.chat(
-                        qualifiedModelId: modelName,
-                        messages: apiMessages
-                    ) { [weak self] token in
-                        Task { @MainActor in
-                            guard let self = self, index < self.compareSlots.count else { return }
-                            self.compareSlots[index].content += token
-                        }
-                    }
-
-                    compareSlots[index].isStreaming = false
-                    compareSlots[index].inputTokenCount = result.inputTokenCount
-                    compareSlots[index].estimatedCost = providers.costForMessage(
-                        modelId: result.model, inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
-                    compareSlots[index].tokenCount = result.tokenCount
-                    compareSlots[index].durationMs = result.durationMs
-                } catch {
-                    if !Task.isCancelled {
-                        compareSlots[index].isStreaming = false
-                        compareSlots[index].error = error.localizedDescription
-                    }
-                }
-
-                // Check if all slots are done
-                if compareSlots.allSatisfy({ !$0.isStreaming }) {
-                    isComparing = false
-                }
-            }
-            compareTasks.append(task)
-        }
-    }
+    private var compareRunID = UUID()
 
     func stopCompare() {
+        compareRunID = UUID()
         compareTasks.forEach { $0.cancel() }
         compareTasks = []
         isComparing = false
@@ -498,6 +453,8 @@ class ChatManager: ObservableObject {
     func startCrossProviderCompare(prompt: String, qualifiedModelIds: [String]) {
         guard !qualifiedModelIds.isEmpty else { return }
 
+        compareRunID = UUID()
+        let requestID = compareRunID
         isComparing = true
         comparePrompt = prompt
 
@@ -512,15 +469,15 @@ class ChatManager: ObservableObject {
             prompt: prompt,
             qualifiedModelIds: qualifiedModelIds,
             onSlotUpdate: { [weak self] index, token in
-                guard let self = self, index < self.compareSlots.count else { return }
+                guard let self = self, self.compareRunID == requestID, index < self.compareSlots.count else { return }
                 self.compareSlots[index].content += token
             },
             onSlotComplete: { [weak self] index, result in
-                guard let self = self, index < self.compareSlots.count else { return }
+                guard let self = self, self.compareRunID == requestID, index < self.compareSlots.count else { return }
                 self.compareSlots[index].isStreaming = false
                 self.compareSlots[index].inputTokenCount = result.inputTokenCount
                 self.compareSlots[index].estimatedCost = self.providers.costForMessage(
-                    modelId: result.model, inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
+                    modelId: qualifiedModelIds[index], inputTokens: result.inputTokenCount, outputTokens: result.tokenCount)
                 self.compareSlots[index].tokenCount = result.tokenCount
                 self.compareSlots[index].durationMs = result.durationMs
 
@@ -529,7 +486,7 @@ class ChatManager: ObservableObject {
                 }
             },
             onSlotError: { [weak self] index, error in
-                guard let self = self, index < self.compareSlots.count else { return }
+                guard let self = self, self.compareRunID == requestID, index < self.compareSlots.count else { return }
                 self.compareSlots[index].isStreaming = false
                 self.compareSlots[index].error = error.localizedDescription
 

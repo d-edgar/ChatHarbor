@@ -18,7 +18,6 @@ class BrainstormManager: ObservableObject {
 
     @Published var selectedSessionId: UUID?
     @Published var isRunning: Bool = false
-    @Published var isPaused: Bool = false
     @Published var currentEntry: BrainstormEntry?
     @Published var streamingContent: String = ""
 
@@ -28,6 +27,8 @@ class BrainstormManager: ObservableObject {
 
     let providers: ProviderManager
 
+    @Published var persistenceError: String?
+    private var runID = UUID()
     private var currentTask: Task<Void, Never>?
 
     /// Throttle streaming UI updates to ~30fps to avoid re-render storms
@@ -42,12 +43,13 @@ class BrainstormManager: ObservableObject {
         self.providers = providers
     }
 
-    /// Save SwiftData context with error logging instead of silent failure
-    private func safeSave(_ context: ModelContext, label: String = "") {
+    /// Keep save failures visible while retaining edits in memory.
+    private func safeSave(_ context: ModelContext) {
         do {
             try context.save()
+            persistenceError = nil
         } catch {
-            print("[BrainstormManager] Failed to save\(label.isEmpty ? "" : " (\(label))"): \(error.localizedDescription)")
+            persistenceError = "Could not save brainstorm changes: \(error.localizedDescription)"
         }
     }
 
@@ -68,16 +70,43 @@ class BrainstormManager: ObservableObject {
         session.participants = participants
         context.insert(session)
         safeSave(context)
-        selectedSessionId = session.id
         return session
     }
 
     /// Delete a session
     func deleteSession(_ session: BrainstormSession, in context: ModelContext) {
         if selectedSessionId == session.id {
-            selectedSessionId = nil
+            selectSession(nil)
         }
         context.delete(session)
+        safeSave(context)
+    }
+
+    func selectSession(_ id: UUID?) {
+        guard selectedSessionId != id else { return }
+        if isQAMode { persistQAMessages() }
+        stop()
+        selectedSessionId = id
+        awaitingUserInput = false
+        checkpointMessage = ""
+        isQAMode = false
+        qaMessages = []
+        qaModelId = nil
+        qaSession = nil
+        qaContext = nil
+        resetQAStreamingBuffer()
+    }
+
+    func restoreCheckpoint(for session: BrainstormSession) {
+        selectSession(session.id)
+        guard !isRunning, !isQAMode, session.phase != .setup, session.phase != .complete,
+              !session.entries(for: session.phase).isEmpty else { return }
+        awaitingUserInput = true
+        checkpointMessage = "Review the saved results. Retry any interrupted responses, add direction, or continue."
+    }
+
+    func saveNotes(for session: BrainstormSession, context: ModelContext) {
+        session.updatedAt = Date()
         safeSave(context)
     }
 
@@ -85,11 +114,15 @@ class BrainstormManager: ObservableObject {
 
     /// Start or resume the brainstorm from its current phase
     func run(session: BrainstormSession, context: ModelContext) {
-        guard !isRunning else { return }
+        selectSession(session.id)
+        guard !isRunning, !isQAStreaming else { return }
+        runID = UUID()
+        let requestID = runID
         isRunning = true
         awaitingUserInput = false
 
         currentTask = Task {
+            guard runID == requestID, !Task.isCancelled else { return }
             switch session.phase {
             case .setup:
                 // Move to framing
@@ -107,6 +140,9 @@ class BrainstormManager: ObservableObject {
             case .evaluation:
                 await runEvaluation(session: session, context: context)
 
+            case .disagreement:
+                await runDisagreement(session: session, context: context)
+
             case .synthesis:
                 await runSynthesis(session: session, context: context)
 
@@ -114,18 +150,22 @@ class BrainstormManager: ObservableObject {
                 break
             }
 
-            isRunning = false
+            if runID == requestID { isRunning = false }
         }
     }
 
     /// Stop the current generation
     func stop() {
+        runID = UUID()
         currentTask?.cancel()
         currentTask = nil
         isRunning = false
+        isQAStreaming = false
         resetStreamingBuffer()
         if let entry = currentEntry {
             entry.isStreaming = false
+            entry.error = "Response interrupted. Retry to complete it."
+            if let context = entry.modelContext { safeSave(context) }
         }
         currentEntry = nil
     }
@@ -142,7 +182,7 @@ class BrainstormManager: ObservableObject {
             flushStreamingBuffer()
         } else if streamFlushTask == nil {
             streamFlushTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(self?.streamFlushInterval ?? 0.033 * 1_000_000_000))
+                do { try await Task.sleep(nanoseconds: UInt64((self?.streamFlushInterval ?? 0.033) * 1_000_000_000)) } catch { return }
                 self?.flushStreamingBuffer()
                 self?.streamFlushTask = nil
             }
@@ -175,7 +215,7 @@ class BrainstormManager: ObservableObject {
             flushQAStreamingBuffer()
         } else if qaStreamFlushTask == nil {
             qaStreamFlushTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(self?.streamFlushInterval ?? 0.033 * 1_000_000_000))
+                do { try await Task.sleep(nanoseconds: UInt64((self?.streamFlushInterval ?? 0.033) * 1_000_000_000)) } catch { return }
                 self?.flushQAStreamingBuffer()
                 self?.qaStreamFlushTask = nil
             }
@@ -201,7 +241,10 @@ class BrainstormManager: ObservableObject {
     /// Retry a failed entry — clears the error, re-streams the response.
     /// Pass an `alternateModelId` to switch to a different model for this entry.
     func retryFailedEntry(_ entry: BrainstormEntry, session: BrainstormSession, context: ModelContext, alternateModelId: String? = nil) {
-        guard entry.error != nil, !isRunning else { return }
+        selectSession(session.id)
+        guard entry.error != nil, !isRunning, !isQAStreaming else { return }
+        runID = UUID()
+        let requestID = runID
 
         // Use alternate model if provided, otherwise keep the original
         let modelId: String
@@ -229,7 +272,7 @@ class BrainstormManager: ObservableObject {
         switch entry.phase {
         case .framing:
             systemPrompt = entry.role.framingPrompt
-            userMessage = "Here is the brainstorm topic:\n\n\(session.topic)\n\nPlease reframe this as a clear problem statement and identify key dimensions to explore."
+            userMessage = framingMessage(for: session)
 
         case .ideation:
             systemPrompt = entry.role.ideationPrompt
@@ -241,8 +284,11 @@ class BrainstormManager: ObservableObject {
 
         case .evaluation:
             systemPrompt = entry.role.evaluationPrompt
-            let allIdeas = buildIdeationContext(session: session)
-            userMessage = "## Problem Statement\n\(session.problemStatement)\n\n## All Ideas from Ideation\n\(allIdeas)\n\nPlease evaluate these ideas according to your role."
+            userMessage = evaluationMessage(for: session)
+
+        case .disagreement:
+            systemPrompt = entry.role.disagreementPrompt
+            userMessage = buildFullSessionContext(session: session)
 
         case .synthesis:
             systemPrompt = entry.role.synthesisPrompt
@@ -256,6 +302,7 @@ class BrainstormManager: ObservableObject {
         }
 
         currentTask = Task {
+            guard runID == requestID, !Task.isCancelled else { return }
             await generate(
                 entry: entry,
                 systemPrompt: systemPrompt,
@@ -263,12 +310,19 @@ class BrainstormManager: ObservableObject {
                 modelId: modelId,
                 context: context
             )
-            isRunning = false
+            if runID == requestID {
+                if entry.phase == .framing, entry.error == nil {
+                    session.problemStatement = entry.content
+                    safeSave(context)
+                }
+                isRunning = false
+            }
         }
     }
 
     /// User provides input at a checkpoint (or resumable state), then advance
     func submitUserInput(_ text: String, session: BrainstormSession, context: ModelContext) {
+        guard selectedSessionId == session.id, !isRunning, !isQAStreaming else { return }
         // Record user input as an entry
         let entry = BrainstormEntry(
             phase: session.phase,
@@ -290,7 +344,7 @@ class BrainstormManager: ObservableObject {
 
     /// User approves and advances to next phase
     func advancePhase(session: BrainstormSession, context: ModelContext) {
-        guard awaitingUserInput else { return }
+        guard awaitingUserInput, selectedSessionId == session.id, !isRunning else { return }
         awaitingUserInput = false
         checkpointMessage = ""
 
@@ -320,7 +374,7 @@ class BrainstormManager: ObservableObject {
 
     /// Continue ideation with another round
     func continueIdeation(session: BrainstormSession, context: ModelContext) {
-        guard awaitingUserInput, session.phase == .ideation else { return }
+        guard awaitingUserInput, selectedSessionId == session.id, session.phase == .ideation else { return }
         awaitingUserInput = false
         checkpointMessage = ""
 
@@ -344,13 +398,7 @@ class BrainstormManager: ObservableObject {
         }
 
         let systemPrompt = BrainstormRole.facilitator.framingPrompt
-        let userMessage = """
-        Here is the brainstorm topic:
-
-        \(session.topic)
-
-        Please reframe this as a clear problem statement and identify key dimensions to explore.
-        """
+        let userMessage = framingMessage(for: session)
 
         let entry = BrainstormEntry(
             phase: .framing,
@@ -372,7 +420,7 @@ class BrainstormManager: ObservableObject {
         )
 
         // Extract the problem statement from the response
-        if !entry.content.isEmpty {
+        if !Task.isCancelled, entry.error == nil, !entry.content.isEmpty {
             session.problemStatement = entry.content
             session.updatedAt = Date()
             safeSave(context)
@@ -412,7 +460,7 @@ class BrainstormManager: ObservableObject {
             let systemPrompt = participant.role.ideationPrompt
             let userMessage = buildIdeationUserMessage(
                 session: session,
-                previousIdeas: previousIdeas,
+                previousIdeas: session.method == .roundRobin ? buildIdeationContext(session: session) : previousIdeas,
                 round: session.currentRound
             )
 
@@ -458,30 +506,11 @@ class BrainstormManager: ObservableObject {
             $0.isEnabled && $0.role.activePhases.contains(.evaluation)
         }
 
-        // Collect all ideas from ideation
-        let allIdeas = buildIdeationContext(session: session)
-
-        let methodContext: String
-        switch session.method {
-        case .reverse:
-            methodContext = "This is a Reverse Brainstorm. The ideation phase generated ways to make the problem worse. Now flip those into real solutions."
-        default:
-            methodContext = "Please evaluate these ideas according to your role."
-        }
-
         for participant in evaluators {
             guard !Task.isCancelled else { return }
 
             let systemPrompt = participant.role.evaluationPrompt
-            let userMessage = """
-            ## Problem Statement
-            \(session.problemStatement)
-
-            ## All Ideas from Ideation
-            \(allIdeas)
-
-            \(methodContext)
-            """
+            let userMessage = evaluationMessage(for: session)
 
             let entry = BrainstormEntry(
                 phase: .evaluation,
@@ -506,8 +535,23 @@ class BrainstormManager: ObservableObject {
         // Checkpoint: user reviews evaluation before synthesis
         await pauseForUser(
             session: session,
-            message: "Evaluation complete. Review the analysis above, add your thoughts, or advance to final synthesis."
+            message: "Evaluation complete. Review the analysis above, add your thoughts, or advance to the disagreement pass."
         )
+    }
+
+    private func runDisagreement(session: BrainstormSession, context: ModelContext) async {
+        let transcript = buildFullSessionContext(session: session)
+        for participant in session.participants where participant.isEnabled && participant.role.activePhases.contains(.disagreement) {
+            guard !Task.isCancelled else { return }
+            let entry = BrainstormEntry(phase: .disagreement, round: 0, role: participant.role,
+                                       qualifiedModelId: participant.qualifiedModelId, isStreaming: true)
+            session.entries.append(entry)
+            currentEntry = entry
+            safeSave(context)
+            await generate(entry: entry, systemPrompt: participant.role.disagreementPrompt,
+                           userMessage: transcript, modelId: participant.qualifiedModelId, context: context)
+        }
+        await pauseForUser(session: session, message: "Review the disagreements and proposed tests, then create the decision brief.")
     }
 
     // MARK: - Synthesis Phase
@@ -572,6 +616,7 @@ class BrainstormManager: ObservableObject {
         modelId: String,
         context: ModelContext
     ) async {
+        let requestID = runID
         resetStreamingBuffer()
 
         var messages: [ChatMessage] = []
@@ -586,38 +631,56 @@ class BrainstormManager: ObservableObject {
                 messages: messages,
                 parameters: ChatParameters(temperature: 0.9, maxTokens: 2048)
             ) { [weak self] token in
-                Task { @MainActor in
-                    self?.appendStreamingToken(token)
-                    entry.content += token
-                }
+                guard let self, self.runID == requestID, !Task.isCancelled else { return }
+                self.appendStreamingToken(token)
+                entry.content += token
             }
 
+            guard runID == requestID, !Task.isCancelled else { return }
+            entry.content = result.content
             entry.isStreaming = false
             entry.tokenCount = result.tokenCount
             entry.inputTokenCount = result.inputTokenCount
             entry.durationMs = result.durationMs
             safeSave(context)
         } catch {
-            if !Task.isCancelled {
+            if runID == requestID, !Task.isCancelled {
                 entry.isStreaming = false
                 entry.error = error.localizedDescription
                 safeSave(context)
             }
         }
 
-        resetStreamingBuffer()
-        currentEntry = nil
+        if runID == requestID {
+            resetStreamingBuffer()
+            currentEntry = nil
+        }
     }
 
     // MARK: - Checkpoints
 
     private func pauseForUser(session: BrainstormSession, message: String) async {
+        guard !Task.isCancelled, selectedSessionId == session.id else { return }
         awaitingUserInput = true
         checkpointMessage = message
         isRunning = false
     }
 
     // MARK: - Context Builders
+
+    func framingMessage(for session: BrainstormSession) -> String {
+        let feedback = session.entries(for: .framing).filter(\.isUserInput).map(\.content).joined(separator: "\n\n")
+        return "Topic: \(session.topic)\n\nPrevious framing: \(session.problemStatement)\n\nUser feedback:\n\(feedback)\n\nReframe the problem, incorporating the user's constraints and corrections."
+    }
+
+    func evaluationMessage(for session: BrainstormSession) -> String {
+        let shortlist = session.shortlist?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let ideas = shortlist.isEmpty ? buildIdeationContext(session: session) : shortlist
+        let direction = session.entries(for: .evaluation).filter(\.isUserInput).map(\.content).joined(separator: "\n")
+        let method = session.method == .reverse ? "Invert the sabotage ideas into constructive solutions." : "Evaluate the selected ideas according to your role."
+        return "Problem: \(session.problemStatement.isEmpty ? session.topic : session.problemStatement)\n\nIdeas to evaluate:\n\(ideas)\n\nUser direction:\n\(direction)\n\n\(method)"
+    }
+
 
     /// Build a summary of all ideas generated so far in ideation
     private func buildIdeationContext(session: BrainstormSession) -> String {
@@ -685,6 +748,10 @@ class BrainstormManager: ObservableObject {
         context += "## Ideation\n"
         context += buildIdeationContext(session: session)
 
+        if let shortlist = session.shortlist, !shortlist.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            context += "## User Shortlist\nFocus evaluation and recommendations on these ideas:\n\(shortlist)\n\n"
+        }
+
         // Evaluation
         let evalEntries = session.entries(for: .evaluation)
         if !evalEntries.isEmpty {
@@ -695,6 +762,13 @@ class BrainstormManager: ObservableObject {
             }
         }
 
+        let disagreements = session.entries(for: .disagreement)
+        if !disagreements.isEmpty {
+            context += "## Disagreements and Tests\n"
+            for entry in disagreements {
+                context += "### \(entry.isUserInput ? "User" : entry.role.displayName)\n\(entry.content)\n\n"
+            }
+        }
         return context
     }
 
@@ -742,154 +816,7 @@ class BrainstormManager: ObservableObject {
     /// Export the brainstorm as a styled HTML string suitable for PDF rendering
     func exportToHTML(_ session: BrainstormSession) -> String {
         let md = exportToMarkdown(session)
-        return convertMarkdownToStyledHTML(md, title: session.title)
-    }
-
-    /// Convert a markdown string to a clean, print-friendly HTML document
-    private func convertMarkdownToStyledHTML(_ markdown: String, title: String) -> String {
-        // Simple markdown → HTML conversion (handles headers, bold, lists, paragraphs, hr)
-        var html = markdown
-
-        // Escape HTML entities first (preserve markdown syntax)
-        // Skip this since our markdown doesn't have raw HTML
-
-        // Convert headers (must process ### before ## before #)
-        let headerPatterns: [(pattern: String, tag: String)] = [
-            ("^### (.+)$", "h3"),
-            ("^## (.+)$", "h2"),
-            ("^# (.+)$", "h1")
-        ]
-        for (pattern, tag) in headerPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .anchorsMatchLines) {
-                html = regex.stringByReplacingMatches(
-                    in: html, range: NSRange(html.startIndex..., in: html),
-                    withTemplate: "<\(tag)>$1</\(tag)>"
-                )
-            }
-        }
-
-        // Bold: **text**
-        if let boldRegex = try? NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*") {
-            html = boldRegex.stringByReplacingMatches(
-                in: html, range: NSRange(html.startIndex..., in: html),
-                withTemplate: "<strong>$1</strong>"
-            )
-        }
-
-        // Italic: *text* (single asterisks not preceded/followed by another asterisk)
-        if let italicRegex = try? NSRegularExpression(pattern: "(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)") {
-            html = italicRegex.stringByReplacingMatches(
-                in: html, range: NSRange(html.startIndex..., in: html),
-                withTemplate: "<em>$1</em>"
-            )
-        }
-
-        // Unordered list items: - text
-        if let listRegex = try? NSRegularExpression(pattern: "^- (.+)$", options: .anchorsMatchLines) {
-            html = listRegex.stringByReplacingMatches(
-                in: html, range: NSRange(html.startIndex..., in: html),
-                withTemplate: "<li>$1</li>"
-            )
-        }
-        // Wrap consecutive <li> items in <ul>
-        if let ulRegex = try? NSRegularExpression(pattern: "(<li>.+</li>\n?)+", options: .dotMatchesLineSeparators) {
-            let matches = ulRegex.matches(in: html, range: NSRange(html.startIndex..., in: html))
-            for match in matches.reversed() {
-                if let range = Range(match.range, in: html) {
-                    let listContent = String(html[range])
-                    html.replaceSubrange(range, with: "<ul>\(listContent)</ul>")
-                }
-            }
-        }
-
-        // Numbered list items: 1. text
-        if let olRegex = try? NSRegularExpression(pattern: "^\\d+\\. (.+)$", options: .anchorsMatchLines) {
-            html = olRegex.stringByReplacingMatches(
-                in: html, range: NSRange(html.startIndex..., in: html),
-                withTemplate: "<li>$1</li>"
-            )
-        }
-
-        // Horizontal rules: ---
-        if let hrRegex = try? NSRegularExpression(pattern: "^---+$", options: .anchorsMatchLines) {
-            html = hrRegex.stringByReplacingMatches(
-                in: html, range: NSRange(html.startIndex..., in: html),
-                withTemplate: "<hr>"
-            )
-        }
-
-        // Wrap remaining plain-text lines in <p> tags (lines that aren't already wrapped)
-        let lines = html.components(separatedBy: "\n")
-        var processedLines: [String] = []
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty {
-                processedLines.append("")
-            } else if trimmed.hasPrefix("<h") || trimmed.hasPrefix("<ul") || trimmed.hasPrefix("<li")
-                        || trimmed.hasPrefix("</ul") || trimmed.hasPrefix("<hr") || trimmed.hasPrefix("<ol")
-                        || trimmed.hasPrefix("</ol") {
-                processedLines.append(line)
-            } else {
-                processedLines.append("<p>\(line)</p>")
-            }
-        }
-        html = processedLines.joined(separator: "\n")
-
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <title>\(title)</title>
-        <style>
-            @page { margin: 0.75in; }
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-                font-size: 12px;
-                line-height: 1.6;
-                color: #1d1d1f;
-                max-width: 100%;
-                padding: 0;
-            }
-            h1 {
-                font-size: 22px;
-                font-weight: 700;
-                border-bottom: 2px solid #0071e3;
-                padding-bottom: 8px;
-                margin-top: 0;
-                color: #1d1d1f;
-            }
-            h2 {
-                font-size: 16px;
-                font-weight: 600;
-                color: #0071e3;
-                margin-top: 24px;
-                margin-bottom: 8px;
-            }
-            h3 {
-                font-size: 14px;
-                font-weight: 600;
-                color: #1d1d1f;
-                margin-top: 16px;
-                margin-bottom: 6px;
-            }
-            p { margin: 6px 0; }
-            em { color: #6e6e73; }
-            ul, ol { padding-left: 20px; margin: 8px 0; }
-            li { margin: 3px 0; }
-            strong { color: #1d1d1f; }
-            hr {
-                border: none;
-                border-top: 1px solid #d2d2d7;
-                margin: 24px 0;
-            }
-        </style>
-        </head>
-        <body>
-        \(html)
-        </body>
-        </html>
-        """
+        return BrainstormReport.html(md, title: session.title)
     }
 
     // MARK: - Rerun
@@ -908,7 +835,6 @@ class BrainstormManager: ObservableObject {
         newSession.participants = session.participants
         context.insert(newSession)
         safeSave(context)
-        selectedSessionId = newSession.id
         // Kick off immediately
         run(session: newSession, context: context)
         return newSession
@@ -929,7 +855,6 @@ class BrainstormManager: ObservableObject {
         // Stay in setup so the user can tweak before launching
         context.insert(newSession)
         safeSave(context)
-        selectedSessionId = newSession.id
         return newSession
     }
 
@@ -949,23 +874,11 @@ class BrainstormManager: ObservableObject {
     /// ModelContext for persisting Q&A changes
     private var qaContext: ModelContext?
 
-    /// Check if a session has Q&A conversation history
-    func hasQAHistory(for session: BrainstormSession) -> Bool {
-        return session.hasQAConversation
-    }
-
-    /// Overload that takes a sessionId — checks the active session if it matches
-    func hasQAHistory(for sessionId: UUID) -> Bool {
-        if qaSession?.id == sessionId && !qaMessages.isEmpty {
-            return true
-        }
-        // Can't check SwiftData without the session object from here,
-        // but the sidebar passes the session object directly
-        return false
-    }
-
     /// Enter Q&A mode for a completed session
     func enterQAMode(session: BrainstormSession, modelId: String, context: ModelContext? = nil) {
+        selectSession(session.id)
+        if isQAMode { persistQAMessages() }
+        stop()
         qaModelId = modelId
         isQAMode = true
         qaSession = session
@@ -976,6 +889,8 @@ class BrainstormManager: ObservableObject {
                 role: stored.isUser ? .user : .assistant,
                 content: stored.content,
                 tokenCount: stored.tokenCount,
+                inputTokenCount: stored.inputTokenCount,
+                qualifiedModelId: stored.qualifiedModelId,
                 durationMs: stored.durationMs
             )
         }
@@ -989,7 +904,7 @@ class BrainstormManager: ObservableObject {
 
     /// Exit Q&A mode (persists conversation to SwiftData)
     func exitQAMode() {
-        currentTask?.cancel()
+        stop()
         // Save conversation to the session model
         persistQAMessages()
         isQAMode = false
@@ -1004,24 +919,28 @@ class BrainstormManager: ObservableObject {
             StoredQAMessage(
                 isUser: msg.role == .user,
                 content: msg.content,
-                qualifiedModelId: msg.role == .assistant ? qaModelId : nil,
+                qualifiedModelId: msg.qualifiedModelId,
                 tokenCount: msg.tokenCount,
+                inputTokenCount: msg.inputTokenCount,
                 durationMs: msg.durationMs
             )
         }
         session.qaModelId = qaModelId
         session.updatedAt = Date()
         if let ctx = qaContext {
-            safeSave(ctx, label: "Q&A persist")
+            safeSave(ctx)
         }
     }
 
     /// Send a Q&A message about the brainstorm session
     func sendQAMessage(_ text: String, session: BrainstormSession) {
-        guard let modelId = qaModelId, !isQAStreaming else { return }
+        guard let modelId = qaModelId, !isQAStreaming, selectedSessionId == session.id, qaSession?.id == session.id else { return }
+        runID = UUID()
+        let requestID = runID
 
         // Add user message
         qaMessages.append(BrainstormQAMessage(role: .user, content: text))
+        persistQAMessages()
 
         // Build the full context: system prompt + session transcript + conversation history
         let transcript = exportToMarkdown(session)
@@ -1053,28 +972,29 @@ class BrainstormManager: ObservableObject {
         resetQAStreamingBuffer()
 
         currentTask = Task {
+            guard runID == requestID, !Task.isCancelled else { return }
             do {
                 let result = try await providers.chat(
                     qualifiedModelId: modelId,
                     messages: messages,
                     parameters: ChatParameters(temperature: 0.7, maxTokens: 2048)
                 ) { [weak self] token in
-                    Task { @MainActor in
-                        self?.appendQAStreamingToken(token)
-                    }
+                    guard let self, self.runID == requestID, !Task.isCancelled else { return }
+                    self.appendQAStreamingToken(token)
                 }
 
-                // Flush any remaining buffered content before reading
-                flushQAStreamingBuffer()
-                let response = qaStreamingContent
+                guard runID == requestID, !Task.isCancelled else { return }
+                let response = result.content
                 qaMessages.append(BrainstormQAMessage(
                     role: .assistant,
                     content: response,
                     tokenCount: result.tokenCount,
+                    inputTokenCount: result.inputTokenCount,
+                    qualifiedModelId: modelId,
                     durationMs: result.durationMs
                 ))
             } catch {
-                if !Task.isCancelled {
+                if runID == requestID, !Task.isCancelled {
                     qaMessages.append(BrainstormQAMessage(
                         role: .assistant,
                         content: "Error: \(error.localizedDescription)"
@@ -1082,6 +1002,7 @@ class BrainstormManager: ObservableObject {
                 }
             }
 
+            guard runID == requestID else { return }
             resetQAStreamingBuffer()
             isQAStreaming = false
 
@@ -1098,6 +1019,8 @@ struct BrainstormQAMessage: Identifiable {
     let role: QARole
     let content: String
     var tokenCount: Int?
+    var inputTokenCount: Int?
+    var qualifiedModelId: String?
     var durationMs: Double?
 
     enum QARole {

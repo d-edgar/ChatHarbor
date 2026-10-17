@@ -235,6 +235,8 @@ struct BrainstormSetupView: View {
             return "The Inverter flips each sabotage idea into a genuine solution. Destruction becomes construction."
         case (_, .evaluation):
             return "Ideas are critiqued, combined, and refined by evaluators. The strongest survive."
+        case (_, .disagreement):
+            return "Each participant identifies a consequential disagreement and a small test to resolve it."
         case (_, .synthesis):
             return "Final summary with action items and recommendations. Export-ready."
         default:

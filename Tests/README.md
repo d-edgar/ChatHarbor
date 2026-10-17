@@ -1,20 +1,39 @@
-# Decision notes smoke test
+# Regression checks
 
-With the full Xcode toolchain selected, run from the repository root:
+Run from the repository root with the full Xcode toolchain selected:
 
 ```sh
-xcrun swiftc ChatHarbor/Models/BrainstormModels.swift Tests/DecisionNotesSmoke.swift -o /tmp/chatharbor-decision-smoke
-/tmp/chatharbor-decision-smoke
+bash Tests/run.sh
 ```
 
-This checks empty defaults and that decision notes, outcome notes, and their timestamp survive reopening a temporary SwiftData store. It does not test migration from an older application store.
+The checks cover:
 
-Before releasing, build and run the app in Xcode and check:
+- Endpoint credentials moving from legacy preferences to Keychain, including a failed migration that must preserve the original settings. The test substitutes an in-memory credential store and does not touch real API keys.
+- Endpoint-specific routing, ambiguous old selections, and credential updates/deletion.
+- HTML escaping, offline export policy, unknown-price labels, and complete PDF pagination.
+- Shortlist and decision-note persistence after reopening a SwiftData store.
+- Framing feedback, Round Robin context, shortlist evaluation, disagreement prompts, and exports.
+- Switching sessions during Q&A and ignoring responses delivered after cancellation.
 
-- Open an existing session after upgrading; its transcript remains intact.
-- Finish a new brainstorm; synthesis requests a decision brief with disagreements and an experiment.
-- Save decision and outcome notes, switch sessions, relaunch, and verify the notes remain.
-- Export Markdown and PDF and ask a follow-up question; saved notes should be included.
-- Compare models with and without matching prices; estimates and unavailable labels should display correctly.
+The core checks also work with Command Line Tools alone:
 
-In the development environment used for this change, Swift syntax parsing passed. Compilation and the persistence smoke test were blocked by missing SwiftData compiler macros in the command-line-only toolchain; full app validation remains pending.
+```sh
+bash Tests/run.sh --core-only
+```
+
+The pull-request workflow builds the app without signing and runs all regression checks. SwiftData tests require Xcode's compiler macros. They do not test migration from an older installed app's database.
+
+## PDF pagination
+
+The full suite includes PDF pagination. To run it separately:
+
+```sh
+xcrun swiftc ChatHarbor/Services/BrainstormReport.swift Tests/PDFSmoke.swift -o /tmp/chatharbor-pdf-smoke
+/tmp/chatharbor-pdf-smoke
+```
+
+It exports a long report and checks that the PDF has multiple pages and contains its final paragraph.
+
+Before release, also check an upgrade with an existing database, the visible shortlist and decision-note editors, provider streaming, and the rendered PDF layout in the app.
+
+Local verification: core regression checks and the five-page PDF test passed. The full app build and SwiftData checks remain pending in an Xcode environment.

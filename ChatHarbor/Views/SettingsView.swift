@@ -82,6 +82,7 @@ struct ModelsProvidersSettingsView: View {
     @State private var geminiError: String?
     @State private var geminiSuccess = false
     // Custom endpoint state
+    @State private var endpointError: String?
     @State private var newEndpointName: String = ""
     @State private var newEndpointURL: String = ""
     @State private var newEndpointKey: String = ""
@@ -715,19 +716,26 @@ struct ModelsProvidersSettingsView: View {
 
                             Button("Add") {
                                 guard !newEndpointName.isEmpty, !newEndpointURL.isEmpty else { return }
-                                let ep = chatManager.providers.custom.addEndpoint(
-                                    name: newEndpointName,
-                                    baseURL: newEndpointURL,
-                                    apiKey: newEndpointKey
-                                )
-                                newEndpointName = ""
-                                newEndpointURL = ""
-                                newEndpointKey = ""
-                                Task { await ep.connect() }
+                                do {
+                                    let ep = try chatManager.providers.custom.addEndpoint(
+                                        name: newEndpointName,
+                                        baseURL: newEndpointURL,
+                                        apiKey: newEndpointKey
+                                    )
+                                    newEndpointName = ""
+                                    newEndpointURL = ""
+                                    newEndpointKey = ""
+                                    endpointError = nil
+                                    Task { await ep.connect() }
+                                } catch { endpointError = error.localizedDescription }
                             }
                             .controlSize(.small)
                             .disabled(newEndpointName.isEmpty || newEndpointURL.isEmpty)
                         }
+                    }
+
+                    if let error = endpointError ?? chatManager.providers.custom.persistenceError {
+                        Text(error).font(.caption).foregroundStyle(.red)
                     }
 
                     // Existing endpoints
@@ -771,7 +779,10 @@ struct ModelsProvidersSettingsView: View {
 
                                         // Remove button
                                         Button {
-                                            chatManager.providers.custom.removeEndpoint(id: endpoint.id)
+                                            do {
+                                                try chatManager.providers.custom.removeEndpoint(id: endpoint.id)
+                                                endpointError = nil
+                                            } catch { endpointError = error.localizedDescription }
                                         } label: {
                                             Image(systemName: "trash")
                                                 .font(.system(size: 10))

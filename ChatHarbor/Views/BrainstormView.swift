@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WebKit
 import UniformTypeIdentifiers
 
 // MARK: - Brainstorm View
@@ -41,6 +40,14 @@ struct BrainstormView: View {
 
             Divider()
 
+            if let error = brainstormManager.persistenceError {
+                HStack {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                    Button("Retry saving") { brainstormManager.saveNotes(for: session, context: modelContext) }
+                }
+                .padding(12)
+            }
+
             // MARK: - Session Content
             if session.phase == .setup {
                 BrainstormSetupView(session: session)
@@ -67,6 +74,7 @@ struct BrainstormView: View {
                 }
             }
         }
+        .onAppear { brainstormManager.restoreCheckpoint(for: session) }
     }
 
     // MARK: - Header
@@ -262,13 +270,17 @@ struct BrainstormView: View {
                         streamingIndicator(for: current)
                     }
 
+                    if session.phase == .ideation || session.phase == .evaluation || session.phase == .disagreement {
+                        BrainstormNotesCard(session: session, isShortlist: true)
+                    }
+
                     // Checkpoint banner
                     if brainstormManager.awaitingUserInput {
                         checkpointBanner
                     }
 
                     if session.phase == .synthesis || session.phase == .complete || session.isComplete {
-                        DecisionReviewCard(session: session)
+                        BrainstormNotesCard(session: session, isShortlist: false)
                     }
 
                     // Prominent Q&A call-to-action after session completes
@@ -610,14 +622,15 @@ struct BrainstormView: View {
         let totalInputTokens = entries.compactMap(\.inputTokenCount).reduce(0, +)
         let totalDuration = entries.compactMap(\.durationMs).reduce(0, +)
         let entryCount = entries.count
-        let totalCost = entries.compactMap { entry -> Double? in
+        let costs = entries.map { entry -> Double? in
             guard let modelId = entry.qualifiedModelId else { return nil }
             return chatManager.providers.costForMessage(
                 modelId: modelId,
                 inputTokens: entry.inputTokenCount ?? 0,
                 outputTokens: entry.tokenCount ?? 0
             )
-        }.reduce(0, +)
+        }
+        let totalCost = costs.contains(where: { $0 == nil }) ? nil : costs.compactMap { $0 }.reduce(0, +)
 
         return HStack(spacing: 12) {
             if entryCount > 0 {
@@ -626,24 +639,13 @@ struct BrainstormView: View {
                 if totalDuration > 0 {
                     Label(ChatManager.formatDuration(totalDuration), systemImage: "clock")
                 }
-                if totalCost > 0 {
-                    Label(formatCost(totalCost), systemImage: "dollarsign.circle")
-                }
+                Label(UsageFormatting.cost(totalCost), systemImage: "dollarsign.circle")
             }
         }
         .font(.system(size: 10))
         .foregroundStyle(.secondary)
     }
 
-    private func formatCost(_ cost: Double) -> String {
-        if cost < 0.001 {
-            return String(format: "$%.4f", cost)
-        } else if cost < 0.01 {
-            return String(format: "$%.3f", cost)
-        } else {
-            return String(format: "$%.2f", cost)
-        }
-    }
 
     private func copyReportToClipboard() {
         let markdown = brainstormManager.exportToMarkdown(session)
@@ -674,7 +676,7 @@ struct BrainstormView: View {
                inputTokens: entry.inputTokenCount ?? 0,
                outputTokens: entry.tokenCount ?? 0
            ), cost > 0 {
-            parts.append(formatCost(cost))
+            parts.append(UsageFormatting.cost(cost))
         }
         return parts
     }
@@ -800,8 +802,8 @@ struct BrainstormView: View {
         QAMessageCardView(
             message: message,
             accent: accent,
-            qaModelId: brainstormManager.qaModelId,
-            providerInfo: brainstormManager.qaModelId.map { chatManager.providers.providerInfo(for: $0) },
+            qaModelId: message.qualifiedModelId ?? brainstormManager.qaModelId,
+            providerInfo: (message.qualifiedModelId ?? brainstormManager.qaModelId).map { chatManager.providers.providerInfo(for: $0) },
             popoverDismissToken: popoverDismissToken
         )
     }
@@ -1244,7 +1246,7 @@ struct BrainstormUsagePopoverView: View {
                     )
                     UsageStatColumn(
                         label: "Cost",
-                        value: messageCost.map { formatCost($0) } ?? "Free",
+                        value: UsageFormatting.cost(messageCost),
                         icon: "dollarsign.circle"
                     )
                 }
@@ -1315,15 +1317,6 @@ struct BrainstormUsagePopoverView: View {
         }
     }
 
-    private func formatCost(_ cost: Double) -> String {
-        if cost < 0.001 {
-            return String(format: "$%.4f", cost)
-        } else if cost < 0.01 {
-            return String(format: "$%.3f", cost)
-        } else {
-            return String(format: "$%.2f", cost)
-        }
-    }
 }
 
 // MARK: - Q&A Message Card
@@ -1403,14 +1396,15 @@ struct QAMessageCardView: View {
                             Text("·")
                             Text(ChatManager.formatDuration(ms))
                         }
-                        if let modelId = qaModelId,
+                        if let modelId = message.qualifiedModelId ?? qaModelId,
+                           let inputTokens = message.inputTokenCount,
                            let cost = chatManager.providers.costForMessage(
                                modelId: modelId,
-                               inputTokens: 0,
+                               inputTokens: inputTokens,
                                outputTokens: tokens
                            ), cost > 0 {
                             Text("·")
-                            Text(formatQACost(cost))
+                            Text(UsageFormatting.cost(cost))
                         }
                         Image(systemName: "chevron.right")
                             .font(.system(size: 7, weight: .bold))
@@ -1497,21 +1491,11 @@ struct QAMessageCardView: View {
         }
     }
 
-    private func formatQACost(_ cost: Double) -> String {
-        if cost < 0.001 {
-            return String(format: "$%.4f", cost)
-        } else if cost < 0.01 {
-            return String(format: "$%.3f", cost)
-        } else {
-            return String(format: "$%.2f", cost)
-        }
-    }
-
     @ViewBuilder
     private func qaUsagePopover(tokens: Int) -> some View {
-        let modelId = qaModelId ?? ""
+        let modelId = message.qualifiedModelId ?? qaModelId ?? ""
         let info = chatManager.providers.providerInfo(for: modelId)
-        let cost = chatManager.providers.costForMessage(modelId: modelId, inputTokens: 0, outputTokens: tokens)
+        let cost = message.inputTokenCount.flatMap { chatManager.providers.costForMessage(modelId: modelId, inputTokens: $0, outputTokens: tokens) }
         let pricing = chatManager.providers.pricingInfo(for: modelId)
         let tokPerSec: Double? = {
             guard let ms = message.durationMs, tokens > 0, ms > 0 else { return nil }
@@ -1550,7 +1534,7 @@ struct QAMessageCardView: View {
                     )
                     UsageStatColumn(
                         label: "Cost",
-                        value: cost.map { formatQACost($0) } ?? "Free",
+                        value: UsageFormatting.cost(cost),
                         icon: "dollarsign.circle"
                     )
                 }
@@ -1706,16 +1690,13 @@ private struct ExportSheet: View {
 
         panel.begin { response in
             if response == .OK, let url = panel.url {
-                renderHTMLToPDF(html: html, to: url) { success in
-                    if success {
-                        withAnimation { exportFeedback = "PDF saved to \(url.lastPathComponent)" }
-                    } else {
-                        withAnimation { exportFeedback = "Error generating PDF" }
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        withAnimation { exportFeedback = "" }
-                    }
+                do {
+                    try BrainstormReport.savePDF(html: html, to: url)
+                    exportFeedback = "PDF saved to \(url.lastPathComponent)"
+                } catch {
+                    exportFeedback = "Error generating PDF: \(error.localizedDescription)"
                 }
+
             }
         }
     }
@@ -1725,50 +1706,6 @@ private struct ExportSheet: View {
         return cleaned.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "-")
     }
 
-    /// Renders HTML content to a PDF file using WebKit's built-in print support
-    private func renderHTMLToPDF(html: String, to url: URL, completion: @escaping (Bool) -> Void) {
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 612, height: 792))
-        webView.loadHTMLString(html, baseURL: nil)
-
-        // Wait for the page to finish loading, then create PDF
-        let delegate = PDFPrintDelegate(url: url, completion: completion)
-        webView.navigationDelegate = delegate
-
-        // Prevent delegate from being deallocated
-        objc_setAssociatedObject(webView, "pdfDelegate", delegate, .OBJC_ASSOCIATION_RETAIN)
-    }
-}
-
-/// Helper class that waits for WebKit to finish loading, then creates a PDF
-private class PDFPrintDelegate: NSObject, WKNavigationDelegate {
-    let url: URL
-    let completion: (Bool) -> Void
-
-    init(url: URL, completion: @escaping (Bool) -> Void) {
-        self.url = url
-        self.completion = completion
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        let config = WKPDFConfiguration()
-        config.rect = NSRect(x: 0, y: 0, width: 612, height: 792) // US Letter
-
-        webView.createPDF(configuration: config) { [self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    do {
-                        try data.write(to: self.url)
-                        self.completion(true)
-                    } catch {
-                        self.completion(false)
-                    }
-                case .failure:
-                    self.completion(false)
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Q&A Model Picker Sheet
@@ -1863,78 +1800,47 @@ private struct QAModelPickerSheet: View {
 
 // MARK: - Decision Review
 
-private struct DecisionReviewCard: View {
+private struct BrainstormNotesCard: View {
     let session: BrainstormSession
+    let isShortlist: Bool
     @Environment(\.modelContext) private var modelContext
-    @State private var decision = ""
-    @State private var outcome = ""
-    @State private var saveError: String?
-
-    private var hasChanges: Bool {
-        decision != (session.decisionNotes ?? "") || outcome != (session.outcomeNotes ?? "")
-    }
+    @EnvironmentObject private var brainstormManager: BrainstormManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Your decision and follow-up", systemImage: "checkmark.bubble")
+            Label(isShortlist ? "Your shortlist" : "Your decision and follow-up",
+                  systemImage: isShortlist ? "list.bullet" : "checkmark.bubble")
                 .font(.headline)
-            Text("Record what you chose and why. Return later to capture what happened.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Text("Decision and reasoning").font(.subheadline.bold())
-            TextField("What will you do, and which tradeoffs did you accept?", text: $decision, axis: .vertical)
-                .lineLimit(3...8)
-                .textFieldStyle(.roundedBorder)
-            Text("Outcome and lessons").font(.subheadline.bold())
-            TextField("What happened? What would you change next time?", text: $outcome, axis: .vertical)
-                .lineLimit(3...8)
-                .textFieldStyle(.roundedBorder)
-            HStack {
-                Button("Save notes", action: save)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!hasChanges)
-                if hasChanges {
-                    Text("Unsaved changes").foregroundStyle(.secondary)
-                } else if let reviewedAt = session.decisionReviewedAt {
-                    Text("Saved \(reviewedAt.formatted(date: .abbreviated, time: .shortened))")
-                        .foregroundStyle(.secondary)
-                }
+            if isShortlist {
+                Text("Keep the ideas you want to pursue, one per line. Leave blank to evaluate all ideas. Changes apply to the next phase or retry.")
+                    .font(.callout).foregroundStyle(.secondary)
+                TextField("Paste or write your chosen ideas…", text: notes(\.shortlist), axis: .vertical)
+                    .lineLimit(3...8)
+            } else {
+                Text("Decision and reasoning").font(.subheadline.bold())
+                TextField("What will you do, and why?", text: notes(\.decisionNotes), axis: .vertical)
+                    .lineLimit(3...8)
+                Text("Outcome and lessons").font(.subheadline.bold())
+                TextField("What happened? What would you change?", text: notes(\.outcomeNotes), axis: .vertical)
+                    .lineLimit(3...8)
             }
-            .font(.caption)
-            if let saveError {
-                Text(saveError).font(.caption).foregroundStyle(.red)
+            if let error = brainstormManager.persistenceError {
+                Text(error).font(.caption).foregroundStyle(.red)
+                Button("Retry saving") { brainstormManager.saveNotes(for: session, context: modelContext) }
+            } else {
+                Text("Edits save automatically.").font(.caption).foregroundStyle(.secondary)
             }
         }
+        .textFieldStyle(.roundedBorder)
         .padding(16)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-        .onAppear(perform: load)
-        .onChange(of: session.id) { _, _ in load() }
     }
 
-    private func load() {
-        decision = session.decisionNotes ?? ""
-        outcome = session.outcomeNotes ?? ""
-        saveError = nil
-    }
-
-    private func save() {
-        let oldDecision = session.decisionNotes
-        let oldOutcome = session.outcomeNotes
-        let oldReviewedAt = session.decisionReviewedAt
-        let oldUpdatedAt = session.updatedAt
-        session.decisionNotes = decision
-        session.outcomeNotes = outcome
-        session.decisionReviewedAt = Date()
-        session.updatedAt = Date()
-        do {
-            try modelContext.save()
-            saveError = nil
-        } catch {
-            session.decisionNotes = oldDecision
-            session.outcomeNotes = oldOutcome
-            session.decisionReviewedAt = oldReviewedAt
-            session.updatedAt = oldUpdatedAt
-            saveError = "Could not save notes: \(error.localizedDescription)"
-        }
+    private func notes(_ keyPath: ReferenceWritableKeyPath<BrainstormSession, String?>) -> Binding<String> {
+        Binding(get: { session[keyPath: keyPath] ?? "" }, set: { value in
+            session[keyPath: keyPath] = value
+            if !isShortlist { session.decisionReviewedAt = Date() }
+            brainstormManager.saveNotes(for: session, context: modelContext)
+        })
     }
 }

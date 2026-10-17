@@ -258,6 +258,8 @@ class ProviderManager: ObservableObject {
 
     /// Calculate cost for a message given model and token counts
     func costForMessage(modelId: String, inputTokens: Int, outputTokens: Int) -> Double? {
+        if modelId.hasPrefix("ollama:") || modelId.hasPrefix("apple:") { return 0 }
+        if modelId.hasPrefix("custom:") { return nil }
         let rawId = rawModelId(from: modelId)
         guard let price = Self.pricing[rawId] else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000.0 * price.input
@@ -267,6 +269,7 @@ class ProviderManager: ObservableObject {
 
     /// Get pricing info for a model (returns per-million-token rates)
     func pricingInfo(for modelId: String) -> (input: Double, output: Double)? {
+        guard !modelId.hasPrefix("custom:") else { return nil }
         let rawId = rawModelId(from: modelId)
         return Self.pricing[rawId]
     }
@@ -319,10 +322,10 @@ class ProviderManager: ObservableObject {
                         qualifiedModelId: qualifiedId,
                         messages: messages
                     ) { token in
-                        Task { @MainActor in
-                            onSlotUpdate(index, token)
-                        }
+                        guard !Task.isCancelled else { return }
+                        onSlotUpdate(index, token)
                     }
+                    guard !Task.isCancelled else { return }
                     onSlotComplete(index, result)
                 } catch {
                     if !Task.isCancelled {

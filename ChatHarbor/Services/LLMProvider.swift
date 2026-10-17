@@ -164,3 +164,11 @@ enum LLMProviderError: LocalizedError {
         }
     }
 }
+
+// Shared across chat, brainstorm, and comparison so missing prices stay explicit.
+enum UsageFormatting {
+    static func cost(_ value: Double?) -> String {
+        guard let value else { return "Cost unavailable" }
+        return String(format: value < 0.01 ? "~$%.5f" : "~$%.2f", value)
+    }
+}

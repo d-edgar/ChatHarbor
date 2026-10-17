@@ -17,9 +17,6 @@ enum KeychainHelper {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return false }
 
-        // Delete any existing item first (update = delete + add)
-        delete(forKey: key)
-
         let query: [String: Any] = [
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrService as String: bundleService,
@@ -28,7 +25,15 @@ enum KeychainHelper {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
         ]
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let lookup: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bundleService,
+            kSecAttrAccount as String: key,
+        ]
+        let status = SecItemUpdate(lookup as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        }
         return status == errSecSuccess
     }
 
