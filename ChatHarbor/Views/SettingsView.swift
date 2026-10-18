@@ -1504,6 +1504,7 @@ struct GeneralSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingReset = false
     @State private var resetConfirmation = ""
+    @State private var resetRequested = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var accent: Color {
@@ -1635,7 +1636,10 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .sheet(isPresented: $showingReset) {
+        .sheet(isPresented: $showingReset, onDismiss: {
+            // AppKit cannot reliably terminate while the confirmation sheet is open.
+            if resetRequested { NSApplication.shared.terminate(nil) }
+        }) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Delete all ChatHarbor data?").font(.headline)
                 Text("Deletes every harbor, chat, brainstorm, Ship and its cargo, saved template, setting, and ChatHarbor API key. This cannot be undone.")
@@ -1658,7 +1662,8 @@ struct GeneralSettingsView: View {
                         chatManager.stopGenerating()
                         chatManager.stopCompare()
                         chatManager.brainstormManager.stop()
-                        NSApplication.shared.terminate(nil)
+                        resetRequested = true
+                        showingReset = false
                     }
                     .disabled(resetConfirmation != "DELETE")
                 }
