@@ -91,7 +91,16 @@ struct ContentView: View {
                 openSettingsFromContent()
             }
         }) {
-            GettingStartedView { connectModel in
+            GettingStartedView(canStartChat: !chatManager.providers.allModels.isEmpty, startChat: {
+                if !chatManager.providers.allModels.contains(where: { $0.id == chatManager.selectedModelId }),
+                   let model = chatManager.providers.allModels.first {
+                    chatManager.selectModel(model.id)
+                }
+                chatManager.selectedBrainstormId = nil
+                chatManager.selectedShipId = nil
+                _ = chatManager.createConversation(in: modelContext)
+                chatManager.showingGettingStarted = false
+            }) { connectModel in
                 openModelsAfterTour = connectModel
                 chatManager.showingGettingStarted = false
             }
@@ -112,19 +121,21 @@ struct ContentView: View {
 // MARK: - Getting Started
 
 private struct GettingStartedView: View {
+    let canStartChat: Bool
+    let startChat: () -> Void
     let finish: (Bool) -> Void
     @AppStorage("hasCompletedGettingStarted") private var hasCompletedGettingStarted = false
     @State private var step = 0
 
     private let pages: [(title: String, icon: String, text: String)] = [
         ("Connect your AI", "desktopcomputer",
-         "Use Ollama or LM Studio to run downloaded models on your Mac, or connect a cloud provider with your API key. Set up your connection in Models & Providers, then choose a model to chat."),
+         "Start with one model and one question. Connect a cloud provider with your API key, or use a downloaded model through Ollama or LM Studio. You do not need to create a harbor or build a Ship to chat."),
         ("Organize with Harbors", "building.2.crop.circle",
-         "Keep Personal, Work, and other areas separate. Each harbor holds its own chats, ships, and brainstorms. Use the sidebar harbor menu to switch or create one. Right-click an item to move it. Model connections stay shared."),
+         "Harbors are workspaces. Start in Personal, and add Work or another area when you need it. Each harbor holds its own chats, ships, and brainstorms. Use the sidebar harbor menu to switch or create one. Right-click an item to move it. Model connections stay shared."),
         ("Build a Ship", "sailboat",
-         "A Ship is a reusable assistant with its own instructions, model, and reference material. Build a Writing Coach or Work Research assistant, then keep its conversations together. Choose Build your first Ship in the sidebar."),
-        ("Chat or Brainstorm", "brain.head.profile",
-         "Chat with one model, or assign models to roles in a brainstorm. Explore ideas, shortlist the strongest options, and review disagreements. Every role can use a local model—even the same model in different roles. Compare Models lets you compare replies side by side.")
+         "A Ship is a reusable assistant with its own instructions, model, and reference material. Ships are optional. For example: Work harbor → Writing Coach ship → a separate conversation for each writing task. Choose Build your first Ship when you want to reuse instructions."),
+        ("Start your first chat", "bubble.left.and.bubble.right",
+         "Choose a model, type a question, and send it. Try: Help me plan my week—ask me what I need to get done. After connecting a model, return to the welcome screen and choose Start a chat. You can explore Compare Models and Brainstorm later.")
     ]
 
     var body: some View {
@@ -141,7 +152,14 @@ private struct GettingStartedView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
             if step == 0 {
-                Button("Open Models & Providers") { finish(true) }
+                Button(canStartChat ? "Start a chat" : "Connect a model") {
+                    if canStartChat {
+                        hasCompletedGettingStarted = true
+                        startChat()
+                    } else {
+                        finish(true)
+                    }
+                }
             }
             Text("You can always reopen this tour from Help → Getting Started.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -156,9 +174,9 @@ private struct GettingStartedView: View {
                     Button("Next") { step += 1 }
                         .keyboardShortcut(.defaultAction)
                 } else {
-                    Button("Connect a Model") {
+                    Button(canStartChat ? "Start a chat" : "Connect a model") {
                         hasCompletedGettingStarted = true
-                        finish(true)
+                        if canStartChat { startChat() } else { finish(true) }
                     }
                         .keyboardShortcut(.defaultAction)
                 }
@@ -177,12 +195,8 @@ struct SplashView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image("ChatHarborLogo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            ChatHarborMark()
                 .frame(width: 120, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 24))
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
 
             Text("ChatHarbor")
                 .font(.system(size: 36, weight: .bold, design: .rounded))
@@ -218,10 +232,6 @@ struct WelcomeView: View {
         chatManager.currentTheme.accentColor(for: colorScheme)
     }
 
-    private var hasAnyProvider: Bool {
-        chatManager.providers.connectedProviders.count > 0
-    }
-
     @Environment(\.openSettings) private var openSettingsAction
     @State private var retryingProvider: String?
     @State private var retryError: String?
@@ -252,12 +262,8 @@ struct WelcomeView: View {
                 Spacer(minLength: 20)
 
                 // Logo & tagline
-                Image("ChatHarborLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                ChatHarborMark()
                     .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
 
                 VStack(spacing: 6) {
                     Text("Welcome to ChatHarbor")
@@ -268,6 +274,25 @@ struct WelcomeView: View {
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
+
+                VStack(spacing: 10) {
+                    Text("Start with one model and one question. Ships are optional reusable assistants; harbors organize your work.")
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button(chatManager.providers.allModels.isEmpty ? "Connect a model" : "Start a chat") {
+                        if let first = chatManager.providers.allModels.first {
+                            if !chatManager.providers.allModels.contains(where: { $0.id == chatManager.selectedModelId }) {
+                                chatManager.selectModel(first.id)
+                            }
+                            _ = chatManager.createConversation(in: modelContext)
+                        } else {
+                            openModelsSettings()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+                .frame(maxWidth: 520)
 
                 // Provider status cards
                 VStack(spacing: 10) {
@@ -461,19 +486,6 @@ struct WelcomeView: View {
 
                 // Actions
                 HStack(spacing: 12) {
-                    if hasAnyProvider {
-                        Button {
-                            let conversation = chatManager.createConversation(in: modelContext)
-                            chatManager.selectedConversationId = conversation.id
-                        } label: {
-                            Label("New Chat", systemImage: "plus.bubble")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .controlSize(.large)
-                    }
-
                     Button {
                         openModelsSettings()
                     } label: {

@@ -28,10 +28,10 @@ struct ShipBuilderView: View {
 
     enum BuilderSection: String, CaseIterable {
         case identity = "Identity"
-        case engine = "Engine"
-        case personality = "Personality"
-        case cargo = "Cargo"
-        case heading = "Heading"
+        case engine = "Model"
+        case personality = "Instructions"
+        case cargo = "Knowledge"
+        case heading = "Response Rules"
 
         var icon: String {
             switch self {
@@ -126,6 +126,14 @@ struct ShipBuilderView: View {
 
             Divider()
 
+            if ship.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button("Add a name to create your Ship") { selectedSection = .identity }
+                    .padding(.top, 8)
+            } else if ship.modelId.isEmpty {
+                Button("Choose a model to create your Ship") { selectedSection = .engine }
+                    .padding(.top, 8)
+            }
+
             // Footer actions
             HStack {
                 Button("Cancel") { onCancel() }
@@ -141,14 +149,14 @@ struct ShipBuilderView: View {
 
                 Spacer()
 
-                Button(isNew ? "Launch Ship" : "Save Changes") {
+                Button(isNew ? "Create Ship" : "Save Changes") {
                     ship.updatedAt = Date()
                     onSave()
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
-                .disabled(ship.name.isEmpty || ship.modelId.isEmpty)
+                .disabled(ship.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || ship.modelId.isEmpty)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -276,7 +284,7 @@ struct ShipBuilderView: View {
 
     private var engineSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "ENGINE", subtitle: "Choose the model and tune its parameters")
+            SectionHeader(title: "MODEL", subtitle: "The AI that powers your Ship. Choose a model; defaults work well to start.")
 
             // Model picker
             VStack(alignment: .leading, spacing: 4) {
@@ -299,18 +307,24 @@ struct ShipBuilderView: View {
                 .labelsHidden()
             }
 
-            // Parameters
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Parameter Overrides")
-                    .font(.system(size: 11, weight: .medium))
+            if chatManager.providers.allModels.isEmpty {
+                Text("No models available. Open Settings → Models & Providers to connect a provider or download a local model, then return here.")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
-                Text("Leave blank to use the model's defaults")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
+                Button("Open Models & Providers") { chatManager.showingModelManager = true }
+            }
 
-                parameterRow("Temperature", value: $ship.temperature, range: 0...2, step: 0.1)
-                parameterRow("Max Tokens", intValue: $ship.maxTokens, range: 1...128000)
-                parameterRow("Top P", value: $ship.topP, range: 0...1, step: 0.05)
+            DisclosureGroup("Advanced model settings") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Leave blank to use the model's defaults")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+
+                    parameterRow("Temperature", value: $ship.temperature, range: 0...2, step: 0.1)
+                    parameterRow("Max Tokens", intValue: $ship.maxTokens, range: 1...128000)
+                    parameterRow("Top P", value: $ship.topP, range: 0...1, step: 0.05)
+                }
+                .padding(.top, 8)
             }
         }
     }
@@ -319,7 +333,7 @@ struct ShipBuilderView: View {
 
     private var personalitySection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "PERSONALITY", subtitle: "Define how this Ship behaves and communicates")
+            SectionHeader(title: "INSTRUCTIONS", subtitle: "Describe the assistant’s role, expertise, and tone. Use Response Rules for topics and output format.")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("System Prompt")
@@ -350,7 +364,7 @@ struct ShipBuilderView: View {
 
     private var cargoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "CARGO", subtitle: "Knowledge base — text, URLs, and files that give this Ship context")
+            SectionHeader(title: "KNOWLEDGE", subtitle: "Your Ship’s cargo: optional reference text, URLs, and files used in its conversations.")
 
             // Direct text knowledge
             VStack(alignment: .leading, spacing: 4) {
@@ -507,7 +521,7 @@ struct ShipBuilderView: View {
 
     private var headingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "HEADING", subtitle: "Guide what this Ship focuses on and how it responds")
+            SectionHeader(title: "RESPONSE RULES", subtitle: "Optional focus topics and output format, added to your Ship’s instructions.")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Focus Topics")

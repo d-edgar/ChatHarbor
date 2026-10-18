@@ -29,6 +29,8 @@ struct SidebarView: View {
     @AppStorage("hasCompletedGettingStarted") private var hasCompletedGettingStarted = false
     @State private var showingAboutPopover = false
     @State private var searchText = ""
+    @State private var chatsCollapsed = false
+    @State private var showingAllChats = false
     @State private var collapsedForkParents: Set<UUID> = []
     @State private var brainstormsCollapsed: Bool = false
     @State private var harborCollapsed: Bool = false
@@ -46,7 +48,7 @@ struct SidebarView: View {
     /// This ensures fork-of-forks nest under the original conversation,
     /// not under an intermediate fork that's itself nested.
     private var forksByParent: [UUID: [Conversation]] {
-        let allConvs = filteredConversations
+        let allConvs = conversations
         let byId = Dictionary(uniqueKeysWithValues: allConvs.map { ($0.id, $0) })
 
         // Walk up the fork chain to find the root ancestor
@@ -66,7 +68,29 @@ struct SidebarView: View {
 
     /// Top-level conversations (not forks)
     private var rootConversations: [Conversation] {
-        filteredConversations.filter { !$0.isForked }
+        let families = forksByParent
+        return conversations.filter { conversation in
+            !conversation.isForked && (searchText.isEmpty
+                || conversation.title.localizedCaseInsensitiveContains(searchText)
+                || (families[conversation.id] ?? []).contains { $0.title.localizedCaseInsensitiveContains(searchText) })
+        }.sorted { left, right in
+            let leftDate = ([left] + (families[left.id] ?? [])).map(\.updatedAt).max() ?? left.updatedAt
+            let rightDate = ([right] + (families[right.id] ?? [])).map(\.updatedAt).max() ?? right.updatedAt
+            return leftDate > rightDate
+        }
+    }
+
+    private var recentConversations: [Conversation] {
+        let roots = rootConversations
+        let recent = Array(roots.prefix(5))
+        let families = forksByParent
+        if let selected = roots.first(where: { root in
+            root.id == chatManager.selectedConversationId
+                || (families[root.id] ?? []).contains { $0.id == chatManager.selectedConversationId }
+        }), !recent.contains(where: { $0.id == selected.id }) {
+            return Array(recent.prefix(4)) + [selected]
+        }
+        return recent
     }
 
     var body: some View {
@@ -78,11 +102,8 @@ struct SidebarView: View {
                         chatManager.selectedConversationId = nil
                     } label: {
                         HStack(spacing: 6) {
-                            Image("ChatHarborLogo")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
+                            ChatHarborMark()
                                 .frame(width: 20, height: 20)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
 
                             Text("ChatHarbor")
                                 .font(.headline)
@@ -158,7 +179,7 @@ struct SidebarView: View {
                 Label(isExpanded ? (activeHarbor?.name ?? "Personal") : "", systemImage: "building.2.crop.circle")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .help("Switch harbor")
+            .help("Switch workspace (harbor)")
             .padding(10)
 
             // MARK: - New Chat / Brainstorm Buttons
@@ -280,11 +301,33 @@ struct SidebarView: View {
 
             // MARK: - Conversation List
             ScrollView {
+                if isExpanded {
+                    HStack {
+                        Button {
+                            chatsCollapsed.toggle()
+                        } label: {
+                            Label("Chats", systemImage: chatsCollapsed ? "chevron.right" : "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue(chatsCollapsed ? "Collapsed" : "Expanded")
+                        Text("\(conversations.count)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                }
+
+                if !isExpanded || !chatsCollapsed {
+                ScrollView {
                 LazyVStack(spacing: 2) {
                     if isExpanded {
                         Spacer().frame(height: 6)
 
-                        ForEach(rootConversations) { conversation in
+                        ForEach(searchText.isEmpty ? recentConversations : rootConversations) { conversation in
                             // Parent conversation row
                             conversationRow(for: conversation)
 
@@ -317,7 +360,7 @@ struct SidebarView: View {
                             }
                         }
                     } else {
-                        ForEach(filteredConversations) { conversation in
+                        ForEach(Array(filteredConversations.prefix(5))) { conversation in
                             CompactConversationRow(
                                 conversation: conversation,
                                 isSelected: chatManager.selectedConversationId == conversation.id
@@ -328,6 +371,20 @@ struct SidebarView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                }
+                .frame(maxHeight: 240)
+
+                if isExpanded && !conversations.isEmpty {
+                    Button("Show all conversations (\(conversations.count))") {
+                        showingAllChats = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+                    .font(.caption)
+                    .padding(.vertical, 8)
+                }
+                }
 
                 // MARK: - Brainstorm Sessions
                 if isExpanded && !brainstormSessions.isEmpty {
@@ -501,7 +558,7 @@ struct SidebarView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            Text("A reusable assistant with its own instructions, model, and reference material—like a Writing Coach.")
+                            Text("An optional reusable assistant with its own instructions, model, and reference material—like a Writing Coach. Use Chat above to start without a Ship.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -542,6 +599,35 @@ struct SidebarView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showingAllChats) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("All conversations").font(.title2.bold())
+                        Spacer()
+                        Button("Done") { showingAllChats = false }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                    TextField("Search conversations", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                    List(filteredConversations) { conversation in
+                        Button {
+                            chatManager.selectedConversationId = conversation.id
+                            chatsCollapsed = false
+                            showingAllChats = false
+                        } label: {
+                            Label(conversation.title, systemImage: conversation.isForked ? "arrow.triangle.branch" : "bubble.left")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if filteredConversations.isEmpty {
+                        Text("No conversations match your search.").foregroundStyle(.secondary)
+                    }
+                }
+                .padding(20)
+                .frame(minWidth: 420, minHeight: 400)
             }
             .onAppear {
                 // Default all fork groups to collapsed
@@ -615,11 +701,8 @@ struct SidebarView: View {
                         showingAboutPopover.toggle()
                     } label: {
                         HStack(spacing: 8) {
-                            Image("ChatHarborLogo")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
+                            ChatHarborMark()
                                 .frame(width: 22, height: 22)
-                                .clipShape(RoundedRectangle(cornerRadius: 5))
                             Text("About")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -1232,12 +1315,8 @@ struct BrainstormSessionRow: View {
 struct AboutPopoverView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image("ChatHarborLogo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            ChatHarborMark()
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
 
             Text("ChatHarbor")
                 .font(.headline)

@@ -37,3 +37,14 @@ It exports a long report and checks that the PDF has multiple pages and contains
 Before release, also check an upgrade with an existing database, the visible shortlist and decision-note editors, provider streaming, and the rendered PDF layout in the app.
 
 Local verification: core regression checks and the five-page PDF test passed. The full app build and SwiftData checks remain pending in an Xcode environment.
+
+## First-chat and Ship setup UI checks
+
+Before release, verify these in the built app (the regression suite does not drive SwiftUI):
+
+- With no models, the tour and welcome screen offer **Connect a model** and open Models & Providers. Opening settings from step one leaves the tour incomplete.
+- With a model available, **Start a chat** opens a regular conversation in the selected harbor. If the previously selected model is unavailable, it selects an available model.
+- Skip remains available, Back works, and Help reopens the tour. Starting a chat from the tour marks it complete.
+- The Ship builder names its tabs Identity, Model, Instructions, Knowledge, and Response Rules. Missing name/model guidance navigates to the relevant tab; whitespace-only names cannot be saved.
+- With no models, the builder offers Models & Providers. Advanced model settings start collapsed and preserve existing overrides when left collapsed.
+- Check the longer tab labels and helper text at the minimum window size, with keyboard navigation and VoiceOver.

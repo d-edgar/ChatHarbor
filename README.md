@@ -12,7 +12,7 @@ See [the changelog](CHANGELOG.md) for the recent fixes and their release status.
 
 ### Getting started
 
-The new four-step first-launch tour covers model connections, harbors, Ships, and brainstorming. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the final step. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete. **Connect a Model** opens Models & Providers. The empty Ships section also explains what a Ship is.
+The four-step first-launch tour introduces model connections, harbors as workspaces, Ships as optional reusable assistants, and a first chat. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. **Start a chat** opens a conversation when a model is available; otherwise **Connect a model** opens Models & Providers. The welcome screen keeps this next action above the provider list. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the tour or start a chat from it. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete.
 
 ## Why ChatHarbor?
 
@@ -108,13 +108,13 @@ Choose a harbor, then use the **Ships** section in the sidebar and click **Build
 
 **Identity** — name, icon (30+ SF Symbols), accent color, and tagline. This is how the Ship appears in the sidebar and model picker.
 
-**Engine** — choose any model from any provider (cloud or local) and lock in parameter overrides (temperature, max tokens, top-p). Every conversation in this Ship uses these settings automatically.
+**Model** — choose any model from any provider (cloud or local) and optionally expand **Advanced model settings** for parameter overrides (temperature, max tokens, top-p). Every conversation in this Ship uses these settings automatically.
 
-**Personality** — the system prompt that defines how the Ship behaves: its tone, expertise, boundaries, and communication style.
+**Instructions** — the system prompt that defines how the Ship behaves: its tone, expertise, boundaries, and communication style.
 
-**Cargo** — the knowledge base. Load context from three sources: direct text (paste anything), URLs (fetched and stripped of HTML automatically), and files (txt, md, json, csv, html imported via file picker). All cargo is injected into the system prompt as reference material. A token budget indicator shows how much context window the cargo consumes.
+**Knowledge** — the knowledge base. Load context from three sources: direct text (paste anything), URLs (fetched and stripped of HTML automatically), and files (txt, md, json, csv, html imported via file picker). All cargo is injected into the system prompt as reference material. A token budget indicator shows how much context window the cargo consumes.
 
-**Heading** — conversation rules: focus topics (what the Ship specializes in) and response format instructions (e.g., "always use bullet points", "respond in JSON", "keep answers under 200 words").
+**Response Rules** — conversation rules: focus topics (what the Ship specializes in) and response format instructions (e.g., "always use bullet points", "respond in JSON", "keep answers under 200 words").
 
 ### Using Ships
 
@@ -170,11 +170,11 @@ Select your signing team under **Signing & Capabilities**, then build and run (�
 
 ## Usage
 
-1. Make sure Ollama is running: `ollama serve`
-2. Launch ChatHarbor
-3. Pull a model if you haven't already (⌘M opens the Model Manager)
-4. Click **New Chat** or press ⌘N
-5. Start chatting
+1. Launch ChatHarbor and choose **Connect a model**.
+2. Add a cloud provider API key, or connect Ollama / LM Studio with a downloaded local model.
+3. Return to the welcome screen and choose **Start a chat**.
+4. Type a question and send it. No Ship setup is required.
+5. Later, create a Ship to reuse instructions and knowledge, or another harbor to organize your work.
 
 ## Architecture
 
