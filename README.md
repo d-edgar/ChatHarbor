@@ -12,7 +12,7 @@ See [the changelog](CHANGELOG.md) for the recent fixes and their release status.
 
 ### Getting started
 
-The five-step first-launch tour introduces model connections, harbors as workspaces, Ships as optional reusable assistants, deletion and reset controls, and a first chat. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. **Start a chat** opens a conversation when a model is available; otherwise **Connect a model** opens Models & Providers. The welcome screen keeps this next action above the provider list. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the tour or start a chat from it. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete.
+Getting Started is an interactive guide that leaves the app usable. It highlights Chat, Models, Ships, and Harbors, then walks through connecting a model, sending a first message, optional Ship and Harbor setup, and data controls. Opening Settings or the Ship builder keeps your place. Model setup waits until you select an available model; the chat step waits for a user message. Nothing is sent automatically. Use **Back**, **Skip this step**, or **Skip tour** at any time; **Help → Getting Started** resumes your saved step, including after restarting. Only **Finish tour** marks it complete and hides the sidebar shortcut. After completion, Help starts a fresh tour.
 
 ## Why ChatHarbor?
 

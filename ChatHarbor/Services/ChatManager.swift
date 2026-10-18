@@ -47,6 +47,9 @@ class ChatManager: ObservableObject {
     @Published var streamingContent: String = ""
     @Published var isLaunching: Bool = true
     @Published var showingGettingStarted = false
+    @Published var gettingStartedStep = GettingStartedStep.restore(from: .standard) {
+        didSet { UserDefaults.standard.set(gettingStartedStep.rawValue, forKey: GettingStartedStep.storageKey) }
+    }
     @Published var showingModelManager: Bool = false
     @Published var settingsTab: String = "general"
     @Published var showingPromptLibrary: Bool = false

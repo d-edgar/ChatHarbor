@@ -327,6 +327,7 @@ struct ChatView: View {
                             .help("Send message (Enter)")
                         }
                     }
+                    .tourHighlight("Message", active: chatManager.showingGettingStarted && chatManager.gettingStartedStep == .chat)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(

@@ -179,6 +179,7 @@ struct SidebarView: View {
                 Label(isExpanded ? (activeHarbor?.name ?? "Personal") : "", systemImage: "building.2.crop.circle")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .tourHighlight("Harbors", active: chatManager.showingGettingStarted && [.overview, .harbors].contains(chatManager.gettingStartedStep))
             .help("Switch workspace (harbor)")
             .padding(10)
 
@@ -210,6 +211,7 @@ struct SidebarView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(chatManager.currentTheme.accentColor(for: colorScheme))
+                    .tourHighlight("Chat", active: chatManager.showingGettingStarted && [.overview, .chat].contains(chatManager.gettingStartedStep))
 
                     Button {
                         chatManager.selectedConversationId = nil
@@ -536,6 +538,7 @@ struct SidebarView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 4)
+                    .tourHighlight("Ships", active: chatManager.showingGettingStarted && [.overview, .ships].contains(chatManager.gettingStartedStep))
 
                     if !harborCollapsed {
                         if ships.isEmpty {
@@ -674,6 +677,7 @@ struct SidebarView: View {
                         conversationModelId: conversations.first(where: { $0.id == chatManager.selectedConversationId })?.modelId
                     )
                     .environmentObject(chatManager)
+                    .tourHighlight("Models", active: chatManager.showingGettingStarted && [.overview, .connect].contains(chatManager.gettingStartedStep))
 
                     Divider()
                         .padding(.horizontal, 14)

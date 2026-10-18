@@ -49,6 +49,9 @@ struct SettingsView: View {
                 }
                 .tag("about")
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if chatManager.showingGettingStarted { TourSettingsHint() }
+        }
         .frame(width: 680, height: 640)
         .onDisappear {
             // Reset to General tab so next ⌘, opens cleanly
