@@ -21,3 +21,7 @@ xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cach
 xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cache-path "$test_build_dir/cache" \
   ChatHarbor/Services/LLMProvider.swift ChatHarbor/Models/{BrainstormModels,ChatModels,ShipModels}.swift Tests/HarborRegression.swift -o "$test_build_dir/harbors"
 "$test_build_dir/harbors"
+
+xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macos14.0" -module-cache-path "$test_build_dir/cache" \
+  ChatHarbor/Services/{LLMProvider,DataDeletion}.swift ChatHarbor/Models/{BrainstormModels,ChatModels,ShipModels}.swift Tests/DataDeletionRegression.swift -o "$test_build_dir/deletion"
+"$test_build_dir/deletion"

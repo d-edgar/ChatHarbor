@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Settings Window
 
@@ -431,6 +432,8 @@ struct ModelsProvidersSettingsView: View {
 
                                         // Remove button
                                         Button {
+                                            guard DataDeletion.confirm(name: endpoint.name,
+                                                detail: "This removes the endpoint and its saved API key. Chats and server models are kept.") else { return }
                                             do {
                                                 try chatManager.providers.custom.removeEndpoint(id: endpoint.id)
                                                 endpointError = nil
@@ -1498,6 +1501,9 @@ struct ParameterIntField: View {
 
 struct GeneralSettingsView: View {
     @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingReset = false
+    @State private var resetConfirmation = ""
     @Environment(\.colorScheme) private var colorScheme
 
     private var accent: Color {
@@ -1506,8 +1512,7 @@ struct GeneralSettingsView: View {
 
     /// SwiftData store location
     private var dataStorePath: String {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        return appSupport?.appendingPathComponent("ChatHarbor").path ?? "~/Library/Application Support/ChatHarbor"
+        modelContext.container.configurations.first?.url.path ?? "Unavailable"
     }
 
     /// Default Ollama models location
@@ -1609,13 +1614,48 @@ struct GeneralSettingsView: View {
                         description: "Where Ollama stores downloaded model files"
                     )
                 }
-                Text("All data stays on your Mac. API keys stored in UserDefaults (Keychain migration planned).")
+                Text("Chats are stored on this Mac. Messages and context are sent to the provider you choose. API keys are stored in macOS Keychain.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Button("Delete all ChatHarbor data…", role: .destructive) {
+                    resetConfirmation = ""
+                    showingReset = true
+                }
             }
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showingReset) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Delete all ChatHarbor data?").font(.headline)
+                Text("Deletes every harbor, chat, brainstorm, Ship and its cargo, saved template, setting, and ChatHarbor API key. This cannot be undone.")
+                Text("ChatHarbor will quit. Deletion finishes the next time you open it, before any data loads.")
+                Text("Exports, backups, original files, provider copies, and Ollama or LM Studio models are not deleted. This is not secure SSD erasure.")
+                    .font(.callout).foregroundStyle(.secondary)
+                TextField("Type DELETE to confirm", text: $resetConfirmation)
+                    .accessibilityLabel("Type DELETE to confirm deleting all ChatHarbor data")
+                HStack {
+                    Spacer()
+                    Button("Cancel") { showingReset = false }.keyboardShortcut(.cancelAction)
+                    Button("Delete & Quit", role: .destructive) {
+                        guard resetConfirmation == "DELETE" else { return }
+                        UserDefaults.standard.set(true, forKey: LocalDataReset.pendingKey)
+                        guard UserDefaults.standard.synchronize() else {
+                            UserDefaults.standard.removeObject(forKey: LocalDataReset.pendingKey)
+                            DataDeletion.showError(CocoaError(.fileWriteUnknown))
+                            return
+                        }
+                        chatManager.stopGenerating()
+                        chatManager.stopCompare()
+                        chatManager.brainstormManager.stop()
+                        NSApplication.shared.terminate(nil)
+                    }
+                    .disabled(resetConfirmation != "DELETE")
+                }
+            }
+            .padding(24)
+            .frame(width: 460)
+        }
     }
 }
 

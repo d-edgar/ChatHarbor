@@ -171,6 +171,8 @@ class ChatManager: ObservableObject {
     private let brainstormEnabledRolesKey = "chatharbor.brainstorm.enabledRoles"
     private let brainstormMethodKey = "chatharbor.brainstorm.defaultMethod"
 
+    private var streamingMessage: Message?
+    private var streamRunID = UUID()
     private var streamTask: Task<Void, Never>?
     private var compareTasks: [Task<Void, Never>] = []
     private var nestedCancellables = Set<AnyCancellable>()
@@ -305,11 +307,11 @@ class ChatManager: ObservableObject {
     }
 
     func deleteConversation(_ conversation: Conversation, in context: ModelContext) {
-        if selectedConversationId == conversation.id {
-            selectedConversationId = nil
-        }
-        context.delete(conversation)
-        try? context.save()
+        guard DataDeletion.confirm(name: conversation.title,
+            detail: "This deletes this chat and its messages. Other forks are kept.", isChat: true) else { return }
+        if streamingMessage?.conversation?.id == conversation.id { stopGenerating() }
+        if selectedConversationId == conversation.id { selectedConversationId = nil }
+        DataDeletion.delete(conversation, in: context)
     }
 
     // MARK: - Conversation Forking
@@ -387,6 +389,7 @@ class ChatManager: ObservableObject {
         // Create placeholder assistant message
         let assistantMessage = Message(role: .assistant, content: "", isStreaming: true, modelUsed: modelToUse)
         conversation.messages.append(assistantMessage)
+        streamingMessage = assistantMessage
         try? context.save()
 
         // Build message history for the API
@@ -418,6 +421,8 @@ class ChatManager: ObservableObject {
         isGenerating = true
         streamingContent = ""
 
+        let runID = UUID()
+        streamRunID = runID
         streamTask = Task { [self] in
             do {
                 let result = try await providers.chat(
@@ -426,11 +431,13 @@ class ChatManager: ObservableObject {
                     parameters: conversationParams
                 ) { [weak self] token in
                     Task { @MainActor in
+                        guard self?.streamRunID == runID else { return }
                         self?.streamingContent += token
                         assistantMessage.content += token
                     }
                 }
 
+                guard streamRunID == runID else { return }
                 assistantMessage.isStreaming = false
                 assistantMessage.tokenCount = result.tokenCount
                 assistantMessage.inputTokenCount = result.inputTokenCount
@@ -440,6 +447,7 @@ class ChatManager: ObservableObject {
                 conversation.updatedAt = Date()
                 try? context.save()
             } catch {
+                guard streamRunID == runID else { return }
                 assistantMessage.isStreaming = false
                 if !Task.isCancelled {
                     assistantMessage.content = "Error: \(error.localizedDescription)"
@@ -454,6 +462,11 @@ class ChatManager: ObservableObject {
 
     /// Stop the current generation
     func stopGenerating() {
+        if let message = streamingMessage, !message.isDeleted, message.modelContext != nil {
+            message.isStreaming = false
+        }
+        streamingMessage = nil
+        streamRunID = UUID()
         streamTask?.cancel()
         streamTask = nil
         isGenerating = false
@@ -530,6 +543,8 @@ class ChatManager: ObservableObject {
     }
 
     func deleteTemplate(_ template: PromptTemplate) {
+        guard DataDeletion.confirm(name: template.name,
+            detail: "This deletes the saved prompt template. Existing chats are kept.") else { return }
         guard !template.isBuiltIn else { return }
         customTemplates.removeAll { $0.id == template.id }
     }

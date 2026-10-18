@@ -678,6 +678,8 @@ struct ShipBuilderView: View {
     }
 
     private func removeCargoItem(_ item: CargoItem) {
+        guard DataDeletion.confirm(name: item.title,
+            detail: "This removes this cargo from the Ship. Its original file or website is kept.") else { return }
         var items = ship.cargoItems
         items.removeAll { $0.id == item.id }
         ship.cargoItems = items

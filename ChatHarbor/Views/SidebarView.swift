@@ -588,11 +588,12 @@ struct SidebarView: View {
                                     Divider()
 
                                     Button("Delete Ship", role: .destructive) {
+                                        guard DataDeletion.confirm(name: ship.name,
+                                            detail: "This deletes the Ship, its cargo, and all its conversations.") else { return }
                                         if chatManager.selectedShipId == ship.id {
                                             chatManager.selectedShipId = nil
                                         }
-                                        modelContext.delete(ship)
-                                        try? modelContext.save()
+                                        DataDeletion.delete(ship, in: modelContext)
                                     }
                                 }
                             }

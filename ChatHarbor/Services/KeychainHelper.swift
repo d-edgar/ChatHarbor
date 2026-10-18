@@ -73,6 +73,16 @@ enum KeychainHelper {
         return status == errSecSuccess || status == errSecItemNotFound
     }
 
+    static func deleteAll() throws {
+        let status = SecItemDelete([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: bundleService,
+        ] as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+    }
+
     // MARK: - Migration
 
     /// Migrate a key from UserDefaults to Keychain.

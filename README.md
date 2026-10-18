@@ -57,6 +57,14 @@ Use the harbor menu in the sidebar to create or switch between Personal, Work, o
 
 Right-click an item and choose **Move to Harbor** to reorganize it. Chats move with their forks; ships move with their conversation history. You can rename a harbor from the sidebar menu. Model connections, API keys, and app settings remain shared—harbors organize content within the same local database, rather than providing separate accounts or security boundaries.
 
+### Deleting local data
+
+Deleting a chat asks for confirmation. You can explicitly skip chat confirmations for five minutes; restarting the app clears that choice. Ships and brainstorms always ask, as do saved templates, cargo, and custom endpoints. Deleting a chat keeps its other forks; deleting a Ship also deletes its conversations and cargo.
+
+Use **Settings → General → Data & Storage → Delete all ChatHarbor data** for a full reset. Type `DELETE` and choose **Delete & Quit**. Reopen ChatHarbor to finish the reset before any data loads. This removes every harbor, conversation, brainstorm, Ship, app setting, saved template, app cache, and ChatHarbor Keychain credential. If cleanup fails, startup offers Retry or Quit instead of opening partially reset data.
+
+This is app-data deletion, not secure SSD erasure. Exports, backups, original cargo files, provider-side copies, and Ollama/LM Studio models remain outside its scope.
+
 ### Brainstorm entirely on your Mac
 
 No cloud API key is needed when every participant uses a downloaded local model through Ollama or LM Studio running on your Mac:

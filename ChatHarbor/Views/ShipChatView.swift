@@ -13,6 +13,8 @@ struct ShipChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
 
+    @State private var streamTask: Task<Void, Never>?
+    @State private var streamRunID = UUID()
     @State private var inputText: String = ""
     @State private var isStreaming: Bool = false
     @State private var streamingContent: String = ""
@@ -50,6 +52,12 @@ struct ShipChatView: View {
                 // No conversations yet — show welcome
                 emptyState
             }
+        }
+        .onDisappear {
+            streamRunID = UUID()
+            streamTask?.cancel()
+            isStreaming = false
+            streamingContent = ""
         }
     }
 
@@ -477,16 +485,21 @@ struct ShipChatView: View {
         }
 
         // Stream response
-        Task {
+        let runID = UUID()
+        streamRunID = runID
+        streamTask = Task {
             do {
                 let result = try await chatManager.providers.chat(
                     qualifiedModelId: ship.modelId,
                     messages: apiMessages,
                     parameters: ship.chatParameters
                 ) { token in
+                    guard streamRunID == runID, !ship.isDeleted, ship.modelContext != nil else { return }
                     streamingContent += token
                 }
 
+                guard !Task.isCancelled, streamRunID == runID,
+                      !ship.isDeleted, ship.modelContext != nil else { return }
                 // Save assistant message
                 let assistantMessage = ShipMessage(
                     role: .assistant,
@@ -502,6 +515,8 @@ struct ShipChatView: View {
                 ship.updatedAt = Date()
                 try? modelContext.save()
             } catch {
+                guard !Task.isCancelled, streamRunID == runID,
+                      !ship.isDeleted, ship.modelContext != nil else { return }
                 let errorMessage = ShipMessage(
                     role: .assistant,
                     content: "Error: \(error.localizedDescription)"

@@ -77,11 +77,12 @@ class BrainstormManager: ObservableObject {
 
     /// Delete a session
     func deleteSession(_ session: BrainstormSession, in context: ModelContext) {
+        guard DataDeletion.confirm(name: session.title,
+            detail: "This deletes the brainstorm, its rounds, notes, and Q&A.") else { return }
         if selectedSessionId == session.id {
             selectSession(nil)
         }
-        context.delete(session)
-        safeSave(context)
+        DataDeletion.delete(session, in: context)
     }
 
     func selectSession(_ id: UUID?) {

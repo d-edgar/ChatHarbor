@@ -2,6 +2,9 @@
 
 ## Unreleased — source implementation
 
+- Delete confirmations, an optional five-minute pause for chat confirmations, and a typed full-data reset in General settings that finishes at the next launch. Reset removes the store, app preferences/cache, and app-owned Keychain credentials; external files, backups, provider copies, and local model installations are unaffected.
+- Correct Keychain/storage wording and prevent late chat responses from writing into deleted conversations or Ships.
+
 - Clearer first-chat onboarding and Ship setup, with plain-language tabs, missing-field guidance, and collapsed advanced model settings.
 - Collapsible Chats with five recent conversation groups, selected-chat visibility, and searchable full history.
 - Simplified sailboat branding, a native modern macOS Dock icon, and an appearance-aware in-app mark for light and dark mode. Older SDK builds retain the legacy asset catalog icon.
