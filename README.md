@@ -12,7 +12,7 @@ See [the changelog](CHANGELOG.md) for the recent fixes and their release status.
 
 ### Getting started
 
-The four-step first-launch tour introduces model connections, harbors as workspaces, Ships as optional reusable assistants, and a first chat. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. **Start a chat** opens a conversation when a model is available; otherwise **Connect a model** opens Models & Providers. The welcome screen keeps this next action above the provider list. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the tour or start a chat from it. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete.
+The five-step first-launch tour introduces model connections, harbors as workspaces, Ships as optional reusable assistants, deletion and reset controls, and a first chat. Use **Back**, **Next**, or **Skip**; dismissal is remembered after restarting. **Start a chat** opens a conversation when a model is available; otherwise **Connect a model** opens Models & Providers. The welcome screen keeps this next action above the provider list. The sidebar **Getting Started** shortcut stays visible after Skip and hides when you finish the tour or start a chat from it. **Help → Getting Started** always reopens the tour. Opening model settings from the first step does not mark the tour complete.
 
 ## Why ChatHarbor?
 

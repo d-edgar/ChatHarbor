@@ -1617,6 +1617,16 @@ struct GeneralSettingsView: View {
                 Text("Chats are stored on this Mac. Messages and context are sent to the provider you choose. API keys are stored in macOS Keychain.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text("Deleting a chat asks for confirmation. In that dialog, you can choose Skip chat confirmations for 5 minutes. Confirmations return automatically after five minutes or when you restart ChatHarbor. Ships, brainstorms, and other deletions always ask.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("To reset every harbor and its contents, use Delete all ChatHarbor data below. Type DELETE, choose Delete & Quit, then reopen ChatHarbor to finish. This also removes settings and saved API keys.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Reset is not secure SSD erasure. Exports, backups, original cargo files, provider copies, and Ollama or LM Studio models remain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Delete all ChatHarbor data…", role: .destructive) {
                     resetConfirmation = ""
                     showingReset = true

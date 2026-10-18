@@ -134,6 +134,8 @@ private struct GettingStartedView: View {
          "Harbors are workspaces. Start in Personal, and add Work or another area when you need it. Each harbor holds its own chats, ships, and brainstorms. Use the sidebar harbor menu to switch or create one. Right-click an item to move it. Model connections stay shared."),
         ("Build a Ship", "sailboat",
          "A Ship is a reusable assistant with its own instructions, model, and reference material. Ships are optional. For example: Work harbor → Writing Coach ship → a separate conversation for each writing task. Choose Build your first Ship when you want to reuse instructions."),
+        ("Delete with confidence", "trash",
+         "Right-click a chat, Ship, or brainstorm to delete it. Chat confirmations offer an optional five-minute skip; other deletions still ask. Deleting a Ship also removes its conversations and cargo.\n\nFor a fresh start, open Settings → General → Data & Storage → Delete all ChatHarbor data. Type DELETE, choose Delete & Quit, then reopen the app to finish. This resets every harbor, settings, and saved API keys.\n\nReset is not secure SSD erasure. Exports, backups, original files, provider copies, and local models remain."),
         ("Start your first chat", "bubble.left.and.bubble.right",
          "Choose a model, type a question, and send it. Try: Help me plan my week—ask me what I need to get done. After connecting a model, return to the welcome screen and choose Start a chat. You can explore Compare Models and Brainstorm later.")
     ]
