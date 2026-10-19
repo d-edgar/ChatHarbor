@@ -15,7 +15,7 @@ The matching private key is configured as the repository Actions secret `SPARKLE
 3. Tag the checked commit. The release workflow signs Sparkle's nested helpers, verifies the version against the tag, builds the DMG, notarizes and staples it, then generates a signed appcast.
 4. The release publishes the DMG and `appcast.xml` together. The app reads `https://github.com/d-edgar/ChatHarbor/releases/latest/download/appcast.xml`; no server or separate Pages update is required. Do not mark an older release as Latest or delete the latest feed asset.
 
-The first updater-enabled release requires a manual install for users on v2.3.1 or earlier. Until that release publishes its feed, development builds pointed at the production URL will report an update-check error.
+The first updater-enabled release requires a manual install for users on v2.3.1 or earlier. Version 2.3.2 published the first production feed. Development builds using the production feed see published versions, not local source changes.
 
 ## Isolated upgrade rehearsal
 

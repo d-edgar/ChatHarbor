@@ -8,6 +8,8 @@ bash Tests/run.sh
 
 The checks cover:
 
+- Harbor assignment and moves, interactive tour progress, deletion guards and full-reset behavior using disposable stores.
+- Provider usage parsing and totals across chat, Ships, compare, brainstorms, and Q&A.
 - Endpoint credentials moving from legacy preferences to Keychain, including a failed migration that must preserve the original settings. The test substitutes an in-memory credential store and does not touch real API keys.
 - Endpoint-specific routing, ambiguous old selections, and credential updates/deletion.
 - HTML escaping, offline export policy, unknown-price labels, and complete PDF pagination.
@@ -48,3 +50,7 @@ Before release, verify these in the built app (the regression suite does not dri
 - The Ship builder names its tabs Identity, Model, Instructions, Knowledge, and Response Rules. Missing name/model guidance navigates to the relevant tab; whitespace-only names cannot be saved.
 - With no models, the builder offers Models & Providers. Advanced model settings start collapsed and preserve existing overrides when left collapsed.
 - Check the longer tab labels and helper text at the minimum window size, with keyboard navigation and VoiceOver.
+
+## Website and updater checks
+
+Run `node Tests/HelpRegression.js` to check knowledge-base files, deep links, search, and navigation without network access. Run `python3 Tests/SparkleRegression.py /path/to/ChatHarbor.app` after building to validate updater settings, bundled helpers, release numbering, and signing-key validation with public test vectors. See [the update guide](../docs/UPDATES.md) for the isolated upgrade rehearsal; never use production app data for it.

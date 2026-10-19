@@ -20,14 +20,14 @@ Getting Started is an interactive guide that leaves the app usable. It highlight
 
 ChatHarbor puts conversations, model comparisons, and structured brainstorming in one Mac app. Bring your own API keys or connect to a local model server.
 
-It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropic, Google Gemini, and Apple Intelligence through a single interface. Same conversation UI, same streaming, same keyboard shortcuts — regardless of which AI you're talking to.
+It's a native macOS app that connects to Ollama and LM Studio (local models), other OpenAI-compatible servers, OpenAI, Anthropic, Google Gemini, and Apple Intelligence through a single interface. Same conversation UI, same streaming, same keyboard shortcuts — regardless of which AI you're talking to.
 
 ## What Makes ChatHarbor Different
 
-- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the release workflow uses Xcode 16.4 and does not include that provider.
+- **All your AI in one place**: Ollama, LM Studio, other OpenAI-compatible servers, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the release workflow uses Xcode 16.4 and does not include that provider.
 - **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports four built-in methods plus a custom role setup. See [Brainstorm Mode](#brainstorm-mode) below.
 - **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, input/output usage, speed, and estimated USD cost. Cost estimates use the built-in pricing table; models without a matching rate show “Cost unavailable.”
-- **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
+- **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and continue from the selected message with a different AI, carrying the history up to that point. Supports nested forks.
 - **Token & cost transparency**: Inspect input/output usage and generation time across chat, Ships, comparisons, brainstorming, and follow-up Q&A. Missing counts remain unknown, estimated counts are labeled, and cache/reasoning counts are treated as subsets. Cost is shown only when a supported rate is available.
 - **Ships & Harbor**: Build custom AI workspaces called Ships. Each Ship has its own model, personality, knowledge base (URLs, files, text), and conversation history. Like custom GPTs, but for every provider. See [Ships & Harbor](#ships--harbor) below.
 - **Prompt template library**: 8 built-in personas plus custom templates. Start conversations with purpose across any provider.
@@ -38,17 +38,17 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 
 | Provider | Type | Models | Setup |
 |----------|------|--------|-------|
-| **Ollama** | Local | llama3, mistral, codellama, etc. | Install Ollama, run `ollama serve` |
-| **OpenAI** | Cloud | GPT-4o, GPT-4, o1, o3-mini, etc. | Add API key in Settings |
+| **Ollama** | Local | Downloaded models available from your Ollama server | Install Ollama, run `ollama serve` |
+| **OpenAI** | Cloud | Compatible chat models available to your API account | Add API key in Settings |
 | **Anthropic** | Cloud | Claude Opus/Sonnet/Haiku | Add API key in Settings |
-| **Google Gemini** | Cloud | Gemini 2.5 Pro/Flash, 2.0 Flash | Add API key in Settings |
+| **Google Gemini** | Cloud | Compatible Gemini models available to your API account | Add API key in Settings |
 | **LM Studio** | Local | Models downloaded in LM Studio | Start its local server; use Settings → Models → LM Studio |
-| **Other Servers** | Any | Any OpenAI-compatible server | Add URL in Settings → Models → Other Servers |
+| **Other Servers** | Any | Servers with compatible model-list and chat APIs | Add URL in Settings → Models → Other Servers |
 | **Apple Intelligence** | On-device | Foundation Models (source builds with Xcode 26+) | Compatible Apple Silicon Mac, macOS 26+, Apple Intelligence enabled |
 
 ### LM Studio and Other Servers
 
-ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint. This includes LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and many others. You can add multiple endpoints, each with its own name and optional API key. Models are auto-discovered from each server's `/v1/models` endpoint. Endpoints running on localhost are automatically tagged as local in the model picker. Credentials are stored in Keychain. Model selections identify the specific endpoint, even when servers offer the same model. Older selections with multiple matching endpoints must be selected again to avoid sending a request to the wrong server.
+ChatHarbor connects to servers that expose compatible `/v1/models` and streaming `/v1/chat/completions` endpoints. LM Studio has its own settings section; use Other Servers for alternatives such as LocalAI, vLLM, or Jan. Compatibility depends on the server’s API and configuration; a chat website URL alone is not enough. You can add multiple endpoints, each with its own name and optional API key. Models are auto-discovered from each server's `/v1/models` endpoint. Endpoints running on localhost are automatically tagged as local in the model picker. Credentials are stored in Keychain. Model selections identify the specific endpoint, even when servers offer the same model. Older selections with multiple matching endpoints must be selected again to avoid sending a request to the wrong server.
 
 ## Brainstorm Mode
 
@@ -73,12 +73,12 @@ This is app-data deletion, not secure SSD erasure. Exports, backups, original ca
 No cloud API key is needed when every participant uses a downloaded local model through Ollama or LM Studio running on your Mac:
 
 1. Choose a local engine:
-   - **Ollama:** install and start [Ollama](https://ollama.com), then download local models in **Settings → Models & Providers**.
-   - **LM Studio:** download a model in [LM Studio](https://lmstudio.ai), then start its local server in the Developer tab. In ChatHarbor’s **Settings → Models & Providers → LM Studio & Other Servers**, select **LM Studio** and **Add**. The default address is `http://localhost:1234/v1`; edit it to match your server. Supply a key only if you enabled server authentication.
+   - **Ollama:** install and start [Ollama](https://ollama.com), then download local models in **Settings → Models**.
+   - **LM Studio:** download a model in [LM Studio](https://lmstudio.ai), then start its local server in the Developer tab. In ChatHarbor’s **Settings → Models → LM Studio**, check the prefilled connection and select **Add**. The default address is `http://localhost:1234/v1`; edit it to match your server. Supply a key only if you enabled server authentication.
 2. Start a brainstorm and choose those models for every active role. Use different models for different perspectives, or assign the same model to several roles.
 3. Choose a local model for follow-up Q&A as well.
 
-Participants take turns, so they do not need to generate simultaneously. Downloads need internet access; once the models are installed, local brainstorming can run offline. Model size and switching speed depend on your Mac. Use models served on this Mac; cloud models, remote endpoints, and remote inference routing are not local processing. Manage LM Studio model downloads and updates in LM Studio, then use **Refresh** on its ChatHarbor connection to rediscover available models. Other OpenAI compatible servers can use **Other compatible server** with their base URL and credentials.
+Participants take turns, so they do not need to generate simultaneously. Downloads need internet access; once the models are installed, local brainstorming can run offline. Model size and switching speed depend on your Mac. Use models served on this Mac; cloud models, remote endpoints, and remote inference routing are not local processing. Manage LM Studio model downloads and updates in LM Studio, then use **Refresh** on its ChatHarbor connection to rediscover available models. Other OpenAI compatible servers can use **Settings → Models → Other Servers** with their base URL and credentials.
 
 
 ### How It Works
@@ -134,7 +134,7 @@ Click a Ship in the sidebar to enter its workspace. Every conversation inherits 
 ## Features
 
 - **Native macOS app** built with SwiftUI — not a web view, not Electron
-- **Multi-provider**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence in one unified interface
+- **Multi-provider**: Ollama, LM Studio, other OpenAI-compatible servers, OpenAI, Anthropic, Google Gemini, and Apple Intelligence in one unified interface
 - **Multi-method brainstorming**: Osborn, Six Thinking Hats, Reverse Brainstorm, Round Robin, or custom frameworks with phased progression, role-based AI participants, post-session Q&A, and exportable reports (Markdown + PDF)
 - **Model comparison**: send one prompt to 2–4 models and compare responses side by side
 - **Conversation forking**: replay any conversation through a different model with nested fork support
@@ -156,6 +156,7 @@ Click a Ship in the sidebar to enter its workspace. Every conversation inherits 
 - macOS 14 Sonoma or later
 - At least one of:
   - [Ollama](https://ollama.com) installed and running (`ollama serve`) for local models
+  - [LM Studio](https://lmstudio.ai/download) running its local server with a loaded model, or another compatible server
   - An [OpenAI](https://platform.openai.com/api-keys) API key for GPT models
   - An [Anthropic](https://console.anthropic.com/settings/keys) API key for Claude models
   - A [Google AI Studio](https://aistudio.google.com/apikey) API key for Gemini models

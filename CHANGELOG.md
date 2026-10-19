@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Align setup instructions and provider descriptions with separate LM Studio and Other Servers settings.
+- Add a dedicated update guide and document GitHub update requests, reset limits, and source-only Apple Intelligence availability.
+- Correct About links and qualify local-processing descriptions; refresh website and portfolio feature summaries.
+
 ## v2.3.2 — 2026-10-19
 
 - Sparkle update checks, a Check for Updates menu item, and a General settings toggle. Installations always require approval.

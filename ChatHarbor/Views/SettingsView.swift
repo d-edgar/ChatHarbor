@@ -169,7 +169,7 @@ struct ModelsProvidersSettingsView: View {
                 ProviderSetupSection(
                     icon: "desktopcomputer",
                     name: "Ollama",
-                    subtitle: "Free, local, private — runs on your Mac",
+                    subtitle: "Run downloaded models locally, or connect a remote server",
                     isConnected: chatManager.ollama.isConnected,
                     modelCount: chatManager.ollama.availableModels.count,
                     providerId: "ollama",
@@ -1871,7 +1871,7 @@ struct AboutSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("One native macOS app for all your AI.\nChat with Apple Intelligence, Ollama, OpenAI, Anthropic,\nGoogle Gemini, and custom endpoints side by side.\nCompare responses, fork conversations across providers,\nand keep everything in one place.")
+                Text("Chat, compare answers, and brainstorm in one Mac app.\nConnect Ollama, LM Studio, OpenAI, Anthropic,\nGoogle Gemini, or other compatible servers.\nApple Intelligence requires a compatible app build and Mac.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -1888,7 +1888,7 @@ struct AboutSettingsView: View {
                     HStack(spacing: 16) {
                         AboutProviderLink(
                             name: "Apple",
-                            detail: "On-device AI",
+                            detail: "Compatible builds",
                             url: "https://developer.apple.com/apple-intelligence/",
                             icon: "apple.logo"
                         )
@@ -1919,9 +1919,9 @@ struct AboutSettingsView: View {
                             icon: "diamond"
                         )
                         AboutProviderLink(
-                            name: "Custom",
-                            detail: "Any endpoint",
-                            url: "https://github.com/d-edgar/ChatHarbor#custom-endpoints",
+                            name: "Other Servers",
+                            detail: "Compatible APIs",
+                            url: "https://chatharbor.app/help/#servers",
                             icon: "server.rack"
                         )
                     }

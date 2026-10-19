@@ -188,9 +188,9 @@
 
     <div class="container">
         <header>
-            <a href="index.html" class="back">&larr; Back to ChatHarbor</a>
+            <a href="index.html" class="back">&larr; Back to ChatHarbor</a> <a href="help/" class="back">Help</a>
             <h1>Privacy Policy</h1>
-            <p class="effective">Effective date: October 17, 2026</p>
+            <p class="effective">Effective date: October 19, 2026</p>
         </header>
 
         <main>
@@ -203,8 +203,7 @@
             <h2>How the App Works</h2>
             <p>
                 ChatHarbor is a native macOS application that lets you chat with AI models from multiple
-                providers &mdash; Apple Intelligence (on-device), Ollama (local), OpenAI (cloud), and
-                Anthropic and Google Gemini (cloud), and custom OpenAI-compatible endpoints. The App sends your messages directly to the provider you select and
+                providers &mdash; Ollama, LM Studio, OpenAI, Anthropic, Google Gemini, and other compatible servers. Apple Intelligence is available only in compatible source builds; it is not included in the v2.3.2 download. The App sends your messages directly to the provider you select and
                 displays the response. ChatHarbor itself does not operate as an intermediary or relay.
             </p>
 
@@ -253,9 +252,13 @@
 
             <h2>Local &amp; On-Device Models</h2>
             <p>
-                Ollama running on your Mac processes model requests locally once the model is downloaded. A remote Ollama server receives the prompts you send it. Apple Intelligence, when available in a compatible source build, processes model requests on device. Fetching URL reference material or downloading models still requires a network connection.
+                Downloaded models served locally by Ollama or LM Studio process requests on your Mac. A remote server or cloud-routed model receives the prompts you send it, even if its connection is labeled local. Apple Intelligence, when available in a compatible source build, processes model requests on device. Fetching URL reference material or downloading models still requires a network connection.
             </p>
 
+            <h2>App Updates</h2>
+            <p>Version 2.3.2 and later use Sparkle to check GitHub for updates, automatically while the app is running or when you choose Check for Updates. These requests expose ordinary connection information, such as your IP address and HTTP request metadata, to GitHub and its download infrastructure. They do not upload conversations or API keys. Sparkle system profiling is disabled. Each installation requires your approval. Turn automatic checks off in Settings → General → Updates. See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub’s privacy statement</a>.</p>
+            <h2>Deleting App Data</h2>
+            <p>Use Settings → General → Data &amp; Storage → Delete all ChatHarbor data for a full reset. After typing DELETE and choosing Delete &amp; Quit, reopen the app to complete deletion. This removes all Harbors, conversations, Ships, brainstorms, saved templates, app preferences and caches, and app-owned Keychain credentials. Exports, backups, original reference files, provider copies, and local models remain. This is not secure SSD erasure. <a href="help/#data">Read the reset guide</a>.</p>
             <h2>Website Analytics</h2>
             <p>This website uses GoatCounter for visitor statistics. This is separate from the App, which does not include that website analytics script. See <a href="https://www.goatcounter.com/privacy">GoatCounter’s privacy policy</a>.</p>
 
