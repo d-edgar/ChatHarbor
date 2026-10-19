@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.3.4 — 2026-10-19
 
 - Honor the auto-title setting in chats and Ship conversations, preserve manually chosen titles, and show saved titles in Ship history.
 
