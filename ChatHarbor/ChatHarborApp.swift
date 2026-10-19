@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct ChatHarborApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var updates = AppUpdates()
     @StateObject private var chatManager: ChatManager
     private let container: ModelContainer
 
@@ -42,6 +43,7 @@ struct ChatHarborApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(chatManager)
+                .environmentObject(updates)
                 .environmentObject(brainstormManager)
                 .frame(minWidth: 800, minHeight: 600)
         }
@@ -50,11 +52,15 @@ struct ChatHarborApp: App {
         .defaultSize(width: 1200, height: 800)
         .commands {
             ChatHarborCommands(chatManager: chatManager)
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesButton(updates: updates)
+            }
         }
 
         Settings {
             ThemedSettingsWrapper()
                 .environmentObject(chatManager)
+                .environmentObject(updates)
                 .modelContainer(container)
         }
     }

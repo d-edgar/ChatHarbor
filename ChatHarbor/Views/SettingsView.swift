@@ -1537,6 +1537,7 @@ struct ParameterIntField: View {
 // MARK: - General Settings
 
 struct GeneralSettingsView: View {
+    @EnvironmentObject var updates: AppUpdates
     @EnvironmentObject var chatManager: ChatManager
     @Environment(\.modelContext) private var modelContext
     @State private var showingReset = false
@@ -1561,6 +1562,15 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: Binding(
+                    get: { updates.automaticallyChecks },
+                    set: { updates.setAutomaticChecks($0) }
+                ))
+                CheckForUpdatesButton(updates: updates)
+                Text("Checks daily while ChatHarbor is running. You choose when to install and relaunch.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             // Default Model
             Section("Default Model") {
                 if chatManager.providers.allModels.isEmpty {

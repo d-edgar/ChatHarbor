@@ -29,6 +29,11 @@ jobs:
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
 
+      - name: Verify update signing key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: printf '%s' "$SPARKLE_PRIVATE_KEY" | swift scripts/verify-sparkle-key.swift ChatHarbor/Info.plist
+
       - name: Install certificate
         env:
           CERTIFICATE_BASE64: ${{ secrets.CERTIFICATE_BASE64 }}
@@ -75,6 +80,13 @@ jobs:
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS="--options runtime --timestamp" \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+
+      - name: Verify version and sign Sparkle helpers
+        run: |
+          APP_PATH="build/Build/Products/Release/ChatHarbor.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")" = "${RELEASE_TAG#v}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Contents/Info.plist")" = "${RELEASE_TAG#v}"
+          bash scripts/sign-sparkle.sh "$APP_PATH" "Developer ID Application"
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -129,6 +141,19 @@ jobs:
           xcrun stapler staple "$DMG_NAME"
           xcrun stapler validate "$DMG_NAME"
 
+      - name: Generate signed update feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          mkdir -p updates
+          cp "ChatHarbor-${RELEASE_TAG}.dmg" updates/
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
+            --ed-key-file - --maximum-deltas 0 \
+            --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/" \
+            --full-release-notes-url "https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}" \
+            --link "https://chatharbor.app" updates
+          test -s updates/appcast.xml
+
       - name: Clean up keychain
         if: always()
         run: |
@@ -138,6 +163,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          files: ChatHarbor-*.dmg
+          files: |
+            ChatHarbor-*.dmg
+            updates/appcast.xml
+          fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false

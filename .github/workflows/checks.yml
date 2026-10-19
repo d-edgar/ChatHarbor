@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build without signing
         run: xcodebuild -project ChatHarbor.xcodeproj -scheme ChatHarbor -configuration Debug -derivedDataPath "$RUNNER_TEMP/ChatHarbor-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Check updater configuration
+        run: python3 Tests/SparkleRegression.py "$RUNNER_TEMP/ChatHarbor-build/Build/Products/Debug/ChatHarbor.app"
       - name: Run regression checks
         run: bash Tests/run.sh
       - name: Check knowledge base

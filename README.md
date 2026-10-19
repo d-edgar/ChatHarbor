@@ -8,7 +8,7 @@ A native macOS app for comparing AI models and working through ideas. Chat with 
 
 ## Recent development
 
-Version 2.3.1 adds separate LM Studio and Other Servers settings, official Get links, and knowledge base links throughout the app. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
+Version 2.3.2 adds automatic update checks and user-approved in-app upgrades. Users on v2.3.1 or earlier need one manual upgrade first. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
 
 Read the [knowledge base](https://chatharbor.app/help/) for setup, local models, Ships, Harbors, usage, and data controls.
 
@@ -242,3 +242,9 @@ MIT License. See [LICENSE](LICENSE) for details.
 - [OpenAI](https://openai.com) and [Anthropic](https://anthropic.com) for cloud AI
 - Apple for on-device intelligence
 - Built with Swift, SwiftUI, and SwiftData
+
+### In-app updates (v2.3.2 and later)
+
+Sparkle checks daily while the app is running. Use **ChatHarbor → Check for Updates…** at any time, or disable automatic checks in **Settings → General → Updates**. Every installation requires approval. Version 2.3.1 and earlier need one manual upgrade first.
+
+Maintainers: see [update signing and testing](docs/UPDATES.md) before publishing the first updater-enabled release.

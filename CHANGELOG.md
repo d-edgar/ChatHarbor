@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.2 — 2026-10-19
+
+- Sparkle update checks, a Check for Updates menu item, and a General settings toggle. Installations always require approval.
+- Signed update feeds and packages published with notarized releases; release build numbers now follow the app version.
+- Existing v2.3.1 users need one manual upgrade to receive in-app updates.
+
 ## v2.3.1 — 2026-10-19
 
 - Separate LM Studio and Other Servers settings with independent forms and existing connection preservation.
