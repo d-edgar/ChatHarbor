@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.3.3 — 2026-10-19
 
 - Align setup instructions and provider descriptions with separate LM Studio and Other Servers settings.
 - Add a dedicated update guide and document GitHub update requests, reset limits, and source-only Apple Intelligence availability.

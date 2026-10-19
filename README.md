@@ -8,7 +8,7 @@ A native macOS app for comparing AI models and working through ideas. Chat with 
 
 ## Recent development
 
-Version 2.3.2 adds automatic update checks and user-approved in-app upgrades. Users on v2.3.1 or earlier need one manual upgrade first. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
+Version 2.3.3 corrects provider descriptions, setup instructions, and About links. Version 2.3.2 introduced automatic update checks and user-approved in-app upgrades; users on v2.3.1 or earlier need one manual upgrade first. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
 
 Read the [knowledge base](https://chatharbor.app/help/) for setup, local models, Ships, Harbors, usage, and data controls.
 
