@@ -1,6 +1,12 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to release (for example, v2.2.3)
+        required: true
+        type: string
   push:
     tags:
       - 'v*'
@@ -8,12 +14,20 @@ on:
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
 jobs:
   build:
     runs-on: macos-15
     steps:
+      - name: Validate release tag
+        run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
 
       - name: Install certificate
         env:
@@ -68,7 +82,7 @@ jobs:
       - name: Create DMG
         run: |
           APP_PATH="build/Build/Products/Release/ChatHarbor.app"
-          DMG_NAME="ChatHarbor-${GITHUB_REF_NAME}.dmg"
+          DMG_NAME="ChatHarbor-${RELEASE_TAG}.dmg"
 
           create-dmg \
             --volname "ChatHarbor" \
@@ -89,7 +103,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           TEAM_ID: ${{ secrets.TEAM_ID }}
         run: |
-          DMG_NAME="ChatHarbor-${GITHUB_REF_NAME}.dmg"
+          DMG_NAME="ChatHarbor-${RELEASE_TAG}.dmg"
 
           # Submit for notarization and wait
           xcrun notarytool submit "$DMG_NAME" \
@@ -109,7 +123,11 @@ jobs:
           fi
 
           # Staple the notarization ticket to the DMG
+          # Force HTTPS over TCP on this runner: https://github.com/actions/runner-images/issues/14924
+          echo "block return out quick proto udp from any to any port 443" | sudo pfctl -f -
+          sudo pfctl -E
           xcrun stapler staple "$DMG_NAME"
+          xcrun stapler validate "$DMG_NAME"
 
       - name: Clean up keychain
         if: always()
@@ -119,6 +137,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: ChatHarbor-*.dmg
           generate_release_notes: true
           draft: false
