@@ -380,10 +380,7 @@ class ChatManager: ObservableObject {
         conversation.messages.append(userMessage)
         conversation.updatedAt = Date()
 
-        // Auto-title from first message
-        if conversation.messages.filter({ $0.role == .user }).count == 1 {
-            conversation.title = conversation.autoTitle
-        }
+        conversation.updateAutoTitle(enabled: autoTitleConversations)
 
         try? context.save()
 

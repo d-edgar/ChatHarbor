@@ -122,7 +122,7 @@ struct ShipChatView: View {
                             Button {
                                 chatManager.selectedShipConversationId = conv.id
                             } label: {
-                                Text(conv.title == "New Conversation" ? conv.autoTitle : conv.title)
+                                Text(conv.title)
                             }
                         }
 
@@ -460,10 +460,7 @@ struct ShipChatView: View {
         conversation.messages.append(userMessage)
         conversation.updatedAt = Date()
 
-        // Auto-title
-        if conversation.title == "New Conversation" {
-            conversation.title = conversation.autoTitle
-        }
+        conversation.updateAutoTitle(enabled: chatManager.autoTitleConversations)
 
         inputText = ""
         isStreaming = true

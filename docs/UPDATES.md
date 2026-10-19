@@ -36,3 +36,14 @@ Create disposable chats and settings in the test app, check for updates, confirm
 ### Production update offer — v2.3.2 to v2.3.3, 2026-10-19
 
 A disposable copy of the published v2.3.2 app, re-signed with a unique sandbox bundle identifier, retained the production feed URL and public key. Before release it reported up to date. After v2.3.3 published, Sparkle offered 2.3.3 and identified the installed version as 2.3.2, with an explicit Install Update button. The test stopped at the offer: the production package was not installed into the test app or the user’s installed app. Production DMG notarization and feed/archive signatures were verified separately.
+
+### Full isolated upgrade — v2.3.2 to v2.3.3, 2026-10-19
+
+Copies extracted from both published DMGs were re-signed under `com.chatharbor.upgrade233isolated`, with an independent test signing key and localhost ZIP feed. Sparkle completed Install Update and Install and Relaunch; both the app and its bundle metadata reported 2.3.3 afterward.
+
+- Two conversations retained their exact user and assistant messages. A new exchange in an existing conversation worked after upgrading.
+- The saved custom server, selected model, fork-title prefix, and tested General settings survived, including disabled automatic update checks and auto-title, enabled streaming, and send on Enter.
+- A subsequent manual update check reported 2.3.3 up to date.
+- The test used a separate sandbox database and a fake localhost model without API credentials. The production app and user data were not used. The test app was quit and its server stopped afterward.
+
+This verifies replacement and data preservation using the released app binaries with test identities and packaging; production signatures and notarization were checked separately. An existing behavior issue was also observed: new chats received automatic titles despite the auto-title preference being off. The preference itself persisted through the upgrade.

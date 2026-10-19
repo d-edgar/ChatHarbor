@@ -217,6 +217,12 @@ final class ShipConversation {
         messages.sorted { $0.createdAt < $1.createdAt }
     }
 
+    func updateAutoTitle(enabled: Bool) {
+        guard enabled, title == "New Conversation",
+              messages.filter({ $0.role == .user }).count == 1 else { return }
+        title = autoTitle
+    }
+
     /// Generate a title from the first user message
     var autoTitle: String {
         if let firstUserMessage = sortedMessages.first(where: { $0.role == .user }) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Honor the auto-title setting in chats and Ship conversations, preserve manually chosen titles, and show saved titles in Ship history.
+
 ## v2.3.3 — 2026-10-19
 
 - Align setup instructions and provider descriptions with separate LM Studio and Other Servers settings.

@@ -4,6 +4,37 @@ import SwiftData
 @main
 struct DecisionNotesSmoke {
     @MainActor static func main() throws {
+        do {
+            let conversation = Conversation()
+            conversation.messages.append(Message(role: .user, content: "First message"))
+            conversation.updateAutoTitle(enabled: false)
+            precondition(conversation.title == "New Conversation", "Disabled auto-title must preserve the title")
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "First message", "Enabled auto-title must name the first turn")
+            conversation.title = "My chosen title"
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "My chosen title", "Auto-title must preserve manual names")
+            conversation.title = "New Conversation"
+            conversation.messages.append(Message(role: .user, content: "Later message"))
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "New Conversation", "Enabling auto-title must not rename existing chats")
+        }
+        do {
+            let conversation = ShipConversation()
+            conversation.messages.append(ShipMessage(role: .user, content: "First message"))
+            conversation.updateAutoTitle(enabled: false)
+            precondition(conversation.title == "New Conversation", "Disabled auto-title must preserve the title")
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "First message", "Enabled auto-title must name the first turn")
+            conversation.title = "My chosen title"
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "My chosen title", "Auto-title must preserve manual names")
+            conversation.title = "New Conversation"
+            conversation.messages.append(ShipMessage(role: .user, content: "Later message"))
+            conversation.updateAutoTitle(enabled: true)
+            precondition(conversation.title == "New Conversation", "Enabling auto-title must not rename existing chats")
+        }
+        print("PASS: regular and Ship auto-titles honor the setting and preserve existing titles")
         let storeURL = FileManager.default.temporaryDirectory.appendingPathComponent("chatharbor-test-\(UUID().uuidString).store")
         let schema = Schema([BrainstormSession.self, BrainstormEntry.self, Conversation.self, Message.self, Ship.self, ShipConversation.self, ShipMessage.self])
         let configuration = ModelConfiguration(schema: schema, url: storeURL)
