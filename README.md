@@ -8,7 +8,7 @@ A native macOS app for comparing AI models and working through ideas. Chat with 
 
 ## Recent development
 
-Version 2.3.0 adds separate harbors, an interactive Getting Started guide, LM Studio setup, and safer data controls. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
+Version 2.3.1 adds separate LM Studio and Other Servers settings, official Get links, and knowledge base links throughout the app. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
 
 Read the [knowledge base](https://chatharbor.app/help/) for setup, local models, Ships, Harbors, usage, and data controls.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.3.1 — 2026-10-19
 
 - Separate LM Studio and Other Servers settings with independent forms and existing connection preservation.
 - Official Get links, setup guides, and a build-aware Apple Intelligence explanation with an Xcode App Store link.
