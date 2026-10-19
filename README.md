@@ -8,7 +8,7 @@ A native macOS app for comparing AI models and working through ideas. Chat with 
 
 ## Recent development
 
-See [the changelog](CHANGELOG.md) for the recent fixes and their release status. Separate harbors and the Getting Started tour are available in source and are not included in a published download yet.
+Version 2.3.0 adds separate harbors, an interactive Getting Started guide, LM Studio setup, and safer data controls. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
 
 ### Getting started
 
@@ -22,7 +22,7 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 
 ## What Makes ChatHarbor Different
 
-- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the v2.2.3 release workflow uses Xcode 16.4 and does not include that provider.
+- **All your AI in one place**: Ollama, OpenAI, Anthropic, Google Gemini, and Apple Intelligence — one app, one conversation list, one compare view. Add your API keys and go, or use local models. Apple Intelligence requires a source build with Xcode 26+; the release workflow uses Xcode 16.4 and does not include that provider.
 - **Structured brainstorming**: Run multi-phase brainstorm sessions with AI participants playing distinct roles — then ask follow-up questions in a dedicated Q&A mode. Supports four built-in methods plus a custom role setup. See [Brainstorm Mode](#brainstorm-mode) below.
 - **Cross-provider compare**: Send the same prompt to 2–4 models simultaneously. Watch them respond side by side. Compare quality, input/output usage, speed, and estimated USD cost. Cost estimates use the built-in pricing table; models without a matching rate show “Cost unavailable.”
 - **Fork to any model**: Having a conversation with Claude and want to see what GPT thinks? Right-click any message, choose "Fork to Model…", and replay the entire conversation history to a different AI. Supports nested forks.
