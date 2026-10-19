@@ -32,3 +32,7 @@ Create disposable chats and settings in the test app, check for updates, confirm
 - Manual checking worked with automatic checks disabled; checking after the upgrade reported up to date.
 - Modifying the signed feed produced an update-validation error and no installation.
 - Debug/Release builds, full regressions, updater bundle validation, and knowledge-base checks passed. Production data and credentials were not used. This was a development-signed local ZIP test, not a newly notarized production DMG release.
+
+### Production update offer — v2.3.2 to v2.3.3, 2026-10-19
+
+A disposable copy of the published v2.3.2 app, re-signed with a unique sandbox bundle identifier, retained the production feed URL and public key. Before release it reported up to date. After v2.3.3 published, Sparkle offered 2.3.3 and identified the installed version as 2.3.2, with an explicit Install Update button. The test stopped at the offer: the production package was not installed into the test app or the user’s installed app. Production DMG notarization and feed/archive signatures were verified separately.
