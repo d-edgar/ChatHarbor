@@ -6,6 +6,7 @@ struct ChatHarborCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .help) {
+            Link("ChatHarbor Knowledge Base", destination: URL(string: "https://chatharbor.app/help/")!)
             Button("Getting Started…") { chatManager.showingGettingStarted = true }
                 .disabled(chatManager.showingCompareView || chatManager.showingPromptLibrary)
         }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Separate LM Studio and Other Servers settings with independent forms and existing connection preservation.
+- Official Get links, setup guides, and a build-aware Apple Intelligence explanation with an Xcode App Store link.
+- Searchable knowledge base linked from the website, Help menu, provider settings, and Getting Started.
+
 ## v2.3.0 — 2026-10-19
 
 - Delete confirmations, an optional five-minute pause for chat confirmations, and a typed full-data reset in General settings that finishes at the next launch. Reset removes the store, app preferences/cache, and app-owned Keychain credentials; external files, backups, provider copies, and local model installations are unaffected.

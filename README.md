@@ -10,6 +10,8 @@ A native macOS app for comparing AI models and working through ideas. Chat with 
 
 Version 2.3.0 adds separate harbors, an interactive Getting Started guide, LM Studio setup, and safer data controls. See [the changelog](CHANGELOG.md) for details and [GitHub Releases](https://github.com/d-edgar/ChatHarbor/releases) for published downloads.
 
+Read the [knowledge base](https://chatharbor.app/help/) for setup, local models, Ships, Harbors, usage, and data controls.
+
 ### Getting started
 
 Getting Started is an interactive guide that leaves the app usable. It highlights Chat, Models, Ships, and Harbors, then walks through connecting a model, sending a first message, optional Ship and Harbor setup, and data controls. Opening Settings or the Ship builder keeps your place. Model setup waits until you select an available model; the chat step waits for a user message. Nothing is sent automatically. Use **Back**, **Skip this step**, or **Skip tour** at any time; **Help → Getting Started** resumes your saved step, including after restarting. Only **Finish tour** marks it complete and hides the sidebar shortcut. After completion, Help starts a fresh tour.
@@ -40,10 +42,11 @@ It's a native macOS app that connects to Ollama (local models), OpenAI, Anthropi
 | **OpenAI** | Cloud | GPT-4o, GPT-4, o1, o3-mini, etc. | Add API key in Settings |
 | **Anthropic** | Cloud | Claude Opus/Sonnet/Haiku | Add API key in Settings |
 | **Google Gemini** | Cloud | Gemini 2.5 Pro/Flash, 2.0 Flash | Add API key in Settings |
-| **Custom Endpoints** | Any | Any OpenAI-compatible server | Add URL in Settings |
+| **LM Studio** | Local | Models downloaded in LM Studio | Start its local server; use Settings → Models → LM Studio |
+| **Other Servers** | Any | Any OpenAI-compatible server | Add URL in Settings → Models → Other Servers |
 | **Apple Intelligence** | On-device | Foundation Models (source builds with Xcode 26+) | Compatible Apple Silicon Mac, macOS 26+, Apple Intelligence enabled |
 
-### Custom Endpoints
+### LM Studio and Other Servers
 
 ChatHarbor can connect to any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint. This includes LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and many others. You can add multiple endpoints, each with its own name and optional API key. Models are auto-discovered from each server's `/v1/models` endpoint. Endpoints running on localhost are automatically tagged as local in the model picker. Credentials are stored in Keychain. Model selections identify the specific endpoint, even when servers offer the same model. Older selections with multiple matching endpoints must be selected again to avoid sending a request to the wrong server.
 

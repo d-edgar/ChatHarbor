@@ -14,3 +14,5 @@ jobs:
         run: xcodebuild -project ChatHarbor.xcodeproj -scheme ChatHarbor -configuration Debug -derivedDataPath "$RUNNER_TEMP/ChatHarbor-build" CODE_SIGNING_ALLOWED=NO build
       - name: Run regression checks
         run: bash Tests/run.sh
+      - name: Check knowledge base
+        run: node Tests/HelpRegression.js

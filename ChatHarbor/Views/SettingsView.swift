@@ -85,14 +85,6 @@ struct ModelsProvidersSettingsView: View {
     @State private var geminiConnecting = false
     @State private var geminiError: String?
     @State private var geminiSuccess = false
-    // Custom endpoint state
-    @State private var endpointError: String?
-    @State private var newEndpointIsLMStudio = false
-    @State private var newEndpointName: String = ""
-    @State private var newEndpointURL: String = ""
-    @State private var newEndpointKey: String = ""
-    @State private var connectingEndpointId: UUID?
-
     private var accent: Color {
         chatManager.currentTheme.accentColor(for: colorScheme)
     }
@@ -111,6 +103,17 @@ struct ModelsProvidersSettingsView: View {
                     accent: accent
                 ) {
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Requires a compatible Apple Silicon Mac, macOS 26 or later, and Apple Intelligence enabled in System Settings.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !chatManager.providers.apple.isIncludedInBuild {
+                            Text("This ChatHarbor build does not include Apple Intelligence. Installing Xcode alone will not enable it. Build ChatHarbor from source with Xcode 26 or later, or use another provider.")
+                                .font(.callout)
+                            HStack {
+                                Link("Get Xcode on the App Store", destination: URL(string: "https://apps.apple.com/us/app/xcode/id497799835")!)
+                                Link("Build instructions", destination: URL(string: "https://chatharbor.app/help/#apple")!)
+                            }.font(.caption)
+                        }
+
                         // On/off toggle
                         HStack {
                             Toggle(isOn: Binding(
@@ -125,6 +128,7 @@ struct ModelsProvidersSettingsView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .disabled(!chatManager.providers.apple.isIncludedInBuild)
                             .toggleStyle(.switch)
                             .tint(accent)
                         }
@@ -316,187 +320,8 @@ struct ModelsProvidersSettingsView: View {
                     }
                 }
 
-                // MARK: - Custom Endpoints
-                ProviderSetupSection(
-                    icon: "server.rack",
-                    name: "LM Studio & Other Servers",
-                    subtitle: "OpenAI compatible servers — LM Studio, LocalAI, vLLM, etc.",
-                    isConnected: chatManager.providers.custom.isConnected,
-                    modelCount: chatManager.providers.custom.models.count,
-                    providerId: "custom",
-                    accent: accent
-                ) {
-                    // Add new endpoint form
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Button("LM Studio") {
-                                newEndpointIsLMStudio = true
-                                newEndpointName = "LM Studio"
-                                newEndpointURL = "http://localhost:1234/v1"
-                                newEndpointKey = ""
-                            }
-                            Button("Other compatible server") {
-                                newEndpointIsLMStudio = false
-                                newEndpointName = ""
-                                newEndpointURL = ""
-                                newEndpointKey = ""
-                            }
-                            Link("Get LM Studio", destination: URL(string: "https://lmstudio.ai")!)
-                        }
-                        .controlSize(.small)
-
-                        Text("For LM Studio, download a model in LM Studio and start its local server in the Developer tab. Select LM Studio here, check the address against your server, then Add. Enter a key only if server authentication is enabled.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Text("ADD ENDPOINT")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 6) {
-                            TextField("Name", text: $newEndpointName)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11))
-                                .frame(width: 100)
-
-                            TextField("Server base URL, including /v1", text: $newEndpointURL)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11, design: .monospaced))
-
-                            SecureField("API Key (optional)", text: $newEndpointKey)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11, design: .monospaced))
-                                .frame(width: 120)
-
-                            Button("Add") {
-                                guard !newEndpointName.isEmpty, !newEndpointURL.isEmpty else { return }
-                                do {
-                                    let ep = try chatManager.providers.custom.addEndpoint(
-                                        name: newEndpointName,
-                                        baseURL: newEndpointURL,
-                                        apiKey: newEndpointKey,
-                                        isLMStudio: newEndpointIsLMStudio
-                                    )
-                                    newEndpointIsLMStudio = false
-                                    newEndpointName = ""
-                                    newEndpointURL = ""
-                                    newEndpointKey = ""
-                                    endpointError = nil
-                                    Task { await ep.connect() }
-                                } catch { endpointError = error.localizedDescription }
-                            }
-                            .controlSize(.small)
-                            .disabled(newEndpointName.isEmpty || newEndpointURL.isEmpty)
-                        }
-                    }
-
-                    if let error = endpointError ?? chatManager.providers.custom.persistenceError {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                    }
-
-                    // Existing endpoints
-                    if !chatManager.providers.custom.endpoints.isEmpty {
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(chatManager.providers.custom.endpoints) { endpoint in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack(spacing: 8) {
-                                        // Status dot
-                                        Circle()
-                                            .fill(endpoint.isConnected ? .green : .orange)
-                                            .frame(width: 7, height: 7)
-
-                                        Text(endpoint.name)
-                                            .font(.system(size: 12, weight: .semibold))
-
-                                        Text(endpoint.baseURL)
-                                            .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-
-                                        Spacer()
-
-                                        // Connect button
-                                        if connectingEndpointId == endpoint.id {
-                                            ProgressView()
-                                                .scaleEffect(0.4)
-                                                .frame(width: 40)
-                                        } else {
-                                            Button(endpoint.isConnected ? "Refresh" : "Connect") {
-                                                connectingEndpointId = endpoint.id
-                                                Task {
-                                                    await endpoint.connect()
-                                                    connectingEndpointId = nil
-                                                }
-                                            }
-                                            .controlSize(.mini)
-                                        }
-
-                                        // Remove button
-                                        Button {
-                                            guard DataDeletion.confirm(name: endpoint.name,
-                                                detail: "This removes the endpoint and its saved API key. Chats and server models are kept.") else { return }
-                                            do {
-                                                try chatManager.providers.custom.removeEndpoint(id: endpoint.id)
-                                                endpointError = nil
-                                            } catch { endpointError = error.localizedDescription }
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(.red.opacity(0.7))
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help("Remove endpoint")
-                                    }
-
-                                    // Status / error
-                                    if endpoint.isConnected {
-                                        Text("\(endpoint.models.count) models available")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(.green)
-                                    } else if let error = endpoint.connectionError {
-                                        Text(error)
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(.orange)
-                                    }
-
-                                    // Models from this endpoint
-                                    if !endpoint.models.isEmpty {
-                                        HStack(spacing: 4) {
-                                            ForEach(endpoint.models.prefix(5)) { model in
-                                                Text(model.modelId)
-                                                    .font(.system(size: 9, design: .monospaced))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(.quaternary.opacity(0.3), in: Capsule())
-                                            }
-                                            if endpoint.models.count > 5 {
-                                                Text("+\(endpoint.models.count - 5) more")
-                                                    .font(.system(size: 9))
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(.vertical, 4)
-
-                                if endpoint.id != chatManager.providers.custom.endpoints.last?.id {
-                                    Divider().opacity(0.5)
-                                }
-                            }
-                        }
-                    }
-
-                    // Help text
-                    HStack(spacing: 4) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 9))
-                        Text("Works with LM Studio, LocalAI, Open WebUI, vLLM, text-generation-webui, Jan, and any server with an OpenAI compatible /v1/chat/completions endpoint.")
-                            .font(.system(size: 10))
-                    }
-                    .foregroundStyle(.secondary)
-                }
+                EndpointSettingsSection(provider: chatManager.providers.custom, isLMStudio: true, accent: accent)
+                EndpointSettingsSection(provider: chatManager.providers.custom, isLMStudio: false, accent: accent)
 
                 // MARK: - OpenAI
                 ProviderSetupSection(
@@ -965,6 +790,197 @@ struct ModelsProvidersSettingsView: View {
 
 // MARK: - Provider Setup Section
 
+private struct EndpointSettingsSection: View {
+    @ObservedObject var provider: CustomEndpointProvider
+    let isLMStudio: Bool
+    let accent: Color
+    @State private var newEndpointName: String
+    @State private var newEndpointURL: String
+    @State private var newEndpointKey = ""
+    @State private var endpointError: String?
+    @State private var connectingEndpointId: UUID?
+
+    init(provider: CustomEndpointProvider, isLMStudio: Bool, accent: Color) {
+        self.provider = provider
+        self.isLMStudio = isLMStudio
+        self.accent = accent
+        _newEndpointName = State(initialValue: isLMStudio ? "LM Studio" : "")
+        _newEndpointURL = State(initialValue: isLMStudio ? "http://localhost:1234/v1" : "")
+    }
+
+    private var endpoints: [CustomEndpoint] {
+        provider.endpoints.filter { $0.isLMStudio == isLMStudio }
+    }
+
+    var body: some View {
+        ProviderSetupSection(
+            icon: isLMStudio ? "desktopcomputer" : "server.rack",
+            name: isLMStudio ? "LM Studio" : "Other Servers",
+            subtitle: isLMStudio ? "Run downloaded models on your Mac" : "Connect an OpenAI compatible server",
+            isConnected: endpoints.contains { $0.isConnected },
+            modelCount: endpoints.reduce(0) { $0 + $1.models.count },
+            providerId: isLMStudio ? "lmstudio" : "custom",
+            accent: accent
+        ) {
+            // Add new endpoint form
+            VStack(alignment: .leading, spacing: 8) {
+                Text(isLMStudio
+                    ? "Download and load a model in LM Studio, then start its server in the Developer tab. Check the address below. A key is needed only if server authentication is enabled."
+                    : "Use the server's OpenAI compatible base URL, including /v1. Get the address and any required key from the server administrator.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("ADD ENDPOINT")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Name").font(.caption)
+                        TextField("Name", text: $newEndpointName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                            .frame(width: 100)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Server URL (with /v1)").font(.caption)
+                        TextField("Server base URL, including /v1", text: $newEndpointURL)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
+
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("API key (optional)").font(.caption)
+                        SecureField("API Key (optional)", text: $newEndpointKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 120)
+                    }
+
+                    Button("Add") {
+                        guard !newEndpointName.isEmpty, !newEndpointURL.isEmpty else { return }
+                        do {
+                            let ep = try provider.addEndpoint(
+                                name: newEndpointName,
+                                baseURL: newEndpointURL,
+                                apiKey: newEndpointKey,
+                                isLMStudio: isLMStudio
+                            )
+                            newEndpointName = isLMStudio ? "LM Studio" : ""
+                            newEndpointURL = isLMStudio ? "http://localhost:1234/v1" : ""
+                            newEndpointKey = ""
+                            endpointError = nil
+                            Task { await ep.connect() }
+                        } catch { endpointError = error.localizedDescription }
+                    }
+                    .controlSize(.small)
+                    .disabled(newEndpointName.isEmpty || newEndpointURL.isEmpty)
+                }
+            }
+
+            if let error = endpointError ?? provider.persistenceError {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+
+            // Existing endpoints
+            if !endpoints.isEmpty {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(endpoints) { endpoint in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                // Status dot
+                                Circle()
+                                    .fill(endpoint.isConnected ? .green : .orange)
+                                    .frame(width: 7, height: 7)
+
+                                Text(endpoint.name)
+                                    .font(.system(size: 12, weight: .semibold))
+
+                                Text(endpoint.baseURL)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+
+                                Spacer()
+
+                                // Connect button
+                                if connectingEndpointId == endpoint.id {
+                                    ProgressView()
+                                        .scaleEffect(0.4)
+                                        .frame(width: 40)
+                                } else {
+                                    Button(endpoint.isConnected ? "Refresh" : "Connect") {
+                                        connectingEndpointId = endpoint.id
+                                        Task {
+                                            await endpoint.connect()
+                                            connectingEndpointId = nil
+                                        }
+                                    }
+                                    .controlSize(.mini)
+                                }
+
+                                // Remove button
+                                Button {
+                                    guard DataDeletion.confirm(name: endpoint.name,
+                                        detail: "This removes the endpoint and its saved API key. Chats and server models are kept.") else { return }
+                                    do {
+                                        try provider.removeEndpoint(id: endpoint.id)
+                                        endpointError = nil
+                                    } catch { endpointError = error.localizedDescription }
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.red.opacity(0.7))
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove endpoint")
+                                .accessibilityLabel("Remove \(endpoint.name)")
+                            }
+
+                            // Status / error
+                            if endpoint.isConnected {
+                                Text("\(endpoint.models.count) models available")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.green)
+                            } else if let error = endpoint.connectionError {
+                                Text(error)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.orange)
+                            }
+
+                            // Models from this endpoint
+                            if !endpoint.models.isEmpty {
+                                HStack(spacing: 4) {
+                                    ForEach(endpoint.models.prefix(5)) { model in
+                                        Text(model.modelId)
+                                            .font(.system(size: 9, design: .monospaced))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(.quaternary.opacity(0.3), in: Capsule())
+                                    }
+                                    if endpoint.models.count > 5 {
+                                        Text("+\(endpoint.models.count - 5) more")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+
+                        if endpoint.id != endpoints.last?.id {
+                            Divider().opacity(0.5)
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+}
+
 struct ProviderSetupSection<Content: View>: View {
     let icon: String
     let name: String
@@ -974,6 +990,16 @@ struct ProviderSetupSection<Content: View>: View {
     var providerId: String? = nil  // For custom logo lookup
     let accent: Color
     @ViewBuilder let content: Content
+
+    private static var resources: [String: (label: String, url: String, guide: String)] { [
+        "apple": ("Get Apple Intelligence", "https://support.apple.com/en-us/121115", "apple"),
+        "ollama": ("Get Ollama", "https://ollama.com/download", "ollama"),
+        "lmstudio": ("Get LM Studio", "https://lmstudio.ai/download", "lmstudio"),
+        "custom": ("Get a server", "https://chatharbor.app/help/#servers", "servers"),
+        "openai": ("Get API key", "https://platform.openai.com/api-keys", "cloud"),
+        "anthropic": ("Get API key", "https://platform.claude.com/settings/keys", "cloud"),
+        "google": ("Get API key", "https://aistudio.google.com/apikey", "cloud")
+    ] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1017,6 +1043,14 @@ struct ProviderSetupSection<Content: View>: View {
                 }
 
                 Spacer()
+
+                if let resource = Self.resources[providerId ?? ""] {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Link(resource.label, destination: URL(string: resource.url)!)
+                        Link("Setup guide", destination: URL(string: "https://chatharbor.app/help/#\(resource.guide)")!)
+                    }
+                    .font(.caption)
+                }
             }
 
             // Content

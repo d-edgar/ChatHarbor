@@ -44,6 +44,14 @@ final class AppleIntelligenceProvider: ObservableObject, LLMProvider {
         }
     }
 
+    var isIncludedInBuild: Bool {
+        #if canImport(FoundationModels)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     // MARK: - Connect
 
     func connect() async {
@@ -95,7 +103,7 @@ final class AppleIntelligenceProvider: ObservableObject, LLMProvider {
         #else
         isConnected = false
         models = []
-        availabilityDetail = "Requires macOS 26 (Tahoe) or later"
+        availabilityDetail = "This app build does not include Apple Intelligence. See Settings → Models for build instructions."
         #endif
     }
 

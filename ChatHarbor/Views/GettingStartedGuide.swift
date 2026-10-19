@@ -18,6 +18,7 @@ struct GettingStartedGuide: View {
                 Label("Getting Started · \(step.index + 1) of \(GettingStartedStep.allCases.count)", systemImage: "questionmark.circle")
                     .font(.headline)
                 Spacer()
+                Link("Read guide", destination: URL(string: "https://chatharbor.app/help/#\(step.rawValue)")!)
                 Button("Skip tour") { chatManager.showingGettingStarted = false }
                     .help("Keep your place and resume from Help → Getting Started")
             }
