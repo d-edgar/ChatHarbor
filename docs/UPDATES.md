@@ -6,7 +6,7 @@ ChatHarbor uses Sparkle 2.10.0 with automatic daily checks, manual Check for Upd
 
 The production signing key was generated in macOS Keychain under the Sparkle account `com.chatharbor.app`. Only its public key is in `ChatHarbor/Info.plist`. Keep a secure backup; do not regenerate it for each release or commit an exported private key.
 
-Before the first release, add the matching private key as the repository Actions secret `SPARKLE_PRIVATE_KEY`. Use Sparkle's `generate_keys --account com.chatharbor.app -x <private-file>` to export it securely, transfer it to that secret, then remove the temporary export. Do not paste it into logs, issues, or chat. The release workflow derives its public key and fails before building if the secret is absent, malformed, or does not match the app.
+The matching private key is configured as the repository Actions secret `SPARKLE_PRIVATE_KEY` (2026-10-19). To restore or migrate the secret, use the original key. Use Sparkle's `generate_keys --account com.chatharbor.app -x <private-file>` to export it securely, transfer it to that secret, then remove the temporary export. Do not paste it into logs, issues, or chat. The release workflow derives its public key and fails before building if the secret is absent, malformed, or does not match the app.
 
 ## Each release
 
