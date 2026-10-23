@@ -67,3 +67,6 @@ iOSInjectionProject/
 *.swp
 *.swo
 *~
+
+# Local Graphify maps and caches.
+/graphify-out/
